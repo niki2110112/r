@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주간 계획표 v16.0 (Cloud Sync)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; background-color: #f0f4f8; color: #0f172a; }
+        .chart-container { position: relative; width: 100%; max-width: 350px; margin: auto; height: 280px; }
+        .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 800; }
+        .group-btn-active { background-color: #2563eb; color: white; box-shadow: 0 2px 4px -1px rgba(37, 99, 235, 0.2); }
+        .editable-input { background: transparent; border: 1px solid transparent; font-weight: inherit; color: inherit; padding: 4px 6px; border-radius: 6px; transition: all 0.2s ease-in-out; }
+        .editable-input:hover { background: rgba(0,0,0,0.03); border-color: #cbd5e1; }
+        .editable-input:focus { outline: none; border-color: #2563eb; background: #ffffff; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 flex justify-between h-14 items-center">
+            <h1 class="font-black text-lg text-blue-700 tracking-tight">PLANNER <span class="text-teal-600 font-medium text-xs ml-1 px-2 py-0.5 bg-teal-50 rounded">Synced v16.0</span></h1>
+            <div class="flex space-x-1 sm:space-x-4 text-sm font-semibold">
+                <button onclick="nav('dashboard')" id="nav-dashboard" class="nav-link tab-active py-4 px-2">대시보드</button>
+                <button onclick="nav('schedule')" id="nav-schedule" class="nav-link py-4 px-2 text-slate-500 hover:text-slate-800 transition-colors">일정 관리</button>
+                <button onclick="nav('settings')" id="nav-settings" class="nav-link py-4 px-2 text-slate-500 hover:text-slate-800 transition-colors">데이터 관리</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-5xl mx-auto px-4 py-6 w-full">
+        <section id="view-dashboard" class="view block animate-fade-in">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start mb-8">
+                <div class="space-y-4">
+                    <div>
+                        <h2 class="text-2xl font-black tracking-tight mb-1">데이터 분석 <span class="text-blue-600">리포트</span></h2>
+                        <p class="text-slate-500 text-sm">클라우드 서버와 동기화 중입니다.</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3" id="stats-grid"></div>
+                    <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl shadow-sm">
+                        <p id="system-analysis" class="text-sm text-blue-800 leading-relaxed font-medium"></p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center lg:sticky lg:top-20">
+                    <h3 class="font-bold text-slate-800 text-base mb-4 w-full text-left">주간 시간 분배율</h3>
+                    <div class="chart-container w-full"><canvas id="balanceChart"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-schedule" class="view hidden">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div class="flex bg-slate-200 p-1 rounded-lg shadow-inner">
+                    <button onclick="toggleGroup('weekday')" id="grp-weekday" class="group-btn px-6 py-2 rounded text-sm font-bold group-btn-active">평일</button>
+                    <button onclick="toggleGroup('weekend')" id="grp-weekend" class="group-btn px-6 py-2 rounded text-sm font-bold text-slate-500">주말</button>
+                </div>
+            </div>
+            <div id="day-tabs" class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide"></div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 border-b p-4 flex justify-between items-center">
+                    <span class="font-black text-slate-800 text-lg" id="current-day-label">월요일</span>
+                    <button onclick="addEvent()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm">+ 새 일정 추가</button>
+                </div>
+                <div class="p-4 md:p-6 min-h-[300px]"><div id="timeline-body" class="relative pl-5 border-l-2 border-slate-200 space-y-4"></div></div>
+            </div>
+        </section>
+
+        <section id="view-settings" class="view hidden max-w-2xl mx-auto">
+            <h2 class="text-2xl font-black mb-6">데이터 관리</h2>
+            <div class="bg-white rounded-2xl border p-6 space-y-6">
+                <div>
+                    <h3 class="font-bold text-lg mb-2">백업 및 복구</h3>
+                    <div class="flex gap-2">
+                        <button onclick="exportData()" class="bg-slate-800 text-white px-4 py-2 rounded text-sm font-bold">백업 다운로드</button>
+                        <input type="file" id="import-file" class="hidden" onchange="importData()">
+                        <button onclick="document.getElementById('import-file').click()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold">백업 파일 불러오기</button>
+                    </div>
+                </div>
+                <div class="pt-6 border-t border-rose-100">
+                    <button onclick="resetData()" class="bg-rose-600 text-white px-6 py-3 rounded-lg text-sm font-bold w-full">⚠️ 클라우드 전체 데이터 초기화</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+            authDomain: "meal-c8b86.firebaseapp.com",
+            projectId: "meal-c8b86",
+            storageBucket: "meal-c8b86.firebasestorage.app",
+            messagingSenderId: "476361866831",
+            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const docRef = db.collection("sync_data").doc("plan");
+
+        let CONFIG = null;
+        let currentGroup = "weekday";
+        let activeDay = "mon";
+        let balanceChart = null;
+        let isFirstLoad = true;
+
+        function calculateHours(timeStr) {
+            try {
+                const parts = timeStr.split('-');
+                if (parts.length !== 2) return 0;
+                const parseTime = (t) => {
+                    const [h, m] = t.split(':').map(Number);
+                    return isNaN(h) || isNaN(m) ? null : h + (m / 60);
+                };
+                const start = parseTime(parts[0].trim());
+                const end = parseTime(parts[1].trim());
+                if (start === null || end === null) return 0;
+                let diff = end - start;
+                if (diff < 0) diff += 24;
+                return Number(diff.toFixed(2));
+            } catch (e) { return 0; }
+        }
+
+        function initApp() {
+            docRef.onSnapshot((doc) => {
+                if (doc.exists) {
+                    CONFIG = doc.data();
+                } else {
+                    CONFIG = {
+                        schedule: {
+                            mon: { group: "weekday", title: "월요일", events: [] },
+                            tue: { group: "weekday", title: "화요일", events: [] },
+                            wed: { group: "weekday", title: "수요일", events: [] },
+                            thu: { group: "weekday", title: "목요일", events: [] },
+                            fri: { group: "weekend", title: "금요일(공강)", events: [] },
+                            sat: { group: "weekend", title: "토요일", events: [] },
+                            sun: { group: "weekend", title: "일요일", events: [] }
+                        },
+                        categories: {
+                            class: { label: "수업", color: "#3b82f6", bg: "bg-blue-100", text: "text-blue-800" },
+                            study: { label: "학습", color: "#0ea5e9", bg: "bg-sky-100", text: "text-sky-800" },
+                            project: { label: "프로젝트", color: "#06b6d4", bg: "bg-cyan-100", text: "text-cyan-800" },
+                            routine: { label: "기타", color: "#64748b", bg: "bg-slate-100", text: "text-slate-700" }
+                        }
+                    };
+                    if(isFirstLoad) saveState();
+                }
+                isFirstLoad = false;
+                updateStats();
+                if(document.getElementById('view-dashboard').classList.contains('block')) initChart();
+                renderTabs();
+            });
+        }
+
+        function saveState() { docRef.set(CONFIG); }
+
+        function nav(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('tab-active', 'text-slate-500'));
+            document.getElementById(`nav-${viewId}`).classList.add('tab-active');
+            if(viewId === 'schedule') renderTabs();
+            if(viewId === 'dashboard') initChart();
+        }
+
+        function updateStats() {
+            const totals = { class: 0, study: 0, project: 0, routine: 0 };
+            Object.values(CONFIG.schedule).forEach(day => {
+                day.events.forEach(ev => { if(totals[ev.cat] !== undefined) totals[ev.cat] += ev.hours; });
+            });
+            const grid = document.getElementById('stats-grid');
+            grid.innerHTML = '';
+            [
+                { title: '정규 수업', value: totals.class, color: 'text-blue-700' },
+                { title: '개인 학습', value: totals.study, color: 'text-sky-600' },
+                { title: '프로젝트', value: totals.project, color: 'text-cyan-600' },
+                { title: '기타/루틴', value: totals.routine, color: 'text-slate-700' }
+            ].forEach(b => {
+                grid.innerHTML += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200"><p class="text-xs text-slate-500 font-bold mb-1">${b.title}</p><p class="text-2xl font-black ${b.color}">${b.value.toFixed(1)} <span class="text-sm font-semibold opacity-60">h</span></p></div>`;
+            });
+            document.getElementById('system-analysis').innerText = "클라우드 동기화가 정상 작동 중입니다.";
+            return totals;
+        }
+
+        function initChart() {
+            const totals = updateStats();
+            const ctx = document.getElementById('balanceChart').getContext('2d');
+            if(balanceChart) balanceChart.destroy();
+            balanceChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(totals).map(k => CONFIG.categories[k].label),
+                    datasets: [{ data: Object.values(totals), backgroundColor: Object.keys(totals).map(k => CONFIG.categories[k].color), borderWidth: 2, borderColor: '#ffffff' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { weight: 'bold' } } } } }
+            });
+        }
+
+        function toggleGroup(grp) {
+            currentGroup = grp;
+            document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('group-btn-active', 'text-slate-500'));
+            document.getElementById(`grp-${grp}`).classList.add('group-btn-active');
+            activeDay = Object.keys(CONFIG.schedule).find(k => CONFIG.schedule[k].group === grp);
+            renderTabs();
+        }
+
+        function renderTabs() {
+            const tabs = document.getElementById('day-tabs');
+            tabs.innerHTML = '';
+            Object.keys(CONFIG.schedule).forEach(dayKey => {
+                if(CONFIG.schedule[dayKey].group === currentGroup) {
+                    tabs.innerHTML += `<button onclick="activeDay='${dayKey}';renderTabs();" class="px-5 py-2 rounded-lg text-sm font-bold flex-shrink-0 transition-all ${activeDay === dayKey ? 'bg-white shadow border-b-2 border-blue-500 text-blue-700' : 'bg-slate-200 text-slate-500'}">${CONFIG.schedule[dayKey].title}</button>`;
+                }
+            });
+            document.getElementById('current-day-label').innerText = `${CONFIG.schedule[activeDay].title}`;
+            renderTimeline();
+        }
+
+        function renderTimeline() {
+            const body = document.getElementById('timeline-body');
+            body.innerHTML = '';
+            CONFIG.schedule[activeDay].events.forEach((ev, idx) => {
+                const cat = CONFIG.categories[ev.cat];
+                const card = document.createElement('div');
+                card.className = "relative group";
+                card.innerHTML = `<div class="absolute -left-[27px] w-3 h-3 rounded-full border-[3px] border-white shadow-sm mt-3" style="background-color: ${cat.color}"></div><div class="flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-xl ${cat.bg} border shadow-sm"><div class="flex-grow flex flex-col gap-1 w-full"><div class="flex items-center gap-2"><input class="editable-input text-sm font-black text-blue-800 w-[120px] bg-white/60 border-slate-200" value="${ev.time}" onchange="updateEvent(${idx}, 'time', this.value)"><select class="editable-input text-[11px] font-bold ${cat.text} w-auto bg-transparent outline-none" onchange="updateEvent(${idx}, 'cat', this.value)">${Object.keys(CONFIG.categories).map(k=>`<option value="${k}" ${k===ev.cat?'selected':''}>${CONFIG.categories[k].label}</option>`).join('')}</select></div><input class="editable-input text-base font-bold text-slate-900 w-full" value="${ev.task}" onchange="updateEvent(${idx}, 'task', this.value)"></div><div class="flex items-center gap-4 md:border-l pl-4 justify-between"><div class="text-center w-14"><span class="text-[10px] text-slate-400 font-bold">시간</span><div class="text-lg font-black text-blue-700">${ev.hours.toFixed(1)}</div></div><button onclick="deleteEvent(${idx})" class="text-slate-400 hover:text-rose-600">✕</button></div></div>`;
+                body.appendChild(card);
+            });
+        }
+
+        function updateEvent(idx, field, value) {
+            CONFIG.schedule[activeDay].events[idx][field] = value;
+            if (field === 'time') CONFIG.schedule[activeDay].events[idx].hours = calculateHours(value);
+            saveState();
+        }
+
+        function addEvent() {
+            CONFIG.schedule[activeDay].events.push({ id: Date.now(), time: "08:00-09:00", task: "새 일정", cat: "routine", hours: 1 });
+            saveState();
+        }
+
+        function deleteEvent(idx) { if(confirm("삭제?")) { CONFIG.schedule[activeDay].events.splice(idx, 1); saveState(); } }
+        function resetData() { if(confirm("클라우드 데이터 초기화?")) docRef.delete().then(()=>location.reload()); }
+        function exportData() {
+            const blob = new Blob([JSON.stringify(CONFIG, null, 2)], { type: "application/json" });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `plan_cloud_backup.json`; a.click();
+        }
+        function importData() {
+            const file = document.getElementById('import-file').files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => { CONFIG = JSON.parse(e.target.result); saveState(); };
+            reader.readAsText(file);
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
