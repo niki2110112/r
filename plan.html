@@ -5,70 +5,89 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>주간 계획표 </title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; color: #0f172a; }
-        .chart-container { position: relative; width: 100%; max-width: 320px; margin: auto; height: 260px; }
-        .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; font-weight: 800; }
-        .group-btn-active { background-color: #3b82f6; color: white; box-shadow: 0 2px 4px -1px rgba(59, 130, 246, 0.3); }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; }
+        .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 500; }
+        .group-btn-active { background-color: #2563eb; color: white; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3); }
         
-        /* 커스텀 입력 필드 스타일 */
-        .editable-input { background: transparent; border: 1px solid transparent; border-radius: 6px; transition: all 0.2s; }
-        .editable-input:hover { background: rgba(0,0,0,0.04); border-color: #e2e8f0; }
-        .editable-input:focus { outline: none; border-color: #3b82f6; background: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .editable-input { background: transparent; border: 1px solid transparent; border-radius: 6px; transition: all 0.2s ease; }
+        .editable-input:hover { background: rgba(0,0,0,0.03); border-color: #cbd5e1; }
+        .editable-input:focus { outline: none; border-color: #3b82f6; background: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
         
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .week-view-col { min-height: 200px; flex: 1; min-w-[140px]; }
-
-        /* 체크박스 버튼 스타일 */
-        .day-chk-label { display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; background-color: #f8fafc; color: #64748b; font-weight: 700; font-size: 0.875rem; cursor: pointer; transition: all 0.15s; }
+        
+        @keyframes pulse-blue {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+        }
+        .active-task-ring { animation: pulse-blue 2s infinite; border-color: #3b82f6 !important; border-width: 2px !important; }
+        
+        .day-chk-label { display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; background-color: #ffffff; color: #64748b; font-weight: 400; font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
         .day-chk-input:checked + .day-chk-label { background-color: #eff6ff; border-color: #3b82f6; color: #2563eb; }
+        
+        input[type="week"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; transition: 0.2s; padding: 0; margin: 0; }
+        input[type="week"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+        
+        .week-view-col { min-height: 300px; flex: 1; min-w-[220px]; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <!-- 네비게이션 -->
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div class="max-w-5xl mx-auto px-4 flex justify-between h-14 items-center">
-            <h1 class="font-black text-lg text-slate-800 tracking-tight">PLANNER <span class="text-blue-600 font-bold text-xs ml-1 bg-blue-50 px-2 py-0.5 rounded-full">v19.0</span></h1>
-            <div class="flex space-x-2 sm:space-x-6 text-sm font-semibold">
-                <button onclick="nav('dashboard')" id="nav-dashboard" class="nav-link tab-active py-4 px-1 transition-colors">대시보드</button>
-                <button onclick="nav('schedule')" id="nav-schedule" class="nav-link py-4 px-1 text-slate-500 hover:text-slate-800 transition-colors">일정 관리</button>
-                <button onclick="nav('settings')" id="nav-settings" class="nav-link py-4 px-1 text-slate-500 hover:text-slate-800 transition-colors">설정</button>
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 flex justify-between h-16 items-center">
+            <h1 class="font-medium text-xl text-slate-800 tracking-tight">PLANNER <span class="text-blue-600 font-normal text-xs ml-2 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-md">v29.0</span></h1>
+            <div class="flex space-x-4 sm:space-x-8 text-sm font-normal">
+                <button onclick="nav('dashboard')" id="nav-dashboard" class="nav-link tab-active py-5 px-1 transition-colors">대시보드</button>
+                <button onclick="nav('schedule')" id="nav-schedule" class="nav-link py-5 px-1 text-slate-500 hover:text-slate-800 transition-colors">일정 관리</button>
+                <button onclick="nav('settings')" id="nav-settings" class="nav-link py-5 px-1 text-slate-500 hover:text-slate-800 transition-colors">설정</button>
             </div>
         </div>
     </nav>
 
-    <!-- 상단 주차 컨트롤러 -->
-    <div class="max-w-5xl mx-auto px-4 w-full mt-6 mb-2">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex justify-between items-center">
-            <button onclick="changeWeek(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-slate-600 transition-colors border border-slate-100">◀</button>
-            <div class="text-center flex-grow">
-                <span id="current-week-display" class="font-black text-2xl text-slate-800 tracking-tight">2026-W01</span>
-                <p id="current-week-dates" class="text-xs text-slate-500 font-semibold mt-0.5"></p>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 w-full mt-6 mb-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center justify-between w-full sm:w-auto gap-4 sm:gap-8">
+                <button onclick="changeWeek(-1)" id="btn-prev-week" class="w-12 h-12 flex flex-shrink-0 items-center justify-center bg-slate-50 hover:bg-slate-100 rounded-xl font-normal text-slate-600 transition-colors border border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed text-lg">◀</button>
+                <div class="text-center flex flex-col items-center justify-center flex-grow">
+                    <input type="week" id="week-picker" class="font-medium text-2xl sm:text-3xl text-slate-800 tracking-tighter bg-transparent outline-none cursor-pointer hover:text-blue-600 transition-colors text-center w-[180px] sm:w-[220px]" min="2026-W01" max="2027-W52" onchange="selectWeek(this.value)">
+                    <span id="current-week-dates" class="text-sm text-slate-500 font-normal mt-1"></span>
+                </div>
+                <button onclick="changeWeek(1)" id="btn-next-week" class="w-12 h-12 flex flex-shrink-0 items-center justify-center bg-slate-50 hover:bg-slate-100 rounded-xl font-normal text-slate-600 transition-colors border border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed text-lg">▶</button>
             </div>
-            <button onclick="changeWeek(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-slate-600 transition-colors border border-slate-100">▶</button>
+            <div class="flex w-full sm:w-auto">
+                <button onclick="goToToday()" class="w-full sm:w-auto px-6 py-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-normal text-sm transition-colors border border-blue-200 shadow-sm">이번 주로 이동</button>
+            </div>
         </div>
     </div>
 
-    <main class="flex-grow max-w-5xl mx-auto px-4 py-4 w-full">
+    <main class="flex-grow max-w-6xl mx-auto px-4 sm:px-6 py-2 w-full">
         <!-- 1. 대시보드 뷰 -->
         <section id="view-dashboard" class="view block animate-fade-in">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                <div class="space-y-4">
-                    <div>
-                        <h2 class="text-xl font-black text-slate-800 mb-1">주간 분석</h2>
-                        <p class="text-slate-500 text-xs font-semibold" id="dashboard-status">데이터 동기화 중...</p>
+                <div class="space-y-5">
+                    <div class="flex justify-between items-end mb-2">
+                        <h2 class="text-2xl font-medium text-slate-800 tracking-tight">주간 달성 리포트</h2>
+                        <p class="text-slate-400 text-xs font-normal" id="dashboard-status">동기화 중...</p>
                     </div>
-                    <div class="grid grid-cols-2 gap-3" id="stats-grid"></div>
+                    <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                        <div class="flex justify-between items-end mb-4">
+                            <h3 class="font-normal text-slate-600 text-sm">이번 주 전체 달성률</h3>
+                            <span class="text-4xl font-medium text-blue-600 tracking-tighter leading-none" id="total-progress-text">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden shadow-inner">
+                            <div class="bg-blue-500 h-full rounded-full transition-all duration-700 ease-out" id="total-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-xs text-slate-500 font-normal text-right" id="total-time-text">0h / 0h 완료됨</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4" id="stats-grid"></div>
                 </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
-                    <h3 class="font-bold text-slate-700 text-sm mb-4 w-full text-left">시간 분배율</h3>
-                    <div class="chart-container w-full"><canvas id="balanceChart"></canvas></div>
+                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 mt-2 lg:mt-11">
+                    <h3 class="font-normal text-slate-800 text-base mb-6 border-b pb-4 border-slate-100">카테고리별 수행 현황</h3>
+                    <div id="category-progress-list" class="space-y-6"></div>
                 </div>
             </div>
         </section>
@@ -76,172 +95,132 @@
         <!-- 2. 일정 관리 뷰 -->
         <section id="view-schedule" class="view hidden animate-fade-in">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <!-- 뷰 토글 -->
-                <div class="flex bg-slate-200/60 p-1 rounded-xl">
-                    <button onclick="setViewMode('daily')" id="btn-view-daily" class="px-5 py-2 rounded-lg text-sm font-bold bg-white text-blue-700 shadow-sm transition-all">일간</button>
-                    <button onclick="setViewMode('weekly')" id="btn-view-weekly" class="px-5 py-2 rounded-lg text-sm font-bold text-slate-500 hover:text-slate-800 transition-all">주간 (가로)</button>
+                <div class="inline-flex bg-slate-200/80 p-1.5 rounded-xl shadow-inner">
+                    <button onclick="setViewMode('daily')" id="btn-view-daily" class="px-6 py-2.5 rounded-lg text-sm font-normal bg-white text-blue-700 shadow-sm transition-all">일간 상세 보기</button>
+                    <button onclick="setViewMode('weekly')" id="btn-view-weekly" class="px-6 py-2.5 rounded-lg text-sm font-normal text-slate-500 hover:text-slate-800 transition-all">주간 전체 보기</button>
                 </div>
-                <!-- 액션 버튼 -->
-                <div class="flex gap-2 w-full sm:w-auto">
-                    <button id="btn-copy-prev" onclick="copyPreviousWeek()" class="hidden flex-1 sm:flex-none bg-slate-100 text-slate-600 border border-slate-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
-                        이전 주 복사
-                    </button>
-                    <button onclick="openEventModal()" class="flex-1 sm:flex-none bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors">
-                        + 새 일정
-                    </button>
+                <div class="flex gap-3 w-full sm:w-auto">
+                    <button id="btn-copy-prev" onclick="copyPreviousWeek()" class="hidden flex-1 sm:flex-none bg-white text-slate-600 border border-slate-300 px-5 py-3 rounded-xl text-sm font-normal hover:bg-slate-50 transition-colors shadow-sm">이전 주 복사</button>
+                    <button onclick="openEventModal()" class="flex-1 sm:flex-none bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-normal shadow-md hover:bg-blue-700 transition-colors">+ 새 일정 추가</button>
                 </div>
             </div>
 
             <!-- 일간 보기 영역 -->
             <div id="daily-view-container" class="block">
-                <!-- 평일/주말 토글 -->
-                <div class="flex gap-2 mb-4">
-                    <button onclick="toggleGroup('weekday')" id="grp-weekday" class="group-btn px-5 py-2 rounded-xl text-sm font-bold group-btn-active transition-colors">평일</button>
-                    <button onclick="toggleGroup('weekend')" id="grp-weekend" class="group-btn px-5 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">주말</button>
+                <div class="flex gap-2 mb-5">
+                    <button onclick="toggleGroup('weekday')" id="grp-weekday" class="group-btn px-6 py-2.5 rounded-xl text-sm font-normal group-btn-active transition-colors">평일 (월~금)</button>
+                    <button onclick="toggleGroup('weekend')" id="grp-weekend" class="group-btn px-6 py-2.5 rounded-xl text-sm font-normal bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors shadow-sm">주말 (토~일)</button>
                 </div>
-                <!-- 요일 탭 -->
-                <div id="day-tabs" class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide"></div>
+                <div id="day-tabs" class="flex gap-2.5 mb-5 overflow-x-auto pb-3 scrollbar-hide"></div>
                 
-                <!-- 타임라인 컨테이너 -->
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-slate-50/50 border-b border-slate-100 p-4">
-                        <span class="font-black text-slate-800 text-lg" id="current-day-label">월요일</span>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                    <div class="bg-slate-50/70 border-b border-slate-200 p-5 sm:p-6 flex flex-col gap-4">
+                        <div class="flex justify-between items-center">
+                            <div class="font-medium text-slate-800 text-2xl tracking-tight flex items-center gap-3">
+                                <span id="current-day-label">월요일</span>
+                                <span id="day-complete-badge" class="hidden text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md font-medium border border-emerald-200">ALL DONE</span>
+                            </div>
+                            <div class="text-xs font-normal text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm" id="current-time-now">00:00</div>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500 font-medium text-base">🚨</div>
+                            <input type="text" id="daily-focus-input" class="w-full bg-white border border-rose-200 py-3.5 pl-10 pr-4 rounded-xl text-sm font-medium text-rose-800 outline-none focus:ring-2 focus:ring-rose-100 transition-all placeholder:text-rose-300 shadow-sm" placeholder="오늘 반드시 끝내야 하는 일 (핵심 목표)" onchange="updateDailyFocus(this.value)">
+                        </div>
                     </div>
-                    <div class="p-4 sm:p-6 min-h-[300px] bg-slate-50/20">
-                        <div id="timeline-body" class="space-y-3"></div>
+                    <div class="p-4 sm:p-6 min-h-[350px] bg-slate-50/30">
+                        <div id="timeline-body" class="space-y-4"></div>
                     </div>
                 </div>
             </div>
 
             <!-- 주간 보기 영역 -->
             <div id="weekly-view-container" class="hidden">
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 overflow-x-auto">
-                    <div id="weekly-grid" class="flex gap-3 min-w-[1000px]">
-                        <!-- 동적 렌더링 -->
-                    </div>
+                <div class="bg-slate-100/50 rounded-2xl border border-slate-200 p-4 sm:p-6 overflow-x-auto mb-8 shadow-inner">
+                    <!-- 주간 뷰의 가독성을 위해 각 열의 너비를 대폭 확보 -->
+                    <div id="weekly-grid" class="flex gap-4 min-w-[1540px]"></div>
                 </div>
             </div>
         </section>
 
         <!-- 3. 데이터 관리 뷰 -->
-        <section id="view-settings" class="view hidden animate-fade-in max-w-2xl mx-auto space-y-6">
-            
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <h3 class="font-black text-lg mb-4 text-slate-800 border-b border-slate-100 pb-3">카테고리 관리</h3>
-                <div id="category-list" class="flex flex-wrap gap-2 mb-6"></div>
-                
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <h4 class="text-xs font-bold text-slate-500 mb-2">새 카테고리 추가</h4>
-                    <div class="flex gap-2 items-center">
-                        <input type="text" id="new-cat-name" placeholder="카테고리 이름" class="flex-grow border border-slate-300 px-3 py-2.5 rounded-xl text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all">
-                        <input type="color" id="new-cat-color" value="#6366f1" class="w-11 h-11 rounded-xl cursor-pointer border-0 bg-transparent p-0">
-                        <button onclick="addCategory()" class="bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-900 transition-colors">추가</button>
+        <section id="view-settings" class="view hidden animate-fade-in max-w-2xl mx-auto space-y-6 pb-12">
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+                <h3 class="font-medium text-xl mb-5 text-slate-800 border-b border-slate-100 pb-3">카테고리 관리</h3>
+                <div id="category-list" class="flex flex-wrap gap-2.5 mb-6"></div>
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                    <h4 class="text-sm font-normal text-slate-600 mb-3">새 카테고리 추가</h4>
+                    <div class="flex gap-3 items-center">
+                        <input type="text" id="new-cat-name" placeholder="카테고리 이름 입력" class="flex-grow bg-white border border-slate-300 px-4 py-3 rounded-xl text-sm font-normal outline-none focus:border-blue-500 shadow-sm">
+                        <input type="color" id="new-cat-color" value="#6366f1" class="w-12 h-12 rounded-xl cursor-pointer border-0 bg-transparent p-0">
+                        <button onclick="addCategory()" class="bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-normal shadow-md hover:bg-slate-900 transition-colors">추가</button>
                     </div>
                 </div>
             </div>
-
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
                 <div>
-                    <h3 class="font-black text-lg mb-1 text-slate-800">데이터 백업/복구</h3>
-                    <p class="text-xs text-slate-500 mb-4 font-medium">현재 선택된 주차(<span id="settings-week-label" class="text-blue-600 font-bold"></span>)의 데이터만 처리됩니다.</p>
-                    <div class="flex gap-2">
-                        <button onclick="exportData()" class="flex-1 bg-white border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">내보내기</button>
+                    <h3 class="font-medium text-xl mb-2 text-slate-800">데이터 백업 및 복구</h3>
+                    <p class="text-sm text-slate-500 mb-5 font-normal">현재 주차(<span id="settings-week-label" class="text-blue-600"></span>) 데이터 단위로 저장됩니다.</p>
+                    <div class="flex gap-3">
+                        <button onclick="exportData()" class="flex-1 bg-white border border-slate-300 text-slate-700 px-4 py-3.5 rounded-xl text-sm font-normal hover:bg-slate-50 transition-colors shadow-sm">내보내기 (다운로드)</button>
                         <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData()">
-                        <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-white border border-blue-200 text-blue-600 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-50 transition-colors">불러오기</button>
+                        <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-white border border-blue-300 text-blue-600 px-4 py-3.5 rounded-xl text-sm font-normal hover:bg-blue-50 transition-colors shadow-sm">불러오기 (업로드)</button>
                     </div>
                 </div>
-                <div class="pt-6 border-t border-rose-50">
-                    <button onclick="resetCurrentWeekData()" class="bg-rose-50 text-rose-600 border border-rose-100 px-6 py-3 rounded-xl text-sm font-bold w-full hover:bg-rose-100 transition-colors">현재 주차 데이터 전체 삭제</button>
+                <div class="pt-6 border-t border-rose-100">
+                    <button onclick="resetCurrentWeekData()" class="bg-rose-50 text-rose-600 border border-rose-200 px-5 py-4 rounded-xl text-sm font-normal w-full hover:bg-rose-100 transition-colors">현재 주차 데이터 전체 삭제</button>
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- 일정 추가 모달 -->
-    <div id="event-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-fade-in border border-slate-100">
-            <h3 class="font-black text-xl mb-5 text-slate-800 tracking-tight">새 일정 등록</h3>
-            <div class="space-y-5">
-                <!-- 일정명 -->
+    <!-- 모달 -->
+    <div id="event-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 border border-slate-100 animate-fade-in">
+            <h3 class="font-medium text-2xl mb-6 text-slate-800 tracking-tight">새 일정 등록</h3>
+            <div class="space-y-6">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">일정명</label>
-                    <input type="text" id="modal-task" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-800" placeholder="예: 운동, 독서">
+                    <label class="block text-xs font-normal text-slate-500 mb-2 uppercase tracking-wide">일정명</label>
+                    <input type="text" id="modal-task" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-sm outline-none focus:border-blue-500 focus:bg-white font-normal text-slate-800 transition-colors" placeholder="예: 전공, 운동, 독서">
                 </div>
-                
-                <!-- 카테고리 & 시간 -->
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">카테고리</label>
-                        <select id="modal-cat" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-800"></select>
+                        <label class="block text-xs font-normal text-slate-500 mb-2 uppercase tracking-wide">카테고리</label>
+                        <select id="modal-cat" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-sm font-normal text-slate-800 outline-none focus:border-blue-500 focus:bg-white transition-colors cursor-pointer"></select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">시간</label>
-                        <input type="text" id="modal-time" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-800 text-center" value="09:00-10:00">
+                        <label class="block text-xs font-normal text-slate-500 mb-2 uppercase tracking-wide">시간</label>
+                        <input type="text" id="modal-time" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-sm font-normal text-slate-800 text-center outline-none focus:border-blue-500 focus:bg-white transition-colors" value="09:00-10:00">
                     </div>
                 </div>
-                
-                <hr class="border-slate-100">
-
-                <!-- 반복 기간 -->
+                <hr class="border-slate-100 my-2">
                 <div>
-                    <label class="block text-[11px] font-bold text-blue-600 mb-2 uppercase tracking-wider">반복 적용 기간</label>
-                    <div class="flex flex-col gap-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-slate-400 w-8">시작</span>
-                            <input type="week" id="modal-start-week" class="flex-grow bg-white border border-slate-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500 transition-all font-medium text-slate-700">
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-slate-400 w-8">종료</span>
-                            <input type="week" id="modal-end-week" class="flex-grow bg-white border border-slate-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500 transition-all font-medium text-slate-700">
-                        </div>
+                    <label class="block text-xs font-normal text-blue-600 mb-3 uppercase tracking-wide">반복 적용 (2026~2027년)</label>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center gap-3"><span class="text-xs font-normal text-slate-400 w-8">시작</span><input type="week" id="modal-start-week" class="flex-grow bg-white border border-slate-300 p-2.5 rounded-xl text-sm font-normal outline-none focus:border-blue-500 shadow-sm" min="2026-W01" max="2027-W52"></div>
+                        <div class="flex items-center gap-3"><span class="text-xs font-normal text-slate-400 w-8">종료</span><input type="week" id="modal-end-week" class="flex-grow bg-white border border-slate-300 p-2.5 rounded-xl text-sm font-normal outline-none focus:border-blue-500 shadow-sm" min="2026-W01" max="2027-W52"></div>
                     </div>
                 </div>
-
-                <!-- 적용 요일 -->
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wider">적용 요일</label>
-                    <div class="flex gap-1.5 justify-between">
-                        <div>
-                            <input type="checkbox" id="chk-mon" class="day-chk-input hidden modal-day-chk" value="mon">
-                            <label for="chk-mon" class="day-chk-label">월</label>
-                        </div>
-                        <div>
-                            <input type="checkbox" id="chk-tue" class="day-chk-input hidden modal-day-chk" value="tue">
-                            <label for="chk-tue" class="day-chk-label">화</label>
-                        </div>
-                        <div>
-                            <input type="checkbox" id="chk-wed" class="day-chk-input hidden modal-day-chk" value="wed">
-                            <label for="chk-wed" class="day-chk-label">수</label>
-                        </div>
-                        <div>
-                            <input type="checkbox" id="chk-thu" class="day-chk-input hidden modal-day-chk" value="thu">
-                            <label for="chk-thu" class="day-chk-label">목</label>
-                        </div>
-                        <div>
-                            <input type="checkbox" id="chk-fri" class="day-chk-input hidden modal-day-chk" value="fri">
-                            <label for="chk-fri" class="day-chk-label">금</label>
-                        </div>
-                        <div>
-                            <input type="checkbox" id="chk-sat" class="day-chk-input hidden modal-day-chk" value="sat">
-                            <label for="chk-sat" class="day-chk-label text-blue-500">토</label>
-                        </div>
-                        <div>
-                            <input type="checkbox" id="chk-sun" class="day-chk-input hidden modal-day-chk" value="sun">
-                            <label for="chk-sun" class="day-chk-label text-rose-500">일</label>
-                        </div>
+                    <label class="block text-xs font-normal text-slate-500 mb-3 uppercase tracking-wide">적용 요일</label>
+                    <div class="flex gap-2 justify-between">
+                        <div><input type="checkbox" id="chk-mon" class="day-chk-input hidden modal-day-chk" value="mon"><label for="chk-mon" class="day-chk-label shadow-sm">월</label></div>
+                        <div><input type="checkbox" id="chk-tue" class="day-chk-input hidden modal-day-chk" value="tue"><label for="chk-tue" class="day-chk-label shadow-sm">화</label></div>
+                        <div><input type="checkbox" id="chk-wed" class="day-chk-input hidden modal-day-chk" value="wed"><label for="chk-wed" class="day-chk-label shadow-sm">수</label></div>
+                        <div><input type="checkbox" id="chk-thu" class="day-chk-input hidden modal-day-chk" value="thu"><label for="chk-thu" class="day-chk-label shadow-sm">목</label></div>
+                        <div><input type="checkbox" id="chk-fri" class="day-chk-input hidden modal-day-chk" value="fri"><label for="chk-fri" class="day-chk-label shadow-sm">금</label></div>
+                        <div><input type="checkbox" id="chk-sat" class="day-chk-input hidden modal-day-chk" value="sat"><label for="chk-sat" class="day-chk-label shadow-sm text-blue-600">토</label></div>
+                        <div><input type="checkbox" id="chk-sun" class="day-chk-input hidden modal-day-chk" value="sun"><label for="chk-sun" class="day-chk-label shadow-sm text-rose-500">일</label></div>
                     </div>
                 </div>
             </div>
-            
-            <div class="mt-8 flex gap-2">
-                <button onclick="closeEventModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl font-bold transition-colors">취소</button>
-                <button onclick="saveRecurringEvent()" id="modal-save-btn" class="flex-1 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl font-bold transition-colors shadow-sm">저장</button>
+            <div class="mt-8 flex gap-3">
+                <button onclick="closeEventModal()" class="flex-1 py-3.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl text-sm font-normal transition-colors">취소</button>
+                <button onclick="saveRecurringEvent()" id="modal-save-btn" class="flex-1 py-3.5 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-sm font-normal shadow-md transition-colors">저장</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Firebase 설정 (환경에 맞게 유지)
         const firebaseConfig = {
             apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
             authDomain: "meal-c8b86.firebaseapp.com",
@@ -257,13 +236,9 @@
         let currentWeekData = null;
         let userSettings = null;
         let unsubscribeWeek = null;
-        
         let currentGroup = "weekday";
         let activeDay = "mon";
         let viewMode = "daily";
-        let balanceChart = null;
-        
-        // 요일 순서 강제 고정 배열
         const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
         const DEFAULT_SETTINGS = {
@@ -276,13 +251,13 @@
         };
 
         const DEFAULT_WEEK_TEMPLATE = {
-            mon: { group: "weekday", title: "월요일", events: [] },
-            tue: { group: "weekday", title: "화요일", events: [] },
-            wed: { group: "weekday", title: "수요일", events: [] },
-            thu: { group: "weekday", title: "목요일", events: [] },
-            fri: { group: "weekday", title: "금요일", events: [] },
-            sat: { group: "weekend", title: "토요일", events: [] },
-            sun: { group: "weekend", title: "일요일", events: [] }
+            mon: { group: "weekday", title: "월요일", events: [], focus: "" },
+            tue: { group: "weekday", title: "화요일", events: [], focus: "" },
+            wed: { group: "weekday", title: "수요일", events: [], focus: "" },
+            thu: { group: "weekday", title: "목요일", events: [], focus: "" },
+            fri: { group: "weekday", title: "금요일", events: [], focus: "" },
+            sat: { group: "weekend", title: "토요일", events: [], focus: "" },
+            sun: { group: "weekend", title: "일요일", events: [], focus: "" }
         };
 
         function getYearWeek(date) {
@@ -300,6 +275,10 @@
             const days = (week - 1) * 7;
             d.setDate(d.getDate() + days - (d.getDay() || 7) + 1);
             return d;
+        }
+
+        function getTodayDayKey() {
+            return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
         }
 
         function calculateHours(timeStr) {
@@ -326,27 +305,31 @@
         }
 
         async function initApp() {
-            currentWeekStr = getYearWeek(new Date());
+            const realCurrentWeek = getYearWeek(new Date());
+            const y = parseInt(realCurrentWeek.split('-')[0]);
+            currentWeekStr = (y < 2026 || y > 2027) ? "2026-W01" : realCurrentWeek;
             
             db.collection("sync_data").doc("settings").onSnapshot((doc) => {
-                if (doc.exists) {
-                    userSettings = doc.data();
-                } else {
-                    userSettings = DEFAULT_SETTINGS;
-                    db.collection("sync_data").doc("settings").set(userSettings);
-                }
+                if (doc.exists) userSettings = doc.data();
+                else { userSettings = DEFAULT_SETTINGS; db.collection("sync_data").doc("settings").set(userSettings); }
                 renderCategorySettings();
                 if(currentWeekData) { updateStats(); renderActiveView(); }
             });
 
             loadWeekData();
+            
+            setInterval(() => {
+                const clock = document.getElementById('current-time-now');
+                if(clock) clock.innerText = new Date().toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit' });
+                if(viewMode === 'daily') renderTimeline();
+            }, 60000);
+            const clock = document.getElementById('current-time-now');
+            if(clock) clock.innerText = new Date().toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit' });
         }
 
         function loadWeekData() {
             if (unsubscribeWeek) unsubscribeWeek();
-
             updateWeekUI();
-            
             const docRef = db.collection("sync_data").doc(`week_${currentWeekStr}`);
             unsubscribeWeek = docRef.onSnapshot((doc) => {
                 if (doc.exists) {
@@ -362,39 +345,59 @@
             });
         }
 
-        function saveWeekData() {
-            db.collection("sync_data").doc(`week_${currentWeekStr}`).set(currentWeekData);
+        function saveWeekData() { db.collection("sync_data").doc(`week_${currentWeekStr}`).set(currentWeekData); }
+        function saveSettings() { db.collection("sync_data").doc("settings").set(userSettings); }
+
+        function selectWeek(weekStr) {
+            if(!weekStr) return;
+            const year = parseInt(weekStr.split('-')[0]);
+            if(year < 2026 || year > 2027) { alert("2026~2027년만 가능합니다."); updateWeekUI(); return; }
+            currentWeekStr = weekStr; loadWeekData();
         }
 
-        function saveSettings() {
-            db.collection("sync_data").doc("settings").set(userSettings);
+        function goToToday() {
+            const realCurrentWeek = getYearWeek(new Date());
+            const year = parseInt(realCurrentWeek.split('-')[0]);
+            currentWeekStr = (year >= 2026 && year <= 2027) ? realCurrentWeek : "2026-W01";
+            loadWeekData();
         }
 
         function changeWeek(offset) {
             const date = weekToDate(currentWeekStr);
             date.setDate(date.getDate() + (offset * 7));
-            currentWeekStr = getYearWeek(date);
-            loadWeekData();
+            const nextWeekStr = getYearWeek(date);
+            const year = parseInt(nextWeekStr.split('-')[0]);
+            if(year < 2026 || year > 2027) return;
+            currentWeekStr = nextWeekStr; loadWeekData();
         }
 
         function updateWeekUI() {
-            document.getElementById('current-week-display').innerText = currentWeekStr;
+            document.getElementById('week-picker').value = currentWeekStr;
             document.getElementById('settings-week-label').innerText = currentWeekStr;
             const startD = weekToDate(currentWeekStr);
             const endD = new Date(startD); endD.setDate(startD.getDate() + 6);
             const format = (d) => `${d.getMonth()+1}.${d.getDate()}`;
             document.getElementById('current-week-dates').innerText = `${format(startD)} ~ ${format(endD)}`;
             document.getElementById('dashboard-status').innerText = `${currentWeekStr} 동기화 완료`;
+
+            const y = parseInt(currentWeekStr.split('-')[0]);
+            const w = parseInt(currentWeekStr.split('-W')[1]);
+            document.getElementById('btn-prev-week').disabled = (y <= 2026 && w <= 1);
+            document.getElementById('btn-next-week').disabled = (y >= 2027 && w >= 52);
         }
 
         async function copyPreviousWeek() {
             const date = weekToDate(currentWeekStr);
             date.setDate(date.getDate() - 7);
             const prevWeekStr = getYearWeek(date);
-            
             const prevDoc = await db.collection("sync_data").doc(`week_${prevWeekStr}`).get();
             if(prevDoc.exists) {
-                currentWeekData = prevDoc.data();
+                const prevData = prevDoc.data();
+                Object.values(prevData.schedule).forEach(day => {
+                    day.events.forEach(ev => { ev.completed = false; ev.memo = ""; ev.isImportant = false; });
+                    day.focus = ""; 
+                });
+                currentWeekData = prevData;
                 saveWeekData();
                 document.getElementById('btn-copy-prev').classList.add('hidden');
             }
@@ -405,16 +408,14 @@
             document.getElementById(`view-${viewId}`).classList.remove('hidden');
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('tab-active', 'text-slate-500'));
             document.getElementById(`nav-${viewId}`).classList.add('tab-active');
-            
             if(viewId === 'schedule') renderActiveView();
-            if(viewId === 'dashboard') initChart();
+            if(viewId === 'dashboard') updateStats();
         }
 
         function setViewMode(mode) {
             viewMode = mode;
-            document.getElementById('btn-view-daily').className = mode === 'daily' ? 'px-5 py-2 rounded-lg text-sm font-bold bg-white text-blue-700 shadow-sm transition-all' : 'px-5 py-2 rounded-lg text-sm font-bold text-slate-500 hover:text-slate-800 transition-all';
-            document.getElementById('btn-view-weekly').className = mode === 'weekly' ? 'px-5 py-2 rounded-lg text-sm font-bold bg-white text-blue-700 shadow-sm transition-all' : 'px-5 py-2 rounded-lg text-sm font-bold text-slate-500 hover:text-slate-800 transition-all';
-            
+            document.getElementById('btn-view-daily').className = mode === 'daily' ? 'px-6 py-2.5 rounded-lg text-sm font-normal bg-white text-blue-700 shadow-sm transition-all' : 'px-6 py-2.5 rounded-lg text-sm font-normal text-slate-500 hover:text-slate-800 transition-all';
+            document.getElementById('btn-view-weekly').className = mode === 'weekly' ? 'px-6 py-2.5 rounded-lg text-sm font-normal bg-white text-blue-700 shadow-sm transition-all' : 'px-6 py-2.5 rounded-lg text-sm font-normal text-slate-500 hover:text-slate-800 transition-all';
             if(mode === 'daily') {
                 document.getElementById('daily-view-container').classList.remove('hidden');
                 document.getElementById('weekly-view-container').classList.add('hidden');
@@ -433,138 +434,143 @@
 
         function updateStats() {
             if(!currentWeekData || !userSettings) return;
-            const totals = {};
-            Object.keys(userSettings.categories).forEach(k => totals[k] = 0);
-            
+            const stats = {};
+            let totalAll = 0, completedAll = 0;
+            Object.keys(userSettings.categories).forEach(k => stats[k] = { total: 0, completed: 0, label: userSettings.categories[k].label, color: userSettings.categories[k].color });
             Object.values(currentWeekData.schedule).forEach(day => {
                 day.events.forEach(ev => { 
-                    if(totals[ev.cat] !== undefined) totals[ev.cat] += ev.hours;
-                    else totals[ev.cat] = ev.hours;
+                    const cat = ev.cat;
+                    if(!stats[cat]) stats[cat] = { total: 0, completed: 0, label: "기타", color: "#94a3b8" };
+                    stats[cat].total += ev.hours; totalAll += ev.hours;
+                    if(ev.completed) { stats[cat].completed += ev.hours; completedAll += ev.hours; }
                 });
             });
-
-            const grid = document.getElementById('stats-grid');
-            grid.innerHTML = '';
-            
-            Object.keys(userSettings.categories).forEach(key => {
-                const cat = userSettings.categories[key];
-                const value = totals[key] || 0;
-                grid.innerHTML += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-center">
-                    <p class="text-xs text-slate-500 font-bold mb-1 flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color:${cat.color}"></span> ${cat.label}
-                    </p>
-                    <p class="text-2xl font-black text-slate-800 ml-4">${value.toFixed(1)} <span class="text-xs font-semibold text-slate-400">h</span></p>
-                </div>`;
-            });
-            
-            if(document.getElementById('view-dashboard').classList.contains('block')) initChart(totals);
-        }
-
-        function initChart(totals = null) {
-            if(!totals) return updateStats();
-            
-            const ctx = document.getElementById('balanceChart').getContext('2d');
-            if(balanceChart) balanceChart.destroy();
-            
-            const labels = [], data = [], colors = [];
-            
-            Object.keys(totals).forEach(key => {
-                if(totals[key] > 0) {
-                    labels.push(userSettings.categories[key]?.label || '기타');
-                    data.push(totals[key]);
-                    colors.push(userSettings.categories[key]?.color || '#94a3b8');
+            const totalPercent = totalAll === 0 ? 0 : Math.round((completedAll / totalAll) * 100);
+            document.getElementById('total-progress-text').innerText = `${totalPercent}%`;
+            document.getElementById('total-progress-bar').style.width = `${totalPercent}%`;
+            document.getElementById('total-progress-bar').className = `h-full rounded-full transition-all duration-700 ease-out ${totalPercent === 100 && totalAll > 0 ? 'bg-emerald-500' : 'bg-blue-500'}`;
+            document.getElementById('total-time-text').innerText = `총 ${totalAll.toFixed(1)}h 중 ${completedAll.toFixed(1)}h 완료`;
+            const grid = document.getElementById('stats-grid'); grid.innerHTML = '';
+            const progressList = document.getElementById('category-progress-list'); progressList.innerHTML = '';
+            Object.keys(stats).forEach(key => {
+                const s = stats[key];
+                if(s.total > 0) {
+                    grid.innerHTML += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><p class="text-sm text-slate-500 font-normal mb-1.5 flex items-center gap-2"><span class="w-3 h-3 rounded-full shadow-inner" style="background-color:${s.color}"></span> ${s.label}</p><p class="text-2xl font-medium text-slate-800 ml-5">${s.total.toFixed(1)} <span class="text-xs font-normal text-slate-400">h</span></p></div>`;
+                    const percent = Math.round((s.completed / s.total) * 100);
+                    progressList.innerHTML += `<div><div class="flex justify-between items-end mb-2"><span class="text-sm font-normal text-slate-700 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full shadow-inner" style="background-color:${s.color}"></span>${s.label}</span><span class="text-xs font-normal text-slate-500">${s.completed.toFixed(1)} / ${s.total.toFixed(1)} h (${percent}%)</span></div><div class="w-full bg-slate-100 rounded-full h-2.5 shadow-inner"><div class="h-2.5 rounded-full transition-all duration-500" style="width: ${percent}%; background-color: ${s.color}"></div></div></div>`;
                 }
             });
-
-            if(data.length === 0) { labels.push('일정 없음'); data.push(1); colors.push('#f1f5f9'); }
-
-            balanceChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 3, borderColor: '#ffffff', borderRadius: 4 }] },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { font: { weight: 'bold', family: 'Pretendard' }, usePointStyle: true, boxWidth: 8 } } } }
-            });
+            if(Object.keys(stats).every(k => stats[k].total === 0)) progressList.innerHTML = '<p class="text-sm text-slate-400 font-normal text-center py-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">일정이 없습니다.</p>';
         }
 
         function toggleGroup(grp) {
             currentGroup = grp;
-            
-            const btnWd = document.getElementById('grp-weekday');
-            const btnWe = document.getElementById('grp-weekend');
-            
-            if(grp === 'weekday') {
-                btnWd.className = "group-btn px-5 py-2 rounded-xl text-sm font-bold group-btn-active transition-colors";
-                btnWe.className = "group-btn px-5 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors";
-            } else {
-                btnWe.className = "group-btn px-5 py-2 rounded-xl text-sm font-bold group-btn-active transition-colors";
-                btnWd.className = "group-btn px-5 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors";
-            }
-            
-            activeDay = DAY_ORDER.find(k => currentWeekData.schedule[k] && currentWeekData.schedule[k].group === grp) || 'mon';
+            document.getElementById('grp-weekday').className = grp === 'weekday' ? "group-btn px-6 py-2.5 rounded-xl text-sm font-normal group-btn-active transition-colors" : "group-btn px-6 py-2.5 rounded-xl text-sm font-normal bg-white border border-slate-200 text-slate-500 shadow-sm hover:bg-slate-50 transition-colors";
+            document.getElementById('grp-weekend').className = grp === 'weekend' ? "group-btn px-6 py-2.5 rounded-xl text-sm font-normal group-btn-active transition-colors" : "group-btn px-6 py-2.5 rounded-xl text-sm font-normal bg-white border border-slate-200 text-slate-500 shadow-sm hover:bg-slate-50 transition-colors";
+            const todayKey = getTodayDayKey();
+            if(currentWeekData.schedule[todayKey] && currentWeekData.schedule[todayKey].group === grp && currentWeekStr === getYearWeek(new Date())) activeDay = todayKey;
+            else activeDay = DAY_ORDER.find(k => currentWeekData.schedule[k] && currentWeekData.schedule[k].group === grp) || 'mon';
             renderTabs();
         }
 
         function renderTabs() {
             if(!currentWeekData) return;
-            const tabs = document.getElementById('day-tabs');
-            tabs.innerHTML = '';
-            
-            // DAY_ORDER를 기반으로 정렬 렌더링
+            const tabs = document.getElementById('day-tabs'); tabs.innerHTML = '';
+            const todayKey = getTodayDayKey();
+            const isCurrentRealWeek = currentWeekStr === getYearWeek(new Date());
             DAY_ORDER.forEach(dayKey => {
                 if(currentWeekData.schedule[dayKey] && currentWeekData.schedule[dayKey].group === currentGroup) {
-                    const isActive = activeDay === dayKey;
-                    const btnClass = isActive 
-                        ? 'bg-slate-800 text-white shadow-md' 
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50';
-                    tabs.innerHTML += `<button onclick="activeDay='${dayKey}';renderTabs();" class="px-5 py-2 rounded-xl text-sm font-bold flex-shrink-0 transition-all ${btnClass}">${currentWeekData.schedule[dayKey].title}</button>`;
+                    const isActive = activeDay === dayKey, isToday = isCurrentRealWeek && todayKey === dayKey;
+                    const btnClass = isActive ? 'bg-slate-800 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm';
+                    const todayBadge = isToday ? `<span class="ml-2 text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full leading-none">오늘</span>` : '';
+                    tabs.innerHTML += `<button onclick="activeDay='${dayKey}';renderTabs();" class="px-5 py-2.5 rounded-xl text-sm font-normal flex flex-shrink-0 items-center transition-all ${btnClass}">${currentWeekData.schedule[dayKey].title}${todayBadge}</button>`;
                 }
             });
+            document.getElementById('current-day-label').innerText = currentWeekData.schedule[activeDay].title;
             
-            if(currentWeekData.schedule[activeDay]) {
-                document.getElementById('current-day-label').innerText = `${currentWeekData.schedule[activeDay].title}`;
-            }
+            const dayData = currentWeekData.schedule[activeDay];
+            const isDayDone = dayData.events.length > 0 && dayData.events.every(e => e.completed);
+            
+            const badge = document.getElementById('day-complete-badge');
+            if (badge) badge.classList.toggle('hidden', !isDayDone);
+            
+            document.getElementById('daily-focus-input').value = dayData.focus || "";
+
             renderTimeline();
         }
 
+        function updateDailyFocus(val) { currentWeekData.schedule[activeDay].focus = val; saveWeekData(); }
+
+        function isTaskActive(timeStr) {
+            try {
+                const parts = timeStr.split('-');
+                if (parts.length !== 2) return false;
+                const now = new Date();
+                const nowVal = now.getHours() * 60 + now.getMinutes();
+                const parseToMin = (t) => {
+                    const [h, m] = t.trim().split(':').map(Number);
+                    return h * 60 + m;
+                };
+                return nowVal >= parseToMin(parts[0]) && nowVal < parseToMin(parts[1]);
+            } catch(e) { return false; }
+        }
+
+        function toggleImportant(dayKey, eventId) {
+            const idx = currentWeekData.schedule[dayKey].events.findIndex(e => e.id === eventId);
+            if(idx === -1) return;
+            currentWeekData.schedule[dayKey].events[idx].isImportant = !currentWeekData.schedule[dayKey].events[idx].isImportant;
+            saveWeekData();
+            renderActiveView();
+        }
+
         function renderTimeline() {
-            const body = document.getElementById('timeline-body');
-            body.innerHTML = '';
-            
-            if(!currentWeekData.schedule[activeDay] || currentWeekData.schedule[activeDay].events.length === 0) {
-                body.innerHTML = '<div class="text-center py-10"><p class="text-slate-400 font-bold text-sm">등록된 일정이 없습니다.</p></div>';
+            const body = document.getElementById('timeline-body'); body.innerHTML = '';
+            const events = currentWeekData.schedule[activeDay].events;
+            if(!events || events.length === 0) {
+                body.innerHTML = `<div class="text-center py-16 flex flex-col items-center justify-center"><p class="text-slate-400 font-normal text-sm mb-4">등록된 일정이 없습니다.</p><button onclick="openEventModal()" class="bg-white border border-blue-200 text-blue-600 px-5 py-2.5 rounded-xl text-sm font-normal hover:bg-blue-50 transition-colors shadow-sm">새 일정 추가</button></div>`;
                 return;
             }
+            events.sort((a,b) => a.time.localeCompare(b.time));
+            const isTodayActive = currentWeekStr === getYearWeek(new Date()) && activeDay === getTodayDayKey();
 
-            currentWeekData.schedule[activeDay].events.sort((a,b) => a.time.localeCompare(b.time));
-
-            currentWeekData.schedule[activeDay].events.forEach(ev => {
+            events.forEach(ev => {
                 const catInfo = userSettings.categories[ev.cat] || { label: "기타", color: "#94a3b8" };
-                const bgColor = hexToRgba(catInfo.color, 0.04);
+                const isCompleted = ev.completed || false;
+                const isImportant = ev.isImportant || false;
+                const isActive = isTodayActive && isTaskActive(ev.time);
+                
+                let borderColor = isCompleted ? 'border-slate-200' : 'border-transparent';
+                if(isActive) borderColor = 'active-task-ring';
+                else if(isImportant && !isCompleted) borderColor = 'border-rose-400 shadow-rose-100 shadow-md';
+
+                const bgColor = isCompleted ? '#f8fafc' : hexToRgba(catInfo.color, isActive ? 0.25 : 0.15);
                 
                 const card = document.createElement('div');
-                
-                // 가독성을 극대화한 콤팩트 디자인
+                card.className = `relative group transition-all duration-300 ${isCompleted ? 'opacity-60' : 'opacity-100'}`;
                 card.innerHTML = `
-                    <div class="flex items-center gap-2 sm:gap-4 p-2.5 sm:p-3.5 rounded-2xl border border-slate-200 bg-white shadow-sm relative overflow-hidden group">
-                        <!-- 왼쪽 컬러 인디케이터 -->
-                        <div class="absolute left-0 top-0 bottom-0 w-1.5" style="background-color: ${catInfo.color}"></div>
-                        
-                        <!-- 중앙 정보 영역 -->
-                        <div class="flex flex-col flex-grow min-w-0 pl-2">
-                            <div class="flex items-center gap-2 mb-0.5">
-                                <input class="editable-input font-black text-[13px] text-slate-500 w-[85px] px-1 -ml-1" value="${ev.time}" onchange="updateEvent('${activeDay}', ${ev.id}, 'time', this.value)">
-                                <select class="editable-input text-[11px] font-bold px-1 py-0.5 outline-none cursor-pointer" style="background-color:${hexToRgba(catInfo.color,0.1)}; color:${catInfo.color}" onchange="updateEvent('${activeDay}', ${ev.id}, 'cat', this.value)">
-                                    ${Object.keys(userSettings.categories).map(k=>`<option value="${k}" ${k===ev.cat?'selected':''}>${userSettings.categories[k].label}</option>`).join('')}
-                                </select>
+                    <div class="flex flex-col p-4 sm:p-5 rounded-2xl border ${borderColor} shadow-sm relative overflow-hidden" style="background-color: ${bgColor};">
+                        <div class="flex items-center gap-4 pl-1 sm:pl-2">
+                            <div class="flex-shrink-0 flex items-center pt-0.5">
+                                <input type="checkbox" class="w-6 h-6 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" ${isCompleted ? 'checked' : ''} onchange="updateEvent('${activeDay}', ${ev.id}, 'completed', this.checked)">
                             </div>
-                            <input class="editable-input font-black text-base text-slate-800 w-full px-1 -ml-1 truncate" value="${ev.task}" onchange="updateEvent('${activeDay}', ${ev.id}, 'task', this.value)">
+                            <div class="flex flex-col flex-grow min-w-0 gap-1">
+                                <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                                    <input class="editable-input font-medium text-sm text-slate-500 w-[95px] px-1 ${isCompleted ? 'line-through' : ''}" value="${ev.time}" onchange="updateEvent('${activeDay}', ${ev.id}, 'time', this.value)">
+                                    <select class="editable-input text-xs font-normal px-2 py-1 cursor-pointer" style="color:${isCompleted ? '#94a3b8' : catInfo.color}" onchange="updateEvent('${activeDay}', ${ev.id}, 'cat', this.value)">
+                                        ${Object.keys(userSettings.categories).map(k=>`<option value="${k}" ${k===ev.cat?'selected':''}>${userSettings.categories[k].label}</option>`).join('')}
+                                    </select>
+                                    ${isActive ? '<span class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-md font-medium animate-pulse leading-none">LIVE</span>' : ''}
+                                    <button onclick="toggleImportant('${activeDay}', ${ev.id})" class="text-xl leading-none outline-none transition-colors ${isImportant ? 'text-amber-400' : 'text-slate-300 hover:text-amber-200'}">★</button>
+                                </div>
+                                <input class="editable-input font-medium text-lg w-full px-1 ${isCompleted ? 'line-through text-slate-400' : (isImportant ? 'text-rose-900' : 'text-slate-800')}" value="${ev.task}" onchange="updateEvent('${activeDay}', ${ev.id}, 'task', this.value)">
+                            </div>
+                            <div class="flex items-center gap-3 flex-shrink-0">
+                                <div class="bg-white/60 border border-slate-200 px-4 py-2 rounded-xl flex items-center min-w-[4rem] justify-center shadow-sm"><span class="text-base font-medium text-slate-700">${ev.hours.toFixed(1)}</span><span class="text-xs text-slate-500 ml-1 font-normal">h</span></div>
+                                <button onclick="deleteEvent('${activeDay}', ${ev.id})" class="text-slate-400 hover:text-rose-500 p-2 text-base font-normal transition-colors">✕</button>
+                            </div>
                         </div>
-                        
-                        <!-- 우측 뱃지 및 삭제 버튼 -->
-                        <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            <div class="bg-slate-50 border border-slate-100 px-2 sm:px-3 py-1.5 rounded-xl flex items-center justify-center min-w-[3.5rem]">
-                                <span class="text-[15px] font-black text-slate-700 leading-none">${ev.hours.toFixed(1)}</span><span class="text-[11px] font-bold text-slate-400 ml-0.5 leading-none mt-0.5">h</span>
-                            </div>
-                            <button onclick="deleteEvent('${activeDay}', ${ev.id})" class="text-slate-300 hover:text-rose-500 transition-colors p-2 rounded-lg hover:bg-rose-50">✕</button>
+                        <div class="mt-2 pl-[3.2rem] pr-2">
+                            <input class="w-full bg-transparent border-b border-dashed border-slate-300 text-sm text-slate-600 font-normal outline-none pb-1.5 focus:border-blue-400 transition-colors placeholder-slate-400" placeholder="+ 메모 및 특이사항 입력..." value="${ev.memo || ''}" onchange="updateEvent('${activeDay}', ${ev.id}, 'memo', this.value)" ${isCompleted ? 'disabled' : ''}>
                         </div>
                     </div>`;
                 body.appendChild(card);
@@ -573,189 +579,109 @@
 
         function renderWeeklyView() {
             if(!currentWeekData) return;
-            const grid = document.getElementById('weekly-grid');
-            grid.innerHTML = '';
-
+            const grid = document.getElementById('weekly-grid'); grid.innerHTML = '';
+            const todayKey = getTodayDayKey(), isCurrentRealWeek = currentWeekStr === getYearWeek(new Date());
             DAY_ORDER.forEach(dayKey => {
                 const day = currentWeekData.schedule[dayKey];
-                if(!day) return;
-
+                const isToday = isCurrentRealWeek && todayKey === dayKey;
+                const completedCount = day.events.filter(e => e.completed).length;
+                const totalCount = day.events.length;
                 let html = `<div class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col week-view-col shadow-sm">
-                    <div class="bg-slate-50 border-b border-slate-100 py-3 text-center">
-                        <span class="font-black text-sm ${day.group==='weekend'?'text-rose-500':'text-slate-700'}">${day.title}</span>
+                    <div class="${isToday ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100'} border-b py-3.5 px-4 flex justify-between items-center">
+                        <span class="font-medium text-sm whitespace-nowrap ${isToday ? 'text-blue-700' : (day.group==='weekend'?'text-rose-600':'text-slate-800')}">${day.title}</span>
+                        ${totalCount > 0 ? `<span class="text-xs font-normal ${completedCount === totalCount ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-white text-slate-500 border-slate-200'} border px-2 py-0.5 rounded-md shadow-sm leading-none">${completedCount}/${totalCount}</span>` : ''}
                     </div>
-                    <div class="p-2 space-y-2 flex-grow bg-slate-50/30">`;
-                
+                    <div class="p-3 space-y-3 flex-grow bg-slate-50/40">`;
                 let sortedEvents = [...day.events].sort((a,b) => a.time.localeCompare(b.time));
-                
                 if(sortedEvents.length === 0) {
-                    html += `<p class="text-center text-[11px] font-bold text-slate-300 mt-4">일정 없음</p>`;
+                    html += `<div class="flex items-center justify-center h-full min-h-[120px]"><button onclick="setViewMode('daily'); toggleGroup('${day.group}'); activeDay='${dayKey}'; openEventModal();" class="text-slate-300 hover:text-blue-500 font-medium text-3xl transition-colors">+</button></div>`;
                 } else {
                     sortedEvents.forEach(ev => {
                         const catInfo = userSettings.categories[ev.cat] || { color: "#cbd5e1" };
-                        const start = ev.time.split('-')[0].trim();
-                        html += `
-                            <div class="text-xs p-2.5 rounded-xl border border-slate-100 bg-white shadow-sm leading-tight cursor-pointer hover:border-blue-300 transition-colors" 
-                                 style="border-left-width: 4px; border-left-color: ${catInfo.color};"
-                                 onclick="setViewMode('daily'); toggleGroup('${day.group}'); activeDay='${dayKey}'; renderTabs();">
-                                <span class="font-black text-slate-400 block mb-1 text-[10px]">${start}</span>
-                                <span class="font-bold text-slate-700 line-clamp-2">${ev.task}</span>
+                        const bgColor = ev.completed ? '#f8fafc' : hexToRgba(catInfo.color, 0.15);
+                        const borderColor = ev.completed ? 'border-slate-200' : (ev.isImportant ? 'border-rose-400' : 'border-transparent');
+                        
+                        html += `<div class="p-3.5 rounded-xl border shadow-sm hover:brightness-95 transition-all flex flex-col gap-2 ${ev.completed ? 'opacity-60' : ''} cursor-pointer" style="background-color: ${bgColor}; border-color: ${borderColor};" onclick="setViewMode('daily'); toggleGroup('${day.group}'); activeDay='${dayKey}'; renderTabs();">
+                            <div class="flex justify-between items-start">
+                                <span class="font-medium text-[11px] ${ev.completed ? 'text-slate-400 line-through' : 'text-slate-600'} tracking-tight bg-white/50 px-1.5 py-0.5 rounded">${ev.time} ${ev.isImportant && !ev.completed ? '<span class="text-amber-500 text-xs ml-0.5">★</span>' : ''}</span>
+                                <div onclick="event.stopPropagation()">
+                                    <input type="checkbox" class="w-4 h-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" ${ev.completed ? 'checked' : ''} onchange="updateEvent('${dayKey}', ${ev.id}, 'completed', this.checked)">
+                                </div>
                             </div>
-                        `;
+                            <span class="font-medium text-sm text-slate-800 line-clamp-2 ${ev.completed ? 'line-through text-slate-400' : ''} leading-snug">${ev.task}</span>
+                        </div>`;
                     });
                 }
-                
-                html += `</div></div>`;
-                grid.innerHTML += html;
+                html += `</div></div>`; grid.innerHTML += html;
             });
         }
 
         function updateEvent(dayKey, eventId, field, value) {
             const idx = currentWeekData.schedule[dayKey].events.findIndex(e => e.id === eventId);
             if(idx === -1) return;
-            
             currentWeekData.schedule[dayKey].events[idx][field] = value;
             if (field === 'time') currentWeekData.schedule[dayKey].events[idx].hours = calculateHours(value);
             saveWeekData();
+            if(field === 'time' || field === 'completed' || field === 'isImportant') { updateStats(); renderActiveView(); }
         }
 
-        function deleteEvent(dayKey, eventId) { 
-            currentWeekData.schedule[dayKey].events = currentWeekData.schedule[dayKey].events.filter(e => e.id !== eventId);
-            saveWeekData(); 
-        }
+        function deleteEvent(dayKey, eventId) { currentWeekData.schedule[dayKey].events = currentWeekData.schedule[dayKey].events.filter(e => e.id !== eventId); saveWeekData(); updateStats(); renderActiveView(); }
 
         function openEventModal() {
             const catSelect = document.getElementById('modal-cat');
             catSelect.innerHTML = Object.keys(userSettings.categories).map(k => `<option value="${k}">${userSettings.categories[k].label}</option>`).join('');
-            
             document.getElementById('modal-task').value = '';
             document.getElementById('modal-start-week').value = currentWeekStr;
             document.getElementById('modal-end-week').value = currentWeekStr;
-            
             document.querySelectorAll('.modal-day-chk').forEach(cb => cb.checked = false);
-            if(viewMode === 'daily') {
-                const cb = document.querySelector(`.modal-day-chk[value="${activeDay}"]`);
-                if(cb) cb.checked = true;
-            }
-
+            if(viewMode === 'daily') { const cb = document.querySelector(`.modal-day-chk[value="${activeDay}"]`); if(cb) cb.checked = true; }
             document.getElementById('event-modal').classList.remove('hidden');
         }
 
-        function closeEventModal() {
-            document.getElementById('event-modal').classList.add('hidden');
-        }
+        function closeEventModal() { document.getElementById('event-modal').classList.add('hidden'); }
 
         async function saveRecurringEvent() {
-            const task = document.getElementById('modal-task').value.trim();
-            const cat = document.getElementById('modal-cat').value;
-            const time = document.getElementById('modal-time').value;
-            const startW = document.getElementById('modal-start-week').value;
-            const endW = document.getElementById('modal-end-week').value;
-            
-            const days = Array.from(document.querySelectorAll('.modal-day-chk:checked')).map(cb => cb.value);
-
+            const task = document.getElementById('modal-task').value.trim(), cat = document.getElementById('modal-cat').value, time = document.getElementById('modal-time').value, startW = document.getElementById('modal-start-week').value, endW = document.getElementById('modal-end-week').value, days = Array.from(document.querySelectorAll('.modal-day-chk:checked')).map(cb => cb.value);
             if(!task || !startW || !endW || days.length === 0) return;
-
-            const startDate = new Date(weekToDate(startW));
-            const endDate = new Date(weekToDate(endW));
-
+            const startYear = parseInt(startW.split('-')[0]), endYear = parseInt(endW.split('-')[0]);
+            if(startYear < 2026 || startYear > 2027 || endYear < 2026 || endYear > 2027) { alert("2026~2027년만 가능합니다."); return; }
+            const startDate = new Date(weekToDate(startW)), endDate = new Date(weekToDate(endW));
             if(startDate > endDate) return;
-
-            const btn = document.getElementById('modal-save-btn');
-            btn.innerText = "처리 중...";
-            btn.disabled = true;
-
-            const batch = db.batch();
-            let currDate = new Date(startDate);
-            const eventHours = calculateHours(time);
-
+            const btn = document.getElementById('modal-save-btn'); btn.innerText = "처리 중..."; btn.disabled = true;
+            const batch = db.batch(); let currDate = new Date(startDate); const eventHours = calculateHours(time);
             try {
                 while(currDate <= endDate) {
-                    const wStr = getYearWeek(currDate);
-                    const docRef = db.collection("sync_data").doc(`week_${wStr}`);
-                    const docSnap = await docRef.get();
-                    
+                    const wStr = getYearWeek(currDate), docRef = db.collection("sync_data").doc(`week_${wStr}`), docSnap = await docRef.get();
                     let wData = docSnap.exists ? docSnap.data() : { schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_TEMPLATE)) };
-                    
-                    days.forEach(d => {
-                        wData.schedule[d].events.push({
-                            id: Date.now() + Math.floor(Math.random() * 10000),
-                            time: time,
-                            task: task,
-                            cat: cat,
-                            hours: eventHours
-                        });
-                    });
-
-                    batch.set(docRef, wData);
-                    currDate.setDate(currDate.getDate() + 7); 
+                    days.forEach(d => { wData.schedule[d].events.push({ id: Date.now() + Math.floor(Math.random() * 10000), time: time, task: task, cat: cat, hours: eventHours, completed: false, memo: "", isImportant: false }); });
+                    batch.set(docRef, wData); currDate.setDate(currDate.getDate() + 7); 
                 }
-                
-                await batch.commit();
-                closeEventModal();
-                loadWeekData(); 
-            } catch(e) {
-                // error
-            } finally {
-                btn.innerText = "저장";
-                btn.disabled = false;
-            }
+                await batch.commit(); closeEventModal(); loadWeekData(); 
+            } catch(e) {} finally { btn.innerText = "저장"; btn.disabled = false; }
         }
 
         function renderCategorySettings() {
             if(!userSettings) return;
-            const list = document.getElementById('category-list');
-            list.innerHTML = '';
-            
+            const list = document.getElementById('category-list'); list.innerHTML = '';
             Object.keys(userSettings.categories).forEach(key => {
                 const cat = userSettings.categories[key];
-                list.innerHTML += `
-                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
-                        <span class="w-3 h-3 rounded-full shadow-inner" style="background-color: ${cat.color}"></span>
-                        <span class="text-sm font-bold text-slate-700">${cat.label}</span>
-                        <button onclick="deleteCategory('${key}')" class="text-slate-400 hover:text-rose-600 ml-1 font-bold">✕</button>
-                    </div>
-                `;
+                list.innerHTML += `<div class="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 shadow-sm"><span class="w-3.5 h-3.5 rounded-full shadow-inner" style="background-color: ${cat.color}"></span><span class="text-sm font-normal text-slate-700">${cat.label}</span><button onclick="deleteCategory('${key}')" class="text-slate-400 hover:text-rose-600 ml-2 text-sm font-normal">✕</button></div>`;
             });
         }
 
         function addCategory() {
-            const name = document.getElementById('new-cat-name').value.trim();
-            const color = document.getElementById('new-cat-color').value;
+            const name = document.getElementById('new-cat-name').value.trim(), color = document.getElementById('new-cat-color').value;
             if(!name) return;
-            const newKey = "cat_" + Date.now();
-            userSettings.categories[newKey] = { label: name, color: color };
-            saveSettings();
+            const newKey = "cat_" + Date.now(); userSettings.categories[newKey] = { label: name, color: color }; saveSettings();
             document.getElementById('new-cat-name').value = '';
         }
 
-        function deleteCategory(key) {
-            if(Object.keys(userSettings.categories).length <= 1) return;
-            delete userSettings.categories[key];
-            saveSettings();
-        }
-
-        function resetCurrentWeekData() { 
-            currentWeekData = { schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_TEMPLATE)) };
-            saveWeekData();
-        }
-        function exportData() {
-            const exportObj = { week: currentWeekStr, data: currentWeekData };
-            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `plan_${currentWeekStr}_backup.json`; a.click();
-        }
+        function deleteCategory(key) { if(Object.keys(userSettings.categories).length <= 1) return; delete userSettings.categories[key]; saveSettings(); }
+        function resetCurrentWeekData() { if(confirm("초기화?")) { currentWeekData = { schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_TEMPLATE)) }; saveWeekData(); } }
+        function exportData() { const blob = new Blob([JSON.stringify({ week: currentWeekStr, data: currentWeekData }, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `plan_${currentWeekStr}.json`; a.click(); }
         function importData() {
-            const file = document.getElementById('import-file').files[0];
-            if(!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => { 
-                try {
-                    const parsed = JSON.parse(e.target.result);
-                    if(parsed.data && parsed.data.schedule) {
-                        currentWeekData = parsed.data; saveWeekData(); 
-                    }
-                } catch(err) {}
-            };
+            const file = document.getElementById('import-file').files[0]; if(!file) return;
+            const reader = new FileReader(); reader.onload = (e) => { try { const parsed = JSON.parse(e.target.result); if(parsed.data && parsed.data.schedule) { currentWeekData = parsed.data; saveWeekData(); } } catch(err) {} };
             reader.readAsText(file);
         }
 
