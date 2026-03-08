@@ -39,7 +39,7 @@
 
     <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 flex justify-between h-16 items-center">
-            <h1 class="font-medium text-xl text-slate-800 tracking-tight">PLANNER <span class="text-blue-600 font-normal text-xs ml-2 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-md">v29.0</span></h1>
+            <h1 class="font-medium text-xl text-slate-800 tracking-tight">PLANNER <span class="text-blue-600 font-normal text-xs ml-2 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-md">v29.1</span></h1>
             <div class="flex space-x-4 sm:space-x-8 text-sm font-normal">
                 <button onclick="nav('dashboard')" id="nav-dashboard" class="nav-link tab-active py-5 px-1 transition-colors">대시보드</button>
                 <button onclick="nav('schedule')" id="nav-schedule" class="nav-link py-5 px-1 text-slate-500 hover:text-slate-800 transition-colors">일정 관리</button>
@@ -100,7 +100,7 @@
                     <button onclick="setViewMode('weekly')" id="btn-view-weekly" class="px-6 py-2.5 rounded-lg text-sm font-normal text-slate-500 hover:text-slate-800 transition-all">주간 전체 보기</button>
                 </div>
                 <div class="flex gap-3 w-full sm:w-auto">
-                    <button id="btn-copy-prev" onclick="copyPreviousWeek()" class="hidden flex-1 sm:flex-none bg-white text-slate-600 border border-slate-300 px-5 py-3 rounded-xl text-sm font-normal hover:bg-slate-50 transition-colors shadow-sm">이전 주 복사</button>
+                    <button id="btn-copy-prev" onclick="copyPreviousWeek()" class="flex-1 sm:flex-none bg-white text-slate-600 border border-slate-300 px-5 py-3 rounded-xl text-sm font-normal hover:bg-slate-50 transition-colors shadow-sm">이전 주 복사</button>
                     <button onclick="openEventModal()" class="flex-1 sm:flex-none bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-normal shadow-md hover:bg-blue-700 transition-colors">+ 새 일정 추가</button>
                 </div>
             </div>
@@ -176,7 +176,7 @@
     <!-- 모달 -->
     <div id="event-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 border border-slate-100 animate-fade-in">
-            <h3 class="font-medium text-2xl mb-6 text-slate-800 tracking-tight">새 일정 등록</h3>
+            <h3 id="modal-title" class="font-medium text-2xl mb-6 text-slate-800 tracking-tight">새 일정 등록</h3>
             <div class="space-y-6">
                 <div>
                     <label class="block text-xs font-normal text-slate-500 mb-2 uppercase tracking-wide">일정명</label>
@@ -239,6 +239,8 @@
         let currentGroup = "weekday";
         let activeDay = "mon";
         let viewMode = "daily";
+        let editingEventId = null;
+        let editingDayKey = null;
         const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
         const DEFAULT_SETTINGS = {
@@ -334,11 +336,9 @@
             unsubscribeWeek = docRef.onSnapshot((doc) => {
                 if (doc.exists) {
                     currentWeekData = doc.data();
-                    document.getElementById('btn-copy-prev').classList.add('hidden');
                 } else {
                     currentWeekData = { schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_TEMPLATE)) };
                     saveWeekData();
-                    document.getElementById('btn-copy-prev').classList.remove('hidden');
                 }
                 updateStats();
                 renderActiveView();
@@ -387,10 +387,13 @@
         }
 
         async function copyPreviousWeek() {
+            if (!confirm("이전 주 일정을 불러오면 현재 주차의 모든 일정이 덮어씌워집니다. 계속 진행하시겠습니까?")) return;
+            
             const date = weekToDate(currentWeekStr);
             date.setDate(date.getDate() - 7);
             const prevWeekStr = getYearWeek(date);
             const prevDoc = await db.collection("sync_data").doc(`week_${prevWeekStr}`).get();
+            
             if(prevDoc.exists) {
                 const prevData = prevDoc.data();
                 Object.values(prevData.schedule).forEach(day => {
@@ -399,7 +402,8 @@
                 });
                 currentWeekData = prevData;
                 saveWeekData();
-                document.getElementById('btn-copy-prev').classList.add('hidden');
+            } else {
+                alert("이전 주 데이터가 없습니다.");
             }
         }
 
@@ -564,9 +568,10 @@
                                 </div>
                                 <input class="editable-input font-medium text-lg w-full px-1 ${isCompleted ? 'line-through text-slate-400' : (isImportant ? 'text-rose-900' : 'text-slate-800')}" value="${ev.task}" onchange="updateEvent('${activeDay}', ${ev.id}, 'task', this.value)">
                             </div>
-                            <div class="flex items-center gap-3 flex-shrink-0">
-                                <div class="bg-white/60 border border-slate-200 px-4 py-2 rounded-xl flex items-center min-w-[4rem] justify-center shadow-sm"><span class="text-base font-medium text-slate-700">${ev.hours.toFixed(1)}</span><span class="text-xs text-slate-500 ml-1 font-normal">h</span></div>
-                                <button onclick="deleteEvent('${activeDay}', ${ev.id})" class="text-slate-400 hover:text-rose-500 p-2 text-base font-normal transition-colors">✕</button>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <div class="bg-white/60 border border-slate-200 px-3 py-1.5 rounded-xl flex items-center justify-center shadow-sm mr-2"><span class="text-sm font-medium text-slate-700">${ev.hours.toFixed(1)}</span><span class="text-[10px] text-slate-500 ml-0.5 font-normal">h</span></div>
+                                <button onclick="openEventModal('${activeDay}', ${ev.id})" class="text-slate-400 hover:text-blue-500 p-2 text-lg font-normal transition-colors" title="수정 및 반복 설정">⚙️</button>
+                                <button onclick="deleteEvent('${activeDay}', ${ev.id})" class="text-slate-400 hover:text-rose-500 p-2 text-lg font-normal transition-colors" title="삭제">✕</button>
                             </div>
                         </div>
                         <div class="mt-2 pl-[3.2rem] pr-2">
@@ -627,36 +632,101 @@
 
         function deleteEvent(dayKey, eventId) { currentWeekData.schedule[dayKey].events = currentWeekData.schedule[dayKey].events.filter(e => e.id !== eventId); saveWeekData(); updateStats(); renderActiveView(); }
 
-        function openEventModal() {
+        function openEventModal(dayKey = null, eventId = null) {
             const catSelect = document.getElementById('modal-cat');
             catSelect.innerHTML = Object.keys(userSettings.categories).map(k => `<option value="${k}">${userSettings.categories[k].label}</option>`).join('');
-            document.getElementById('modal-task').value = '';
+            
+            editingEventId = eventId;
+            editingDayKey = dayKey;
+
+            if (eventId && dayKey) {
+                document.getElementById('modal-title').innerText = "일정 반복 설정 및 수정";
+                const ev = currentWeekData.schedule[dayKey].events.find(e => e.id === eventId);
+                if (ev) {
+                    document.getElementById('modal-task').value = ev.task;
+                    document.getElementById('modal-cat').value = ev.cat;
+                    document.getElementById('modal-time').value = ev.time;
+                }
+            } else {
+                document.getElementById('modal-title').innerText = "새 일정 등록";
+                document.getElementById('modal-task').value = '';
+                document.getElementById('modal-time').value = '09:00-10:00';
+            }
+
             document.getElementById('modal-start-week').value = currentWeekStr;
             document.getElementById('modal-end-week').value = currentWeekStr;
             document.querySelectorAll('.modal-day-chk').forEach(cb => cb.checked = false);
-            if(viewMode === 'daily') { const cb = document.querySelector(`.modal-day-chk[value="${activeDay}"]`); if(cb) cb.checked = true; }
+            
+            if (dayKey) {
+                const cb = document.querySelector(`.modal-day-chk[value="${dayKey}"]`); 
+                if(cb) cb.checked = true;
+            } else if(viewMode === 'daily') { 
+                const cb = document.querySelector(`.modal-day-chk[value="${activeDay}"]`); 
+                if(cb) cb.checked = true; 
+            }
+            
             document.getElementById('event-modal').classList.remove('hidden');
         }
 
         function closeEventModal() { document.getElementById('event-modal').classList.add('hidden'); }
 
         async function saveRecurringEvent() {
-            const task = document.getElementById('modal-task').value.trim(), cat = document.getElementById('modal-cat').value, time = document.getElementById('modal-time').value, startW = document.getElementById('modal-start-week').value, endW = document.getElementById('modal-end-week').value, days = Array.from(document.querySelectorAll('.modal-day-chk:checked')).map(cb => cb.value);
+            const task = document.getElementById('modal-task').value.trim();
+            const cat = document.getElementById('modal-cat').value;
+            const time = document.getElementById('modal-time').value;
+            const startW = document.getElementById('modal-start-week').value;
+            const endW = document.getElementById('modal-end-week').value;
+            const days = Array.from(document.querySelectorAll('.modal-day-chk:checked')).map(cb => cb.value);
+            
             if(!task || !startW || !endW || days.length === 0) return;
+            
             const startYear = parseInt(startW.split('-')[0]), endYear = parseInt(endW.split('-')[0]);
             if(startYear < 2026 || startYear > 2027 || endYear < 2026 || endYear > 2027) { alert("2026~2027년만 가능합니다."); return; }
             const startDate = new Date(weekToDate(startW)), endDate = new Date(weekToDate(endW));
             if(startDate > endDate) return;
-            const btn = document.getElementById('modal-save-btn'); btn.innerText = "처리 중..."; btn.disabled = true;
-            const batch = db.batch(); let currDate = new Date(startDate); const eventHours = calculateHours(time);
+            
+            const btn = document.getElementById('modal-save-btn'); 
+            btn.innerText = "처리 중..."; btn.disabled = true;
+            
+            const eventHours = calculateHours(time);
+
+            if (editingEventId && editingDayKey) {
+                const idx = currentWeekData.schedule[editingDayKey].events.findIndex(e => e.id === editingEventId);
+                if(idx !== -1) {
+                    currentWeekData.schedule[editingDayKey].events[idx].task = task;
+                    currentWeekData.schedule[editingDayKey].events[idx].cat = cat;
+                    currentWeekData.schedule[editingDayKey].events[idx].time = time;
+                    currentWeekData.schedule[editingDayKey].events[idx].hours = eventHours;
+                }
+            }
+
+            const batch = db.batch(); 
+            let currDate = new Date(startDate); 
+
             try {
                 while(currDate <= endDate) {
-                    const wStr = getYearWeek(currDate), docRef = db.collection("sync_data").doc(`week_${wStr}`), docSnap = await docRef.get();
-                    let wData = docSnap.exists ? docSnap.data() : { schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_TEMPLATE)) };
-                    days.forEach(d => { wData.schedule[d].events.push({ id: Date.now() + Math.floor(Math.random() * 10000), time: time, task: task, cat: cat, hours: eventHours, completed: false, memo: "", isImportant: false }); });
-                    batch.set(docRef, wData); currDate.setDate(currDate.getDate() + 7); 
+                    const wStr = getYearWeek(currDate);
+                    const docRef = db.collection("sync_data").doc(`week_${wStr}`);
+                    
+                    let targetData;
+                    if (wStr === currentWeekStr) {
+                        targetData = currentWeekData;
+                    } else {
+                        const docSnap = await docRef.get();
+                        targetData = docSnap.exists ? docSnap.data() : { schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_TEMPLATE)) };
+                    }
+
+                    days.forEach(d => { 
+                        if (editingEventId && wStr === currentWeekStr && d === editingDayKey) return;
+                        targetData.schedule[d].events.push({ id: Date.now() + Math.floor(Math.random() * 10000), time: time, task: task, cat: cat, hours: eventHours, completed: false, memo: "", isImportant: false }); 
+                    });
+                    
+                    batch.set(docRef, targetData); 
+                    currDate.setDate(currDate.getDate() + 7); 
                 }
-                await batch.commit(); closeEventModal(); loadWeekData(); 
+                await batch.commit(); 
+                closeEventModal(); 
+                loadWeekData(); 
             } catch(e) {} finally { btn.innerText = "저장"; btn.disabled = false; }
         }
 
@@ -689,4 +759,3 @@
     </script>
 </body>
 </html>
-
