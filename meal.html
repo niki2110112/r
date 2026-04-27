@@ -1,296 +1,563 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>초효율 식단 관리표 v9.0 (Synced)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <style>
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body { font-family: 'Pretendard', sans-serif; background-color: #f0f4f8; color: #0f172a; }
-        .chart-container { position: relative; width: 100%; max-width: 350px; margin: auto; height: 280px; }
-        .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 800; }
-        .group-btn-active { background-color: #2563eb; color: white; box-shadow: 0 2px 4px -1px rgba(37, 99, 235, 0.2); }
-        .editable-input { background: transparent; border: 1px solid transparent; font-weight: inherit; color: inherit; padding: 4px 6px; border-radius: 6px; transition: all 0.2s ease-in-out; }
-        .editable-input:hover { background: rgba(0,0,0,0.03); border-color: #cbd5e1; }
-        .editable-input:focus { outline: none; border-color: #2563eb; background: #ffffff; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
-        select.editable-input { appearance: none; cursor: pointer; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .grid-7 { display: grid; grid-template-columns: repeat(7, minmax(180px, 1fr)); gap: 12px; }
-    </style>
-</head>
-<body class="min-h-screen flex flex-col">
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { 
+  CheckCircle2, Circle, Cpu, Plus, Trash2, Settings2, 
+  CheckSquare, AlignLeft, Download, RotateCcw, Menu, CalendarDays, 
+  Clock, LayoutDashboard, Minimize2, Database,
+  FileText, X, ChevronRight, Layers, GripVertical, Cloud
+} from 'lucide-react';
 
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-[1300px] mx-auto px-4 flex justify-between h-14 items-center">
-            <h1 class="font-black text-lg text-blue-700 tracking-tight">MEAL PLANNER <span class="text-teal-600 font-medium text-xs ml-1 px-2 py-0.5 bg-teal-50 rounded">Synced v9.0</span></h1>
-            <div class="flex space-x-2 sm:space-x-4 text-sm font-semibold">
-                <button onclick="nav('dashboard')" id="nav-dashboard" class="nav-link tab-active py-4 px-2">대시보드</button>
-                <button onclick="nav('monthly')" id="nav-monthly" class="nav-link py-4 px-2 text-slate-500 hover:text-slate-800 transition-colors">식단표</button>
-                <button onclick="nav('inventory')" id="nav-inventory" class="nav-link py-4 px-2 text-slate-500 hover:text-slate-800 transition-colors">재고 관리</button>
-                <button onclick="nav('settings')" id="nav-settings" class="nav-link py-4 px-2 text-slate-500 hover:text-slate-800 transition-colors">데이터 관리</button>
-            </div>
+// --- Firebase Cloud Imports ---
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+
+// --- Firebase Initialization ---
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+const app = Object.keys(firebaseConfig).length > 0 ? initializeApp(firebaseConfig) : null;
+const auth = app ? getAuth(app) : null;
+const db = app ? getFirestore(app) : null;
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'hydrogel-os';
+
+// --- Configuration & Utility ---
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const SNAP_STEP = 0.25; 
+const HOUR_HEIGHT = 56; 
+const GRID_HEIGHT = 24 * HOUR_HEIGHT;
+
+const snap = (value) => Math.round(value / SNAP_STEP) * SNAP_STEP;
+const timeToPx = (time) => time * HOUR_HEIGHT;
+const formatTime = (time) => {
+  const h = Math.floor(time);
+  const m = Math.round((time - h) * 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
+const DEFAULT_DATA = {
+  projectName: "하이드로겔 점성 제어 시스템 설계",
+  tasks: [
+    { 
+      id: 't1', 
+      title: 'Power-law 유변학적 모델링', 
+      log: 'K값과 n값 도출을 위한 Arrhenius 방정식 적용...', 
+      checkpoints: [
+        {id: 'c1', text: '점성 계수 데이터 확보', done: true}, 
+        {id: 'c2', text: '수식 LaTeX 변환', done: false},
+        {id: 'c3', text: '수치해석 코드 작성', done: false}
+      ] 
+    },
+    { 
+      id: 't2', 
+      title: 'Static Mixer 열전달 시뮬레이션', 
+      log: '', 
+      checkpoints: [
+        {id: 'c4', text: 'Mesh Grid 생성', done: false},
+        {id: 'c5', text: '경계 조건(Boundary Condition) 설정', done: false}
+      ] 
+    }
+  ],
+  vault: [ { id: 'v1', key: 'Consistency (K)', value: '12.5', unit: 'Pa·sⁿ' } ],
+  blocks: [ { id: 'b1', taskId: 't1', checkpointId: 'c2', day: 1, start: 10, end: 12.5 } ]
+};
+
+// --- Minimal Input Component ---
+const CleanInput = ({ value, onChange, className, placeholder, multiline = false }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempValue, setTempValue] = useState(value);
+  const inputRef = useRef(null);
+
+  useEffect(() => setTempValue(value), [value]);
+
+  const commit = useCallback(() => {
+    setIsEditing(false);
+    if (tempValue.trim() !== value) onChange(tempValue.trim() || placeholder);
+  }, [tempValue, value, onChange, placeholder]);
+
+  if (isEditing) {
+    const props = {
+      ref: inputRef,
+      className: `bg-transparent border-b border-slate-300 outline-none w-full font-medium text-slate-800 ${className}`,
+      value: tempValue,
+      onChange: (e) => setTempValue(e.target.value),
+      onBlur: commit,
+      onKeyDown: (e) => {
+        if (e.key === 'Enter' && !multiline) commit();
+        if (e.key === 'Escape') { setTempValue(value); setIsEditing(false); }
+      },
+      autoFocus: true,
+    };
+    return multiline ? <textarea {...props} rows={1} className={`${props.className} resize-none`} /> : <input type="text" {...props} />;
+  }
+
+  return (
+    <div onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate ${!value ? 'text-slate-300' : ''} ${className}`}>
+      {value || placeholder}
+    </div>
+  );
+};
+
+// --- Journal Editor (Debounced Save) ---
+const JournalEditor = ({ activeTask, updateTask }) => {
+  const [log, setLog] = useState(activeTask.log || '');
+
+  useEffect(() => { setLog(activeTask.log || ''); }, [activeTask.id, activeTask.log]);
+
+  const handleBlur = () => {
+     if (log !== activeTask.log) updateTask(activeTask.id, { log });
+  };
+
+  return (
+     <textarea 
+        className="w-full flex-1 min-h-[300px] bg-slate-50/50 border border-slate-200 rounded-xl p-5 text-sm text-slate-700 leading-loose outline-none resize-none focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-all custom-scroll"
+        placeholder="수식 유도, 시뮬레이션 설정값, 논리적 근거를 기록하십시오 (LaTeX 호환 포맷 지원)."
+        value={log}
+        onChange={(e) => setLog(e.target.value)}
+        onBlur={handleBlur}
+     />
+  );
+};
+
+// --- Sub Component: Scheduler Board ---
+const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
+  const [dragState, setDragState] = useState(null);
+  const [localBlocks, setLocalBlocks] = useState(blocks);
+  const gridRef = useRef(null);
+
+  useEffect(() => { if (!dragState) setLocalBlocks(blocks); }, [blocks, dragState]);
+
+  const handleDragStart = (e, taskId, checkpointId) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({ taskId, checkpointId }));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const handleDrop = (e, dayIdx) => {
+    e.preventDefault();
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (!data.taskId || !data.checkpointId) return;
+      
+      const rect = e.currentTarget.getBoundingClientRect();
+      let start = snap((e.clientY - rect.top) / HOUR_HEIGHT);
+      if (start < 0) start = 0;
+      if (start > 23) start = 23;
+      
+      setBlocks(prev => [...prev, { 
+        id: `b${Date.now()}`, taskId: data.taskId, checkpointId: data.checkpointId, day: dayIdx, start, end: Math.min(start + 1.5, 24) 
+      }]);
+    } catch (err) { console.error("Invalid drop data"); }
+  };
+
+  const handleMouseDown = (e, block, action) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    setDragState({ action, blockId: block.id, startY: e.clientY, originalStart: block.start, originalEnd: block.end, originalDay: block.day });
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (!dragState) return;
+    setLocalBlocks(prev => prev.map(b => {
+      if (b.id !== dragState.blockId) return b;
+      const deltaTime = snap((e.clientY - dragState.startY) / HOUR_HEIGHT);
+
+      if (dragState.action === 'resize') {
+        let end = dragState.originalEnd + deltaTime;
+        return { ...b, end: Math.min(Math.max(b.start + SNAP_STEP, end), 24) };
+      }
+      if (dragState.action === 'move') {
+        const dur = dragState.originalEnd - dragState.originalStart;
+        let start = dragState.originalStart + deltaTime;
+        let end = start + dur;
+        let day = dragState.originalDay;
+
+        if (gridRef.current) {
+          const rect = gridRef.current.getBoundingClientRect();
+          const colWidth = (rect.width - 48) / 7;
+          const relX = e.clientX - rect.left + gridRef.current.scrollLeft - 48;
+          if (relX >= 0 && relX <= rect.width - 48) day = Math.max(0, Math.min(6, Math.floor(relX / colWidth)));
+        }
+
+        if (start < 0) { start = 0; end = dur; }
+        else if (end > 24) { end = 24; start = 24 - dur; }
+        return { ...b, start, end, day };
+      }
+      return b;
+    }));
+  }, [dragState]);
+
+  const handleMouseUp = useCallback(() => {
+    if (dragState) {
+       setBlocks(localBlocks);
+       setDragState(null);
+    }
+  }, [dragState, localBlocks, setBlocks]);
+
+  useEffect(() => {
+    if (dragState) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState, handleMouseMove, handleMouseUp]);
+
+  return (
+    <div className="flex h-full bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="w-72 bg-slate-50/50 border-r border-slate-100 flex flex-col shrink-0">
+        <div className="p-4 border-b border-slate-100 bg-white">
+          <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Time Allocations</h3>
+          <p className="text-[10px] text-slate-400 mt-1">세부 항목을 우측 시간표로 드래그</p>
         </div>
-    </nav>
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scroll">
+          {tasks.map(task => {
+             const progress = task.checkpoints.length === 0 ? 0 : Math.round((task.checkpoints.filter(c=>c.done).length / task.checkpoints.length) * 100);
+             if (progress === 100 && task.checkpoints.length > 0) return null;
 
-    <main class="flex-grow max-w-[1300px] mx-auto px-4 py-6 w-full">
-        
-        <section id="view-dashboard" class="view block animate-fade-in">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start mb-8">
-                <div class="space-y-4">
-                    <div>
-                        <h2 class="text-2xl font-black tracking-tight mb-1">데이터 분석 <span class="text-blue-600">리포트</span></h2>
-                        <p class="text-slate-500 text-sm">클라우드 서버와 실시간으로 연동 중입니다.</p>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3" id="stats-grid"></div>
-                    <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl shadow-sm">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="text-base">💡</span>
-                            <h3 class="font-bold text-blue-900 text-sm">재고 부족 경고</h3>
+             return (
+              <div key={task.id} className="flex flex-col gap-2">
+                <div className="text-[11px] font-black text-slate-700 tracking-tight flex items-center justify-between border-b border-slate-200 pb-1.5 mb-1">
+                  <span className="truncate">{task.title}</span>
+                  <span className="text-[9px] font-mono text-slate-400 shrink-0 ml-2">{progress}%</span>
+                </div>
+                
+                {task.checkpoints.length === 0 && (
+                   <div className="text-[10px] text-slate-400 italic">세부 항목(Checkpoint)이 없습니다.</div>
+                )}
+
+                {task.checkpoints.map(cp => {
+                   if(cp.done) return null;
+                   return (
+                     <div 
+                        key={cp.id} 
+                        draggable 
+                        onDragStart={(e) => handleDragStart(e, task.id, cp.id)} 
+                        className="bg-white border border-slate-200 p-2.5 rounded-lg cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-sm transition-all flex items-start gap-2 group"
+                     >
+                        <GripVertical size={14} className="text-slate-300 shrink-0 mt-0.5" />
+                        <div className="text-xs font-medium text-slate-600 leading-snug">{cp.text}</div>
+                     </div>
+                   );
+                })}
+              </div>
+             );
+          })}
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col relative bg-white overflow-hidden">
+        <div className="flex-1 overflow-auto custom-scroll" ref={gridRef}>
+          <div className="min-w-[700px] h-full flex flex-col">
+            <div className="flex border-b border-slate-100 bg-white sticky top-0 z-30 pl-12 shadow-sm">
+              {DAYS.map(day => (
+                <div key={day} className="flex-1 py-2 text-center border-l border-slate-50 first:border-l-0">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{day}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex relative bg-slate-50/20" style={{ height: GRID_HEIGHT }}>
+              <div className="w-12 shrink-0 border-r border-slate-100 bg-white relative z-20">
+                {HOURS.map(hour => (
+                  <div key={hour} className="absolute w-full flex justify-center -translate-y-1/2" style={{ top: timeToPx(hour) }}>
+                    <span className="text-[9px] text-slate-300 font-mono">{hour}:00</span>
+                  </div>
+                ))}
+              </div>
+              {DAYS.map((_, dayIdx) => (
+                <div key={dayIdx} className="flex-1 relative border-l border-slate-100/50 first:border-l-0" onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dayIdx)}>
+                  {HOURS.map(hour => <div key={hour} className="absolute w-full border-t border-slate-100 pointer-events-none" style={{ top: timeToPx(hour), height: HOUR_HEIGHT }} />)}
+                  
+                  {localBlocks.filter(b => b.day === dayIdx).map(block => {
+                    const task = tasks.find(t => t.id === block.taskId);
+                    const cp = task?.checkpoints.find(c => c.id === block.checkpointId);
+                    if (!task || !cp) return null;
+
+                    return (
+                      <div
+                        key={block.id}
+                        onDoubleClick={() => setBlocks(prev => prev.filter(b => b.id !== block.id))}
+                        className={`absolute left-1 right-1 rounded-lg border flex flex-col overflow-hidden shadow-sm transition-all group ${cp.done ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-blue-50 border-blue-200 text-blue-900 hover:shadow-md'}`}
+                        style={{ top: timeToPx(block.start), height: timeToPx(block.end - block.start), zIndex: dragState?.blockId === block.id ? 50 : 10 }}
+                      >
+                        <div className="flex-1 p-2 cursor-move flex flex-col overflow-hidden relative" onMouseDown={e => handleMouseDown(e, block, 'move')}>
+                          <div className={`text-[9px] font-bold uppercase tracking-tight truncate mb-1 ${cp.done ? 'text-slate-400' : 'text-blue-500/80'}`}>{task.title}</div>
+                          
+                          <div onMouseDown={(e) => e.stopPropagation()} className="flex items-start gap-1.5">
+                             <input 
+                               type="checkbox"
+                               checked={cp.done}
+                               onChange={(e) => {
+                                 const updatedCps = task.checkpoints.map(c => c.id === cp.id ? { ...c, done: e.target.checked } : c);
+                                 updateTask(task.id, { checkpoints: updatedCps });
+                               }}
+                               className={`mt-[1.5px] w-3 h-3 rounded cursor-pointer shrink-0 ${cp.done ? 'border-slate-300 text-slate-400' : 'border-blue-300 text-blue-600 focus:ring-blue-500'}`}
+                             />
+                             <div className="flex-1 min-w-0">
+                               <CleanInput 
+                                  value={cp.text} 
+                                  onChange={(newText) => {
+                                     const updatedCps = task.checkpoints.map(c => c.id === cp.id ? { ...c, text: newText } : c);
+                                     updateTask(task.id, { checkpoints: updatedCps });
+                                  }} 
+                                  className={`text-[11px] font-bold leading-tight w-full ${cp.done ? 'line-through opacity-60 text-slate-500' : ''}`} 
+                               />
+                             </div>
+                          </div>
+
+                          <div className={`text-[9px] font-mono mt-auto flex items-center gap-1 ${cp.done ? 'opacity-50' : 'opacity-70'}`}><Clock size={8} /> {formatTime(block.start)} - {formatTime(block.end)}</div>
+                          <button className="absolute top-1 right-1 p-1 hover:bg-black/10 rounded text-black/40 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setBlocks(prev => prev.filter(b => b.id !== block.id)); }}><X size={10}/></button>
                         </div>
-                        <div id="low-stock-alert" class="space-y-2"></div>
-                    </div>
+                        <div className={`h-2 w-full cursor-ns-resize shrink-0 flex items-center justify-center ${cp.done ? 'hover:bg-slate-200' : 'hover:bg-blue-200'}`} onMouseDown={e => handleMouseDown(e, block, 'resize')}>
+                          <div className={`w-4 h-0.5 rounded-full ${cp.done ? 'bg-slate-300' : 'bg-blue-300'}`} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center lg:sticky lg:top-20">
-                    <h3 class="font-bold text-slate-800 text-base mb-4 w-full text-left">재고 잔여 비율</h3>
-                    <div class="chart-container w-full">
-                        <canvas id="inventoryChart"></canvas>
-                    </div>
-                </div>
+              ))}
             </div>
-        </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-        <section id="view-monthly" class="view hidden">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                <div>
-                    <h2 class="text-2xl font-black tracking-tight mb-1">세부 식단 제어</h2>
-                    <p class="text-slate-500 text-sm">입력 즉시 모든 기기에 자동 저장됩니다.</p>
-                </div>
-                <div class="flex bg-slate-200 p-1 rounded-lg shadow-inner overflow-x-auto scrollbar-hide">
-                    <button onclick="changeWeek(0)" id="btn-week-0" class="week-btn group-btn-active px-6 py-2 rounded text-sm font-bold transition-all">1주차</button>
-                    <button onclick="changeWeek(1)" id="btn-week-1" class="week-btn px-6 py-2 rounded text-sm font-bold text-slate-500">2주차</button>
-                    <button onclick="changeWeek(2)" id="btn-week-2" class="week-btn px-6 py-2 rounded text-sm font-bold text-slate-500">3주차</button>
-                    <button onclick="changeWeek(3)" id="btn-week-3" class="week-btn px-6 py-2 rounded text-sm font-bold text-slate-500">4주차</button>
-                </div>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
-                <div class="p-4 md:p-6 min-w-[1200px]">
-                    <div class="grid-7 mb-4" id="calendar-header"></div>
-                    <div class="grid-7" id="calendar-grid"></div>
-                </div>
-            </div>
-        </section>
 
-        <section id="view-inventory" class="view hidden max-w-4xl mx-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-black tracking-tight">재고 DB 관리</h2>
-                <button onclick="addInventoryItem()" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold">+ 신규 재료 등록</button>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-slate-50 border-b text-slate-600">
-                        <tr><th class="px-6 py-4 font-bold">식재료명</th><th class="px-6 py-4 font-bold w-40">총 횟수</th><th class="px-6 py-4 font-bold w-32">잔여</th><th class="px-6 py-4 font-bold w-20">삭제</th></tr>
-                    </thead>
-                    <tbody id="inventory-tbody" class="divide-y divide-slate-100"></tbody>
-                </table>
-            </div>
-        </section>
+const App = () => {
+  const [user, setUser] = useState(null);
+  const [data, setData] = useState(DEFAULT_DATA);
+  const [syncStatus, setSyncStatus] = useState('Connecting Firebase...');
+  
+  const [activeView, setActiveView] = useState('overview'); 
+  const [activeTaskId, setActiveTaskId] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-        <section id="view-settings" class="view hidden max-w-2xl mx-auto">
-            <h2 class="text-2xl font-black mb-6">데이터 관리</h2>
-            <div class="bg-white rounded-2xl shadow-sm border p-6 space-y-6">
-                <div>
-                    <h3 class="font-bold text-lg mb-2">백업 및 복구</h3>
-                    <div class="flex gap-2">
-                        <button onclick="exportData()" class="bg-slate-800 text-white px-4 py-2 rounded text-sm font-bold">백업 다운로드</button>
-                        <input type="file" id="import-file" class="hidden" onchange="importData()">
-                        <button onclick="document.getElementById('import-file').click()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold">파일에서 복구</button>
-                    </div>
-                </div>
-                <div class="pt-6 border-t border-rose-100">
-                    <button onclick="resetData()" class="bg-rose-600 text-white px-6 py-3 rounded-lg text-sm font-bold w-full">⚠️ 클라우드 전체 초기화</button>
-                </div>
-            </div>
-        </section>
-    </main>
+  useEffect(() => {
+    if (!auth) return;
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) { console.error("Firebase Auth Error:", err); }
+    };
+    initAuth();
+    const unsub = onAuthStateChanged(auth, setUser);
+    return () => unsub();
+  }, []);
 
-    <script>
-        // --- Firebase Configuration ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
-            authDomain: "meal-c8b86.firebaseapp.com",
-            projectId: "meal-c8b86",
-            storageBucket: "meal-c8b86.firebasestorage.app",
-            messagingSenderId: "476361866831",
-            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+  useEffect(() => {
+    if (!user || !db) return;
+    
+    setSyncStatus('Fetching Cloud Data...');
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
+    
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setData(docSnap.data());
+      } else {
+        setDoc(docRef, DEFAULT_DATA);
+      }
+      setSyncStatus('Cloud Synced');
+    }, (error) => {
+      console.error("Firestore Listen Error:", error);
+      setSyncStatus('Sync Error');
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const saveToCloud = useCallback((newData) => {
+    if (!user || !db) return;
+    setSyncStatus('Saving...');
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
+    setDoc(docRef, newData)
+      .then(() => setSyncStatus('Cloud Synced'))
+      .catch((err) => { console.error(err); setSyncStatus('Sync Error'); });
+  }, [user]);
+
+  const activeTask = useMemo(() => data.tasks.find(t => t.id === activeTaskId) || null, [data.tasks, activeTaskId]);
+  const globalProgress = useMemo(() => {
+    if (data.tasks.length === 0) return 0;
+    const taskProgresses = data.tasks.map(t => t.checkpoints.length === 0 ? 0 : t.checkpoints.filter(c=>c.done).length / t.checkpoints.length);
+    return Math.round((taskProgresses.reduce((sum, val) => sum + val, 0) / data.tasks.length) * 100);
+  }, [data.tasks]);
+
+  const updateData = (key, updater) => {
+    setData(prev => {
+      const nextVal = typeof updater === 'function' ? updater(prev[key]) : updater;
+      const newData = { ...prev, [key]: nextVal };
+      saveToCloud(newData);
+      return newData;
+    });
+  };
+
+  const updateTask = (id, updates) => updateData('tasks', tasks => tasks.map(t => t.id === id ? { ...t, ...updates } : t));
+  const addTask = () => updateData('tasks', tasks => [...tasks, { id: `t${Date.now()}`, title: '새로운 시스템 모듈', log: '', checkpoints: [] }]);
+  
+  const deleteTask = (id) => {
+    if(confirm("이 작업과 연계된 일정, 저널이 모두 삭제됩니다.")) {
+      setData(prev => {
+        const newData = {
+          ...prev,
+          tasks: prev.tasks.filter(t => t.id !== id),
+          blocks: prev.blocks.filter(b => b.taskId !== id)
         };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const docRef = db.collection("sync_data").doc("meal");
+        saveToCloud(newData);
+        return newData;
+      });
+      if (activeTaskId === id) setActiveTaskId(null);
+    }
+  };
 
-        const DAYS_IN_MONTH = 28;
-        const MEAL_TYPES = [
-            { key: 'breakfast', label: '아침', bg: 'bg-white', border: 'border-slate-200', text: 'text-slate-600' },
-            { key: 'lunch', label: '점심', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
-            { key: 'snack', label: '간식', bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-500' },
-            { key: 'dinner', label: '저녁', bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800' }
-        ];
+  const deleteCheckpoint = (taskId, cpId) => {
+    setData(prev => {
+      const newData = {
+        ...prev,
+        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, checkpoints: t.checkpoints.filter(c => c.id !== cpId) } : t),
+        blocks: prev.blocks.filter(b => b.checkpointId !== cpId)
+      };
+      saveToCloud(newData);
+      return newData;
+    });
+  };
 
-        let CONFIG = null;
-        let activeWeek = 0;
-        let chartInstance = null;
-        let isFirstLoad = true;
+  return (
+    <div className="flex h-screen w-full bg-[#f4f6f8] text-slate-800 font-sans overflow-hidden">
+      
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 bg-slate-900 text-slate-300 flex flex-col shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-56' : 'w-0 lg:w-16'} overflow-hidden`}>
+        <div className="h-16 flex items-center justify-center border-b border-slate-800 shrink-0">
+          <Cpu size={20} className="text-blue-400" />
+        </div>
+        <nav className="flex-1 flex flex-col py-6 space-y-2 px-3">
+          <button onClick={() => setActiveView('overview')} className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-all ${activeView === 'overview' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
+            <LayoutDashboard size={18} className="shrink-0" /> 
+            <span className={`text-xs font-semibold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>Project Overview</span>
+          </button>
+          <button onClick={() => setActiveView('scheduler')} className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-all ${activeView === 'scheduler' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
+            <CalendarDays size={18} className="shrink-0" /> 
+            <span className={`text-xs font-semibold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>Time Scheduler</span>
+          </button>
+        </nav>
+        <div className={`p-4 border-t border-slate-800 transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
+           <div className="flex justify-between items-center text-[10px] uppercase tracking-wider mb-2 text-slate-400"><span>Yield</span> <span>{globalProgress}%</span></div>
+           <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden"><div className="bg-blue-500 h-full transition-all" style={{width: `${globalProgress}%`}}/></div>
+        </div>
+      </aside>
 
-        function init() {
-            docRef.onSnapshot((doc) => {
-                if (doc.exists) {
-                    CONFIG = doc.data();
-                } else {
-                    CONFIG = {
-                        inventory: [
-                            { id: 101, name: "닭가슴살", total: 20 },
-                            { id: 102, name: "햇반", total: 15 }
-                        ],
-                        meals: Array.from({ length: DAYS_IN_MONTH }, (_, i) => ({
-                            day: i + 1, breakfast: { text: "", items: [] }, lunch: { text: "", items: [] }, snack: { text: "", items: [] }, dinner: { text: "", items: [] }
-                        }))
-                    };
-                    if(isFirstLoad) save();
-                }
-                isFirstLoad = false;
-                refreshSystem();
-            });
-        }
+      <main className="flex-1 flex flex-col min-w-0 h-full relative">
+        <header className="h-16 flex items-center px-6 bg-white border-b border-slate-200 shrink-0 shadow-sm z-20">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:text-slate-800 transition-colors mr-4">
+            <Menu size={18} />
+          </button>
+          <CleanInput value={data.projectName} onChange={v => updateData('projectName', v)} className="text-sm font-bold text-slate-800 max-w-sm" />
+          
+          <div className="ml-auto flex items-center gap-4">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-slate-400 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-200">
+               <Cloud size={12} className={syncStatus.includes('Error') ? 'text-red-500' : syncStatus.includes('Saving') ? 'text-blue-500 animate-pulse' : 'text-emerald-500'} />
+               {syncStatus}
+            </div>
+          </div>
+        </header>
 
-        function save() { docRef.set(CONFIG); }
-
-        function refreshSystem() {
-            calculateRemainingStock();
-            renderDashboard();
-            renderMonthly();
-            renderInventory();
-            if(document.getElementById('view-dashboard').classList.contains('block')) renderDashboardChart();
-        }
-
-        function calculateRemainingStock() {
-            CONFIG.inventory.forEach(inv => {
-                let used = 0;
-                CONFIG.meals.forEach(day => {
-                    MEAL_TYPES.forEach(mt => {
-                        used += day[mt.key].items.filter(id => id === inv.id).length;
-                    });
-                });
-                inv.remaining = inv.total - used;
-            });
-        }
-
-        function nav(viewId) {
-            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-            document.getElementById(`view-${viewId}`).classList.remove('hidden');
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('tab-active', 'text-slate-500'));
-            document.getElementById(`nav-${viewId}`).classList.add('tab-active');
-            if(viewId === 'dashboard') renderDashboardChart();
-        }
-
-        function renderDashboard() {
-            const gridEl = document.getElementById('stats-grid');
-            const alertEl = document.getElementById('low-stock-alert');
-            const lowItems = CONFIG.inventory.filter(i => i.remaining <= 2);
-            gridEl.innerHTML = `
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center">
-                    <p class="text-xs text-slate-500 font-bold mb-1">등록된 식재료</p>
-                    <p class="text-2xl font-black text-blue-700">${CONFIG.inventory.length} <span class="text-sm font-semibold opacity-60">종</span></p>
+        <div className="flex-1 overflow-hidden relative">
+          {activeView === 'overview' && (
+            <div className="absolute inset-0 flex p-6 gap-6 overflow-hidden bg-[#fafbfc]">
+              
+              <div className="w-full lg:w-1/2 flex flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                  <h2 className="text-sm font-bold text-slate-800">Task Breakdown</h2>
+                  <button onClick={addTask} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"><Plus size={18}/></button>
                 </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center">
-                    <p class="text-xs text-slate-500 font-bold mb-1">소진 임박</p>
-                    <p class="text-2xl font-black ${lowItems.length > 0 ? 'text-rose-600' : 'text-slate-700'}">${lowItems.length} <span class="text-sm font-semibold opacity-60">개</span></p>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scroll">
+                  {data.tasks.map(task => {
+                    const total = task.checkpoints.length;
+                    const done = task.checkpoints.filter(c=>c.done).length;
+                    const progress = total === 0 ? 0 : Math.round((done/total)*100);
+                    return (
+                      <div key={task.id} onClick={() => setActiveTaskId(task.id)} className={`group border rounded-2xl p-4 cursor-pointer transition-all ${activeTaskId === task.id ? 'border-blue-400 shadow-md bg-blue-50/20' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm bg-white'}`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <CleanInput value={task.title} onChange={v => updateTask(task.id, {title: v})} className={`text-sm font-bold w-full ${progress === 100 && total > 0 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
+                          <button onClick={(e) => {e.stopPropagation(); deleteTask(task.id)}} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 ml-3"><Trash2 size={16}/></button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-blue-500 h-full transition-all" style={{width: `${progress}%`}}/>
+                          </div>
+                          <span className="text-[10px] font-mono font-medium text-slate-500 w-8 text-right">{done}/{total}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-            `;
-            alertEl.innerHTML = lowItems.length === 0 ? '<p class="text-sm text-blue-800">부족한 재고가 없습니다.</p>' : 
-                lowItems.map(inv => `<div class="flex justify-between items-center text-sm bg-white/60 p-2 rounded border border-blue-200"><span class="font-bold text-rose-600">${inv.name}</span><span class="font-black text-rose-700">${inv.remaining}회 남음</span></div>`).join('');
-        }
+              </div>
 
-        function renderDashboardChart() {
-            const ctx = document.getElementById('inventoryChart').getContext('2d');
-            if (chartInstance) chartInstance.destroy();
-            chartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: CONFIG.inventory.map(i => i.name),
-                    datasets: [{ data: CONFIG.inventory.map(i => i.remaining), backgroundColor: ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'], borderWidth: 2, borderColor: '#ffffff' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { weight: 'bold' } } } } }
-            });
-        }
+              {activeTask ? (
+                <div className="hidden lg:flex w-1/2 flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-lg animate-in slide-in-from-right-8 duration-300">
+                  <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h2 className="text-sm font-bold text-slate-800 truncate pr-4">{activeTask.title}</h2>
+                    <button onClick={() => setActiveTaskId(null)} className="p-1 text-slate-400 hover:bg-slate-200 rounded-lg"><X size={18}/></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 custom-scroll space-y-8">
+                    
+                    <section>
+                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><CheckSquare size={14}/> Sub-Checkpoints</h3>
+                      <div className="space-y-2">
+                        {activeTask.checkpoints.map((cp, idx) => (
+                          <div key={cp.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg group">
+                            <input type="checkbox" checked={cp.done} onChange={(e) => { const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked; updateTask(activeTask.id, {checkpoints: n}); }} className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                            <CleanInput value={cp.text} onChange={v => { const n = [...activeTask.checkpoints]; n[idx].text = v; updateTask(activeTask.id, {checkpoints: n}); }} className={`text-xs w-full mt-0.5 ${cp.done ? 'text-slate-400 line-through' : 'text-slate-700'}`} />
+                            <button onClick={() => deleteCheckpoint(activeTask.id, cp.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500"><X size={14}/></button>
+                          </div>
+                        ))}
+                        <button onClick={() => updateTask(activeTask.id, {checkpoints: [...activeTask.checkpoints, {id: `c${Date.now()}`, text: "신규 검증 사항", done: false}]})} className="text-xs font-semibold text-blue-600 hover:text-blue-800 mt-2 flex items-center gap-1 pl-1"><Plus size={14}/> 항목 추가</button>
+                      </div>
+                    </section>
 
-        function changeWeek(idx) {
-            activeWeek = idx;
-            document.querySelectorAll('.week-btn').forEach((btn, i) => {
-                btn.className = i === idx ? "week-btn group-btn-active px-6 py-2 rounded text-sm font-bold" : "week-btn px-6 py-2 rounded text-sm font-bold text-slate-500";
-            });
-            renderMonthly();
-        }
+                    <section className="flex flex-col flex-1">
+                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><FileText size={14}/> Engineering Journal</h3>
+                      <JournalEditor activeTask={activeTask} updateTask={updateTask} />
+                    </section>
 
-        function renderMonthly() {
-            const header = document.getElementById('calendar-header');
-            const grid = document.getElementById('calendar-grid');
-            header.innerHTML = ''; grid.innerHTML = '';
-            const weekDays = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"];
-            const startDay = activeWeek * 7;
+                  </div>
+                </div>
+              ) : (
+                <div className="hidden lg:flex w-1/2 flex-col justify-center items-center text-slate-400 bg-white/50 border border-slate-200 border-dashed rounded-3xl">
+                  <FileText size={48} strokeWidth={1} className="mb-4 text-slate-300"/>
+                  <p className="text-sm font-medium">좌측에서 태스크를 선택하여 상세 문서를 편집하십시오.</p>
+                </div>
+              )}
+            </div>
+          )}
 
-            for (let i = 0; i < 7; i++) {
-                const dayIdx = startDay + i;
-                if (dayIdx >= DAYS_IN_MONTH) break;
-                header.innerHTML += `<div class="bg-slate-800 text-white p-3 rounded-xl flex justify-between items-center shadow-sm"><div><span class="text-[10px] font-bold opacity-70">DAY ${dayIdx+1}</span><div class="text-sm font-black">${weekDays[i]}</div></div><button onclick="copyYesterday(${dayIdx})" class="text-white/60 hover:text-white" title="어제 식단 복사"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>`;
+          {activeView === 'scheduler' && (
+            <div className="absolute inset-0 p-6 bg-[#fafbfc]">
+              <SchedulerBoard tasks={data.tasks} blocks={data.blocks} setBlocks={b => updateData('blocks', b)} updateTask={updateTask} />
+            </div>
+          )}
+        </div>
+      </main>
+      
+      <style>{`
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        input[type="checkbox"] { accent-color: #2563eb; }
+      `}</style>
+    </div>
+  );
+};
 
-                let colHTML = `<div class="flex flex-col gap-3">`;
-                MEAL_TYPES.forEach(mt => {
-                    const mealData = CONFIG.meals[dayIdx][mt.key];
-                    const tagsHTML = mealData.items.map((itemId, tagIdx) => {
-                        const inv = CONFIG.inventory.find(inv => inv.id === itemId);
-                        return inv ? `<div class="inline-flex items-center gap-1 bg-white border px-1.5 py-0.5 rounded text-[10px] font-bold text-slate-600 mt-1 mr-1"><span>${inv.name}</span><button onclick="removeTag(${dayIdx}, '${mt.key}', ${tagIdx})" class="text-slate-400 hover:text-rose-500">✕</button></div>` : '';
-                    }).join('');
-
-                    colHTML += `<div class="p-3 rounded-xl ${mt.bg} border ${mt.border} shadow-sm flex flex-col gap-2"><div class="flex justify-between items-center"><span class="text-xs font-black ${mt.text}">${mt.label}</span><select class="editable-input text-[11px] font-bold ${mt.text} w-auto bg-transparent outline-none" onchange="addTag(${dayIdx}, '${mt.key}', this)"><option value="">+ 추가</option>${CONFIG.inventory.map(inv=>`<option value="${inv.id}">${inv.name}${inv.remaining<=0?'(소진)':''}</option>`).join('')}</select></div><input class="editable-input text-sm font-bold text-slate-900 w-full placeholder:text-slate-400 placeholder:font-normal" value="${mealData.text}" placeholder="메뉴 입력" onchange="updateMealText(${dayIdx}, '${mt.key}', this.value)"><div class="flex flex-wrap min-h-[4px]">${tagsHTML}</div></div>`;
-                });
-                grid.innerHTML += colHTML + `</div>`;
-            }
-        }
-
-        function updateMealText(dayIdx, type, text) { CONFIG.meals[dayIdx][type].text = text; save(); }
-        function addTag(dayIdx, type, sel) { if(!sel.value) return; CONFIG.meals[dayIdx][type].items.push(parseInt(sel.value)); sel.value=""; save(); }
-        function removeTag(dayIdx, type, tagIdx) { CONFIG.meals[dayIdx][type].items.splice(tagIdx, 1); save(); }
-        function copyYesterday(idx) { if(idx===0) return; if(confirm('어제 식단을 복사할까요?')) { MEAL_TYPES.forEach(mt=>CONFIG.meals[idx][mt.key]=JSON.parse(JSON.stringify(CONFIG.meals[idx-1][mt.key]))); save(); } }
-
-        function renderInventory() {
-            const tbody = document.getElementById('inventory-tbody'); tbody.innerHTML = '';
-            CONFIG.inventory.forEach(inv => {
-                tbody.innerHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="px-6 py-3"><input type="text" value="${inv.name}" class="editable-input font-bold text-slate-900 w-full" onchange="updateInvName(${inv.id}, this.value)"></td><td class="px-6 py-3"><div class="flex items-center gap-2"><input type="number" value="${inv.total}" class="editable-input w-20 text-center font-mono border" onchange="updateInvTotal(${inv.id}, this.value)"><span>회</span></div></td><td class="px-6 py-3 font-black ${inv.remaining<=2?'text-rose-600':'text-blue-600'}">${inv.remaining}회</td><td class="px-6 py-3 text-center"><button onclick="deleteInv(${inv.id})" class="text-slate-400 hover:text-rose-600">✕</button></td></tr>`;
-            });
-        }
-
-        function addInventoryItem() { const name=prompt("재료명?"); if(name) { CONFIG.inventory.push({id:Date.now(), name, total:10}); save(); } }
-        function updateInvName(id, val) { const item=CONFIG.inventory.find(i=>i.id===id); if(item) { item.name=val; save(); } }
-        function updateInvTotal(id, val) { const item=CONFIG.inventory.find(i=>i.id===id); if(item) { item.total=parseInt(val); save(); } }
-        function deleteInv(id) { if(confirm('삭제?')) { CONFIG.inventory=CONFIG.inventory.filter(i=>i.id!==id); save(); } }
-
-        function resetData() { if(confirm('모든 데이터를 클라우드에서 삭제하시겠습니까?')) docRef.delete().then(()=>location.reload()); }
-        function exportData() {
-            const blob = new Blob([JSON.stringify(CONFIG, null, 2)], { type: "application/json" });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `meal_cloud_backup.json`; a.click();
-        }
-        function importData() {
-            const file = document.getElementById('import-file').files[0];
-            const reader = new FileReader();
-            reader.onload = (e) => { CONFIG = JSON.parse(e.target.result); save(); };
-            reader.readAsText(file);
-        }
-
-        window.onload = init;
-    </script>
-</body>
-</html>
+export default App;
