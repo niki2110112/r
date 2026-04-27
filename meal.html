@@ -3,30 +3,28 @@ import {
   CheckCircle2, Circle, Cpu, Plus, Trash2, Settings2, 
   CheckSquare, AlignLeft, Download, RotateCcw, Menu, CalendarDays, 
   Clock, LayoutDashboard, Minimize2, Database,
-  FileText, X, ChevronRight, Layers, GripVertical, Cloud
+  FileText, X, ChevronRight, Layers, GripVertical, Cloud, UploadCloud
 } from 'lucide-react';
 
 // --- Firebase Cloud Imports ---
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 
-// --- Firebase Initialization ---
-// 사용자의 Firebase 프로젝트 설정 값으로 교체하십시오.
-// 비어있을 경우 로컬 환경 변수(__firebase_config)를 참조합니다.
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+// --- Firebase Initialization (Integrated from your Ledger System) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+  authDomain: "meal-c8b86.firebaseapp.com",
+  projectId: "meal-c8b86",
+  storageBucket: "meal-c8b86.firebasestorage.app",
+  messagingSenderId: "476361866831",
+  appId: "1:476361866831:web:d1f841697bcfb76dee743a"
 };
 
-const app = Object.keys(firebaseConfig).length > 0 && firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
-const auth = app ? getAuth(app) : null;
-const db = app ? getFirestore(app) : null;
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'hydrogel-os-v1';
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = "hydrogel-os-v4-4"; // 고유 앱 ID
 
 // --- Configuration & Utility ---
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -49,19 +47,18 @@ const DEFAULT_DATA = {
     { 
       id: 't1', 
       title: 'Phase 1: 유변학적 거동 수식 모델링', 
-      log: 'Power-law 모델 ($ \tau = K\dot{\gamma}^n $) 기반의 점성 계수 산출 로직 설계 필요.', 
+      log: 'Power-law 모델 기반의 점성 계수 산출 로직 설계.', 
       checkpoints: [
         {id: 'c1', text: 'K (Consistency Index) 데이터 확보', done: true}, 
-        {id: 'c2', text: 'n (Flow Behavior Index) 측정 시나리오 작성', done: false},
-        {id: 'c3', text: 'Arrhenius 온도 보상 모델 결합', done: false}
+        {id: 'c2', text: 'n (Flow Behavior Index) 측정 시나리오 작성', done: false}
       ] 
     }
   ],
-  vault: [ { id: 'v1', key: 'Base Temp', value: '25', unit: '°C' } ],
+  vault: [ { id: 'v1', key: 'Target Yield', value: '95', unit: '%' } ],
   blocks: []
 };
 
-// --- Minimal Input Component ---
+// --- Sub Component: CleanInput ---
 const CleanInput = ({ value, onChange, className, placeholder, multiline = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -94,27 +91,6 @@ const CleanInput = ({ value, onChange, className, placeholder, multiline = false
     <div onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate min-h-[1.5em] flex items-center ${!value ? 'text-slate-300 italic' : ''} ${className}`}>
       {value || placeholder}
     </div>
-  );
-};
-
-// --- Journal Editor (Debounced Save) ---
-const JournalEditor = ({ activeTask, updateTask }) => {
-  const [log, setLog] = useState(activeTask.log || '');
-
-  useEffect(() => { setLog(activeTask.log || ''); }, [activeTask.id, activeTask.log]);
-
-  const handleBlur = () => {
-     if (log !== activeTask.log) updateTask(activeTask.id, { log });
-  };
-
-  return (
-     <textarea 
-        className="w-full flex-1 min-h-[350px] bg-slate-50/50 border border-slate-200 rounded-2xl p-6 text-sm text-slate-700 leading-loose outline-none resize-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
-        placeholder="설계 근거, 수치해석 과정, 공식 유도 등을 상세히 기록하십시오..."
-        value={log}
-        onChange={(e) => setLog(e.target.value)}
-        onBlur={handleBlur}
-     />
   );
 };
 
@@ -206,7 +182,7 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
       <div className="w-72 bg-slate-50/50 border-r border-slate-100 flex flex-col shrink-0 h-full">
         <div className="p-5 border-b border-slate-100 bg-white">
           <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-            <LayoutList className="text-blue-500 w-4 h-4" /> Resources
+            <LayoutList className="text-blue-500 w-4 h-4 shrink-0" /> Resources
           </h3>
           <p className="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium">세부 항목을 드래그하여 일정에 할당하십시오.</p>
         </div>
@@ -292,13 +268,13 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
                                      const updatedCps = task.checkpoints.map(c => c.id === cp.id ? { ...c, text: newText } : c);
                                      updateTask(task.id, { checkpoints: updatedCps });
                                   }} 
-                                  className={`text-xs font-bold leading-tight w-full bg-transparent ${cp.done ? 'line-through opacity-50' : ''}`} 
+                                  className={`text-xs font-bold leading-tight w-full bg-transparent ${cp.done ? 'line-through opacity-50 text-slate-400' : ''}`} 
                                />
                              </div>
                           </div>
 
-                          <div className="text-[9px] font-mono mt-auto flex items-center gap-1 opacity-50"><Clock className="w-3 h-3" /> {formatTime(block.start)}</div>
-                          <button className="absolute top-2 right-2 p-1.5 hover:bg-black/10 rounded-lg text-black/30 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => { e.stopPropagation(); setBlocks(prev => prev.filter(b => b.id !== block.id)); }}><X className="w-3.5 h-3.5" /></button>
+                          <div className="text-[9px] font-mono mt-auto flex items-center gap-1 opacity-50 font-bold shrink-0"><Clock className="w-3 h-3 shrink-0" /> {formatTime(block.start)}</div>
+                          <button className="absolute top-2 right-2 p-1.5 hover:bg-black/10 rounded-lg text-black/30 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => { e.stopPropagation(); setBlocks(prev => prev.filter(b => b.id !== block.id)); }}><X className="w-3.5 h-3.5 shrink-0" /></button>
                         </div>
                         <div className={`h-2.5 w-full cursor-ns-resize shrink-0 flex items-center justify-center group-hover:bg-black/5`} onMouseDown={e => handleMouseDown(e, block, 'resize')}>
                           <div className={`w-6 h-1 rounded-full ${cp.done ? 'bg-slate-200' : 'bg-blue-200'}`} />
@@ -316,11 +292,11 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
   );
 };
 
-
+// --- Main Application ---
 const App = () => {
   const [user, setUser] = useState(null);
   const [data, setData] = useState(DEFAULT_DATA);
-  const [syncStatus, setSyncStatus] = useState('시스템 초기화 중...');
+  const [syncStatus, setSyncStatus] = useState('Initializing...');
   
   const [activeView, setActiveView] = useState('overview'); 
   const [activeTaskId, setActiveTaskId] = useState(null);
@@ -328,37 +304,32 @@ const App = () => {
 
   // --- Auth & Cloud Lifecycle ---
   useEffect(() => {
-    if (!auth) { setSyncStatus('Firebase Config 필요'); return; }
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) { console.error("Firebase Auth Error", err); }
+        await signInAnonymously(auth);
+        onAuthStateChanged(auth, setUser);
+      } catch (err) { setSyncStatus('Auth Error'); }
     };
     initAuth();
-    return onAuthStateChanged(auth, setUser);
   }, []);
 
   useEffect(() => {
-    if (!user || !db) return;
-    setSyncStatus('데이터 동기화 중...');
+    if (!user) return;
+    setSyncStatus('Synchronizing...');
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
     
     return onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) { setData(docSnap.data()); }
       else { setDoc(docRef, DEFAULT_DATA); }
-      setSyncStatus('클라우드 동기화 완료');
-    }, (error) => { setSyncStatus('동기화 오류'); });
+      setSyncStatus('Cloud Ready');
+    }, (error) => { setSyncStatus('Sync Error'); });
   }, [user]);
 
   const saveToCloud = useCallback((newData) => {
-    if (!user || !db) return;
-    setSyncStatus('변경사항 저장 중...');
+    if (!user) return;
+    setSyncStatus('Saving...');
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
-    setDoc(docRef, newData).then(() => setSyncStatus('클라우드 동기화 완료')).catch(() => setSyncStatus('저장 실패'));
+    setDoc(docRef, newData).then(() => setSyncStatus('Cloud Ready')).catch(() => setSyncStatus('Save Error'));
   }, [user]);
 
   // Calculations
@@ -380,8 +351,9 @@ const App = () => {
 
   const updateTask = (id, updates) => updateData('tasks', tasks => tasks.map(t => t.id === id ? { ...t, ...updates } : t));
   const addTask = () => updateData('tasks', tasks => [...tasks, { id: `t${Date.now()}`, title: '신규 설계 모듈', log: '', checkpoints: [] }]);
+  
   const deleteTask = (id) => {
-    if(window.confirm("관련된 일정과 문서가 모두 영구 삭제됩니다. 계속하시겠습니까?")) {
+    if(window.confirm("관련된 일정과 문서가 모두 영구 삭제됩니다.")) {
       setData(prev => {
         const newData = { ...prev, tasks: prev.tasks.filter(t => t.id !== id), blocks: prev.blocks.filter(b => b.taskId !== id) };
         saveToCloud(newData);
@@ -391,13 +363,52 @@ const App = () => {
     }
   };
 
+  // --- Export/Import (From your Ledger System) ---
+  const exportData = () => {
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hydrogel_os_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if(imported.tasks && imported.vault) {
+          setData(imported);
+          saveToCloud(imported);
+        }
+      } catch (err) { alert("Invalid File Format"); }
+    };
+    reader.readAsText(file);
+  };
+
+  const hardReset = async () => {
+    if(confirm("모든 클라우드 데이터를 초기화하시겠습니까?")) {
+       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
+       await deleteDoc(docRef);
+       location.reload();
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-[#f8f9fb] text-slate-800 font-sans overflow-hidden">
       
+      {/* Sidebar */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 bg-[#0f172a] text-slate-400 flex flex-col shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 lg:w-20'} overflow-hidden`}>
         <div className="h-20 flex items-center justify-center border-b border-white/5 shrink-0">
           <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50">
-            <Cpu className="w-6 h-6" />
+            <Cpu className="w-6 h-6 shrink-0" />
           </div>
         </div>
         <nav className="flex-1 flex flex-col py-8 space-y-2 px-4">
@@ -409,6 +420,10 @@ const App = () => {
             <CalendarDays className="w-5 h-5 shrink-0" /> 
             <span className={`text-[13px] font-bold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>Time Scheduler</span>
           </button>
+          <button onClick={() => setActiveView('settings')} className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all ${activeView === 'settings' ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20' : 'hover:bg-white/5 hover:text-white'}`}>
+            <Settings2 className="w-5 h-5 shrink-0" /> 
+            <span className={`text-[13px] font-bold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>System Settings</span>
+          </button>
         </nav>
         <div className={`p-6 border-t border-white/5 transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest mb-3 text-slate-500"><span>Yield</span> <span>{globalProgress}%</span></div>
@@ -416,16 +431,17 @@ const App = () => {
         </div>
       </aside>
 
+      {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
-        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 shadow-sm z-20">
+        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20">
           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 text-slate-400 hover:text-slate-900 transition-colors mr-6 bg-slate-50 rounded-xl">
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 shrink-0" />
           </button>
           <CleanInput value={data.projectName} onChange={v => updateData('projectName', v)} className="text-lg font-black text-slate-900 max-w-lg" />
           
           <div className="ml-auto flex items-center gap-4">
             <div className="flex items-center gap-2.5 text-[10px] font-black text-slate-400 px-4 py-2 bg-slate-50 rounded-full border border-slate-200 shadow-inner tracking-wider">
-               <Cloud className={`w-3.5 h-3.5 ${syncStatus.includes('오류') ? 'text-red-500' : syncStatus.includes('저장') ? 'text-blue-500 animate-pulse' : 'text-emerald-500'}`} />
+               <Cloud className={`w-3.5 h-3.5 shrink-0 ${syncStatus.includes('Error') ? 'text-red-500' : syncStatus.includes('Saving') ? 'text-blue-500 animate-pulse' : 'text-emerald-500'}`} />
                {syncStatus.toUpperCase()}
             </div>
           </div>
@@ -437,7 +453,7 @@ const App = () => {
               <div className="w-full lg:w-[450px] flex flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-lg shadow-slate-200/50 shrink-0">
                 <div className="p-7 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                   <h2 className="text-sm font-black text-slate-800 tracking-tight">Project Breakdown</h2>
-                  <button onClick={addTask} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"><Plus className="w-4 h-4"/></button>
+                  <button onClick={addTask} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"><Plus className="w-4 h-4 shrink-0"/></button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scroll">
                   {data.tasks.map(task => {
@@ -448,7 +464,7 @@ const App = () => {
                       <div key={task.id} onClick={() => setActiveTaskId(task.id)} className={`group border-2 rounded-3xl p-5 cursor-pointer transition-all duration-300 ${activeTaskId === task.id ? 'border-blue-500 bg-blue-50/20 shadow-xl shadow-blue-100/50' : 'border-slate-100 hover:border-slate-300 bg-white hover:shadow-lg'}`}>
                         <div className="flex justify-between items-start mb-4">
                           <CleanInput value={task.title} onChange={v => updateTask(task.id, {title: v})} className={`text-sm font-black w-full ${progress === 100 && total > 0 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
-                          <button onClick={(e) => {e.stopPropagation(); deleteTask(task.id)}} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 ml-3 transition-all"><Trash2 className="w-4 h-4"/></button>
+                          <button onClick={(e) => {e.stopPropagation(); deleteTask(task.id)}} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 ml-3 transition-all"><Trash2 className="w-4 h-4 shrink-0"/></button>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
@@ -466,37 +482,42 @@ const App = () => {
                 <div className="hidden lg:flex flex-1 flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200 animate-in fade-in slide-in-from-right-12 duration-500">
                   <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                     <div className="flex flex-col gap-1 min-w-0">
-                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Active Instance</span>
+                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Active Module</span>
                       <h2 className="text-xl font-black text-slate-800 truncate pr-6">{activeTask.title}</h2>
                     </div>
-                    <button onClick={() => setActiveTaskId(null)} className="p-2.5 text-slate-400 hover:bg-slate-200 rounded-xl transition-all"><X className="w-5 h-5"/></button>
+                    <button onClick={() => setActiveTaskId(null)} className="p-2.5 text-slate-400 hover:bg-slate-200 rounded-xl transition-all"><X className="w-5 h-5 shrink-0"/></button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-8 custom-scroll space-y-10">
                     <section>
-                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><CheckSquare className="w-4 h-4 text-blue-500"/> Checkpoints & Progress</h3>
+                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><CheckSquare className="w-4 h-4 text-blue-500 shrink-0"/> Checkpoints & Progress</h3>
                       <div className="space-y-3 bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 shadow-inner">
                         {activeTask.checkpoints.map((cp, idx) => (
                           <div key={cp.id} className="flex items-center gap-4 p-3.5 bg-white border border-slate-100 rounded-2xl group/item shadow-sm hover:shadow-md transition-all">
-                            <input type="checkbox" checked={cp.done} onChange={(e) => { const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked; updateTask(activeTask.id, {checkpoints: n}); }} className="w-4.5 h-4.5 rounded-lg border-2 border-slate-300 text-blue-600 transition-all cursor-pointer" />
+                            <input type="checkbox" checked={cp.done} onChange={(e) => { const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked; updateTask(activeTask.id, {checkpoints: n}); }} className="w-4.5 h-4.5 rounded-lg border-2 border-slate-300 text-blue-600 transition-all cursor-pointer shrink-0" />
                             <CleanInput value={cp.text} onChange={v => { const n = [...activeTask.checkpoints]; n[idx].text = v; updateTask(activeTask.id, {checkpoints: n}); }} className={`text-xs font-bold w-full ${cp.done ? 'text-slate-300 line-through' : 'text-slate-700'}`} />
-                            <button onClick={() => updateTask(activeTask.id, {checkpoints: activeTask.checkpoints.filter(c=>c.id!==cp.id)})} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500 transition-all"><X className="w-4 h-4"/></button>
+                            <button onClick={() => updateTask(activeTask.id, {checkpoints: activeTask.checkpoints.filter(c=>c.id!==cp.id)})} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500 transition-all"><X className="w-4 h-4 shrink-0"/></button>
                           </div>
                         ))}
                         <button onClick={() => updateTask(activeTask.id, {checkpoints: [...activeTask.checkpoints, {id: `c${Date.now()}`, text: "신규 검토 사항", done: false}]})} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-black text-slate-400 hover:border-blue-300 hover:text-blue-500 hover:bg-white transition-all flex items-center justify-center gap-2 mt-2 tracking-widest uppercase">+ Add New Log</button>
                       </div>
                     </section>
                     <section className="flex flex-col flex-1 pb-4">
-                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-500"/> Engineering Journal</h3>
-                      <JournalEditor activeTask={activeTask} updateTask={updateTask} />
+                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-500 shrink-0"/> Engineering Journal</h3>
+                      <textarea 
+                        className="w-full flex-1 min-h-[350px] bg-slate-50/50 border border-slate-200 rounded-2xl p-6 text-sm text-slate-700 leading-loose outline-none resize-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
+                        placeholder="설계 근거 및 수식을 기록하십시오..."
+                        value={activeTask.log}
+                        onChange={(e) => updateTask(activeTask.id, {log: e.target.value})}
+                        onBlur={() => saveToCloud(data)}
+                      />
                     </section>
                   </div>
                 </div>
               ) : (
                 <div className="hidden lg:flex flex-1 flex-col justify-center items-center text-slate-400 bg-white/50 border-2 border-slate-200 border-dashed rounded-[32px]">
-                  <div className="bg-white p-8 rounded-[32px] shadow-2xl shadow-slate-200 border border-slate-100 flex flex-col items-center">
-                    <FileText className="w-16 h-16 mb-6 text-slate-200" strokeWidth={1} />
+                   <div className="flex flex-col items-center">
+                    <FileText className="w-16 h-16 mb-6 text-slate-200 shrink-0" strokeWidth={1} />
                     <p className="text-sm font-black uppercase tracking-widest text-slate-300">Ready for Documentation</p>
-                    <p className="text-[10px] font-medium mt-3 text-slate-400">항목을 선택하여 저널 기록을 시작하십시오.</p>
                   </div>
                 </div>
               )}
@@ -506,6 +527,39 @@ const App = () => {
           {activeView === 'scheduler' && (
             <div className="absolute inset-0 p-8 bg-[#f8f9fb]">
               <SchedulerBoard tasks={data.tasks} blocks={data.blocks} setBlocks={b => updateData('blocks', b)} updateTask={updateTask} />
+            </div>
+          )}
+
+          {activeView === 'settings' && (
+            <div className="absolute inset-0 p-8 bg-[#f8f9fb] overflow-y-auto custom-scroll">
+              <div className="max-w-2xl mx-auto space-y-8">
+                <h2 className="text-2xl font-black text-slate-800">System Settings</h2>
+                
+                <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-lg">
+                  <h3 className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2"><Download className="w-4 h-4 shrink-0 text-blue-500"/> Data Backup & Restore</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+                      <div>
+                        <p className="text-xs font-bold text-slate-700 mb-1">Export Data</p>
+                        <p className="text-[10px] text-slate-400">현재 모든 프로젝트 데이터를 JSON으로 저장합니다.</p>
+                      </div>
+                      <button onClick={exportData} className="px-4 py-2 bg-slate-800 text-white text-[11px] font-bold rounded-xl hover:bg-slate-700 transition-all">Download</button>
+                    </div>
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-xs font-bold text-slate-700 mb-3">Import Data</p>
+                      <div className="flex gap-4 items-center">
+                        <input type="file" accept=".json" onChange={importData} className="text-[10px] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-lg border-rose-100">
+                  <h3 className="text-sm font-bold text-rose-800 mb-6 flex items-center gap-2"><RotateCcw className="w-4 h-4 shrink-0 text-rose-500"/> System Reset</h3>
+                  <button onClick={hardReset} className="w-full py-4 bg-rose-50 text-rose-600 border border-rose-100 text-xs font-black rounded-2xl hover:bg-rose-600 hover:text-white transition-all">DELETE ALL CLOUD DATA</button>
+                  <p className="text-[10px] text-rose-400 mt-4 text-center">이 작업은 취소할 수 없으며 클라우드의 모든 정보가 즉시 삭제됩니다.</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -525,4 +579,3 @@ const App = () => {
 };
 
 export default App;
-      
