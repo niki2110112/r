@@ -12,25 +12,27 @@ import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged }
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // --- Firebase Initialization ---
+// 사용자의 Firebase 프로젝트 설정 값으로 교체하십시오.
+// 비어있을 경우 로컬 환경 변수(__firebase_config)를 참조합니다.
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
-const app = Object.keys(firebaseConfig).length > 0 ? initializeApp(firebaseConfig) : null;
+const app = Object.keys(firebaseConfig).length > 0 && firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
 const auth = app ? getAuth(app) : null;
 const db = app ? getFirestore(app) : null;
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'hydrogel-os';
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'hydrogel-os-v1';
 
 // --- Configuration & Utility ---
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SNAP_STEP = 0.25; 
-const HOUR_HEIGHT = 56; 
+const HOUR_HEIGHT = 60; 
 const GRID_HEIGHT = 24 * HOUR_HEIGHT;
 
 const snap = (value) => Math.round(value / SNAP_STEP) * SNAP_STEP;
@@ -42,30 +44,21 @@ const formatTime = (time) => {
 };
 
 const DEFAULT_DATA = {
-  projectName: "하이드로겔 점성 제어 시스템 설계",
+  projectName: "하이드로겔 시스템 OS",
   tasks: [
     { 
       id: 't1', 
-      title: 'Power-law 유변학적 모델링', 
-      log: 'K값과 n값 도출을 위한 Arrhenius 방정식 적용...', 
+      title: 'Phase 1: 유변학적 거동 수식 모델링', 
+      log: 'Power-law 모델 ($ \tau = K\dot{\gamma}^n $) 기반의 점성 계수 산출 로직 설계 필요.', 
       checkpoints: [
-        {id: 'c1', text: '점성 계수 데이터 확보', done: true}, 
-        {id: 'c2', text: '수식 LaTeX 변환', done: false},
-        {id: 'c3', text: '수치해석 코드 작성', done: false}
-      ] 
-    },
-    { 
-      id: 't2', 
-      title: 'Static Mixer 열전달 시뮬레이션', 
-      log: '', 
-      checkpoints: [
-        {id: 'c4', text: 'Mesh Grid 생성', done: false},
-        {id: 'c5', text: '경계 조건(Boundary Condition) 설정', done: false}
+        {id: 'c1', text: 'K (Consistency Index) 데이터 확보', done: true}, 
+        {id: 'c2', text: 'n (Flow Behavior Index) 측정 시나리오 작성', done: false},
+        {id: 'c3', text: 'Arrhenius 온도 보상 모델 결합', done: false}
       ] 
     }
   ],
-  vault: [ { id: 'v1', key: 'Consistency (K)', value: '12.5', unit: 'Pa·sⁿ' } ],
-  blocks: [ { id: 'b1', taskId: 't1', checkpointId: 'c2', day: 1, start: 10, end: 12.5 } ]
+  vault: [ { id: 'v1', key: 'Base Temp', value: '25', unit: '°C' } ],
+  blocks: []
 };
 
 // --- Minimal Input Component ---
@@ -84,7 +77,7 @@ const CleanInput = ({ value, onChange, className, placeholder, multiline = false
   if (isEditing) {
     const props = {
       ref: inputRef,
-      className: `bg-transparent border-b border-slate-300 outline-none w-full font-medium text-slate-800 ${className}`,
+      className: `bg-white border border-blue-400 outline-none w-full font-medium text-slate-800 rounded px-1 -ml-1 ${className}`,
       value: tempValue,
       onChange: (e) => setTempValue(e.target.value),
       onBlur: commit,
@@ -94,11 +87,11 @@ const CleanInput = ({ value, onChange, className, placeholder, multiline = false
       },
       autoFocus: true,
     };
-    return multiline ? <textarea {...props} rows={1} className={`${props.className} resize-none`} /> : <input type="text" {...props} />;
+    return multiline ? <textarea {...props} rows={2} className={`${props.className} resize-none`} /> : <input type="text" {...props} />;
   }
 
   return (
-    <div onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate ${!value ? 'text-slate-300' : ''} ${className}`}>
+    <div onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate min-h-[1.5em] flex items-center ${!value ? 'text-slate-300 italic' : ''} ${className}`}>
       {value || placeholder}
     </div>
   );
@@ -116,8 +109,8 @@ const JournalEditor = ({ activeTask, updateTask }) => {
 
   return (
      <textarea 
-        className="w-full flex-1 min-h-[300px] bg-slate-50/50 border border-slate-200 rounded-xl p-5 text-sm text-slate-700 leading-loose outline-none resize-none focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-all custom-scroll"
-        placeholder="수식 유도, 시뮬레이션 설정값, 논리적 근거를 기록하십시오 (LaTeX 호환 포맷 지원)."
+        className="w-full flex-1 min-h-[350px] bg-slate-50/50 border border-slate-200 rounded-2xl p-6 text-sm text-slate-700 leading-loose outline-none resize-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
+        placeholder="설계 근거, 수치해석 과정, 공식 유도 등을 상세히 기록하십시오..."
         value={log}
         onChange={(e) => setLog(e.target.value)}
         onBlur={handleBlur}
@@ -142,8 +135,6 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
     e.preventDefault();
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      if (!data.taskId || !data.checkpointId) return;
-      
       const rect = e.currentTarget.getBoundingClientRect();
       let start = snap((e.clientY - rect.top) / HOUR_HEIGHT);
       if (start < 0) start = 0;
@@ -152,7 +143,7 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
       setBlocks(prev => [...prev, { 
         id: `b${Date.now()}`, taskId: data.taskId, checkpointId: data.checkpointId, day: dayIdx, start, end: Math.min(start + 1.5, 24) 
       }]);
-    } catch (err) { console.error("Invalid drop data"); }
+    } catch (err) { console.error("Drop error"); }
   };
 
   const handleMouseDown = (e, block, action) => {
@@ -211,11 +202,13 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
   }, [dragState, handleMouseMove, handleMouseUp]);
 
   return (
-    <div className="flex h-full bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-      <div className="w-72 bg-slate-50/50 border-r border-slate-100 flex flex-col shrink-0">
-        <div className="p-4 border-b border-slate-100 bg-white">
-          <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Time Allocations</h3>
-          <p className="text-[10px] text-slate-400 mt-1">세부 항목을 우측 시간표로 드래그</p>
+    <div className="flex h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xl shadow-slate-200/50">
+      <div className="w-72 bg-slate-50/50 border-r border-slate-100 flex flex-col shrink-0 h-full">
+        <div className="p-5 border-b border-slate-100 bg-white">
+          <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+            <LayoutList className="text-blue-500 w-4 h-4" /> Resources
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium">세부 항목을 드래그하여 일정에 할당하십시오.</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scroll">
           {tasks.map(task => {
@@ -224,26 +217,19 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
 
              return (
               <div key={task.id} className="flex flex-col gap-2">
-                <div className="text-[11px] font-black text-slate-700 tracking-tight flex items-center justify-between border-b border-slate-200 pb-1.5 mb-1">
-                  <span className="truncate">{task.title}</span>
-                  <span className="text-[9px] font-mono text-slate-400 shrink-0 ml-2">{progress}%</span>
+                <div className="text-[10px] font-bold text-slate-500 tracking-tight flex items-center justify-between border-b border-slate-200 pb-1.5">
+                  <span className="truncate max-w-[80%]">{task.title}</span>
+                  <span className="text-[9px] font-mono opacity-50 shrink-0">{progress}%</span>
                 </div>
-                
-                {task.checkpoints.length === 0 && (
-                   <div className="text-[10px] text-slate-400 italic">세부 항목(Checkpoint)이 없습니다.</div>
-                )}
-
                 {task.checkpoints.map(cp => {
                    if(cp.done) return null;
                    return (
                      <div 
-                        key={cp.id} 
-                        draggable 
-                        onDragStart={(e) => handleDragStart(e, task.id, cp.id)} 
-                        className="bg-white border border-slate-200 p-2.5 rounded-lg cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-sm transition-all flex items-start gap-2 group"
+                        key={cp.id} draggable onDragStart={(e) => handleDragStart(e, task.id, cp.id)} 
+                        className="bg-white border border-slate-200 p-3 rounded-xl cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-md transition-all flex items-start gap-3 group"
                      >
-                        <GripVertical size={14} className="text-slate-300 shrink-0 mt-0.5" />
-                        <div className="text-xs font-medium text-slate-600 leading-snug">{cp.text}</div>
+                        <GripVertical className="text-slate-300 shrink-0 mt-0.5 w-3.5 h-3.5" />
+                        <div className="text-[11px] font-bold text-slate-700 leading-snug">{cp.text}</div>
                      </div>
                    );
                 })}
@@ -255,11 +241,11 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
 
       <div className="flex-1 flex flex-col relative bg-white overflow-hidden">
         <div className="flex-1 overflow-auto custom-scroll" ref={gridRef}>
-          <div className="min-w-[700px] h-full flex flex-col">
+          <div className="min-w-[850px] h-full flex flex-col">
             <div className="flex border-b border-slate-100 bg-white sticky top-0 z-30 pl-12 shadow-sm">
               {DAYS.map(day => (
-                <div key={day} className="flex-1 py-2 text-center border-l border-slate-50 first:border-l-0">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{day}</span>
+                <div key={day} className="flex-1 py-3 text-center border-l border-slate-50 first:border-l-0">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{day}</span>
                 </div>
               ))}
             </div>
@@ -267,7 +253,7 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
               <div className="w-12 shrink-0 border-r border-slate-100 bg-white relative z-20">
                 {HOURS.map(hour => (
                   <div key={hour} className="absolute w-full flex justify-center -translate-y-1/2" style={{ top: timeToPx(hour) }}>
-                    <span className="text-[9px] text-slate-300 font-mono">{hour}:00</span>
+                    <span className="text-[10px] font-bold text-slate-300 font-mono">{hour}:00</span>
                   </div>
                 ))}
               </div>
@@ -284,21 +270,20 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
                       <div
                         key={block.id}
                         onDoubleClick={() => setBlocks(prev => prev.filter(b => b.id !== block.id))}
-                        className={`absolute left-1 right-1 rounded-lg border flex flex-col overflow-hidden shadow-sm transition-all group ${cp.done ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-blue-50 border-blue-200 text-blue-900 hover:shadow-md'}`}
+                        className={`absolute left-1 right-1 rounded-xl border flex flex-col overflow-hidden shadow-sm transition-all group ${cp.done ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-blue-50 border-blue-200 text-blue-900 hover:shadow-lg'}`}
                         style={{ top: timeToPx(block.start), height: timeToPx(block.end - block.start), zIndex: dragState?.blockId === block.id ? 50 : 10 }}
                       >
-                        <div className="flex-1 p-2 cursor-move flex flex-col overflow-hidden relative" onMouseDown={e => handleMouseDown(e, block, 'move')}>
-                          <div className={`text-[9px] font-bold uppercase tracking-tight truncate mb-1 ${cp.done ? 'text-slate-400' : 'text-blue-500/80'}`}>{task.title}</div>
+                        <div className="flex-1 p-3 cursor-move flex flex-col overflow-hidden relative" onMouseDown={e => handleMouseDown(e, block, 'move')}>
+                          <div className={`text-[9px] font-black uppercase tracking-tight truncate mb-1.5 ${cp.done ? 'text-slate-400' : 'text-blue-500/80'}`}>{task.title}</div>
                           
-                          <div onMouseDown={(e) => e.stopPropagation()} className="flex items-start gap-1.5">
+                          <div onMouseDown={(e) => e.stopPropagation()} className="flex items-start gap-2">
                              <input 
-                               type="checkbox"
-                               checked={cp.done}
+                               type="checkbox" checked={cp.done}
                                onChange={(e) => {
                                  const updatedCps = task.checkpoints.map(c => c.id === cp.id ? { ...c, done: e.target.checked } : c);
                                  updateTask(task.id, { checkpoints: updatedCps });
                                }}
-                               className={`mt-[1.5px] w-3 h-3 rounded cursor-pointer shrink-0 ${cp.done ? 'border-slate-300 text-slate-400' : 'border-blue-300 text-blue-600 focus:ring-blue-500'}`}
+                               className={`mt-[2px] w-3.5 h-3.5 rounded cursor-pointer shrink-0 border-2 transition-all ${cp.done ? 'bg-slate-300 border-slate-300' : 'bg-white border-blue-300 checked:bg-blue-600'}`}
                              />
                              <div className="flex-1 min-w-0">
                                <CleanInput 
@@ -307,16 +292,16 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
                                      const updatedCps = task.checkpoints.map(c => c.id === cp.id ? { ...c, text: newText } : c);
                                      updateTask(task.id, { checkpoints: updatedCps });
                                   }} 
-                                  className={`text-[11px] font-bold leading-tight w-full ${cp.done ? 'line-through opacity-60 text-slate-500' : ''}`} 
+                                  className={`text-xs font-bold leading-tight w-full bg-transparent ${cp.done ? 'line-through opacity-50' : ''}`} 
                                />
                              </div>
                           </div>
 
-                          <div className={`text-[9px] font-mono mt-auto flex items-center gap-1 ${cp.done ? 'opacity-50' : 'opacity-70'}`}><Clock size={8} /> {formatTime(block.start)} - {formatTime(block.end)}</div>
-                          <button className="absolute top-1 right-1 p-1 hover:bg-black/10 rounded text-black/40 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setBlocks(prev => prev.filter(b => b.id !== block.id)); }}><X size={10}/></button>
+                          <div className="text-[9px] font-mono mt-auto flex items-center gap-1 opacity-50"><Clock className="w-3 h-3" /> {formatTime(block.start)}</div>
+                          <button className="absolute top-2 right-2 p-1.5 hover:bg-black/10 rounded-lg text-black/30 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => { e.stopPropagation(); setBlocks(prev => prev.filter(b => b.id !== block.id)); }}><X className="w-3.5 h-3.5" /></button>
                         </div>
-                        <div className={`h-2 w-full cursor-ns-resize shrink-0 flex items-center justify-center ${cp.done ? 'hover:bg-slate-200' : 'hover:bg-blue-200'}`} onMouseDown={e => handleMouseDown(e, block, 'resize')}>
-                          <div className={`w-4 h-0.5 rounded-full ${cp.done ? 'bg-slate-300' : 'bg-blue-300'}`} />
+                        <div className={`h-2.5 w-full cursor-ns-resize shrink-0 flex items-center justify-center group-hover:bg-black/5`} onMouseDown={e => handleMouseDown(e, block, 'resize')}>
+                          <div className={`w-6 h-1 rounded-full ${cp.done ? 'bg-slate-200' : 'bg-blue-200'}`} />
                         </div>
                       </div>
                     );
@@ -335,14 +320,15 @@ const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
 const App = () => {
   const [user, setUser] = useState(null);
   const [data, setData] = useState(DEFAULT_DATA);
-  const [syncStatus, setSyncStatus] = useState('Connecting Firebase...');
+  const [syncStatus, setSyncStatus] = useState('시스템 초기화 중...');
   
   const [activeView, setActiveView] = useState('overview'); 
   const [activeTaskId, setActiveTaskId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // --- Auth & Cloud Lifecycle ---
   useEffect(() => {
-    if (!auth) return;
+    if (!auth) { setSyncStatus('Firebase Config 필요'); return; }
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -350,43 +336,32 @@ const App = () => {
         } else {
           await signInAnonymously(auth);
         }
-      } catch (err) { console.error("Firebase Auth Error:", err); }
+      } catch (err) { console.error("Firebase Auth Error", err); }
     };
     initAuth();
-    const unsub = onAuthStateChanged(auth, setUser);
-    return () => unsub();
+    return onAuthStateChanged(auth, setUser);
   }, []);
 
   useEffect(() => {
     if (!user || !db) return;
-    
-    setSyncStatus('Fetching Cloud Data...');
+    setSyncStatus('데이터 동기화 중...');
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
     
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setData(docSnap.data());
-      } else {
-        setDoc(docRef, DEFAULT_DATA);
-      }
-      setSyncStatus('Cloud Synced');
-    }, (error) => {
-      console.error("Firestore Listen Error:", error);
-      setSyncStatus('Sync Error');
-    });
-
-    return () => unsubscribe();
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) { setData(docSnap.data()); }
+      else { setDoc(docRef, DEFAULT_DATA); }
+      setSyncStatus('클라우드 동기화 완료');
+    }, (error) => { setSyncStatus('동기화 오류'); });
   }, [user]);
 
   const saveToCloud = useCallback((newData) => {
     if (!user || !db) return;
-    setSyncStatus('Saving...');
+    setSyncStatus('변경사항 저장 중...');
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
-    setDoc(docRef, newData)
-      .then(() => setSyncStatus('Cloud Synced'))
-      .catch((err) => { console.error(err); setSyncStatus('Sync Error'); });
+    setDoc(docRef, newData).then(() => setSyncStatus('클라우드 동기화 완료')).catch(() => setSyncStatus('저장 실패'));
   }, [user]);
 
+  // Calculations
   const activeTask = useMemo(() => data.tasks.find(t => t.id === activeTaskId) || null, [data.tasks, activeTaskId]);
   const globalProgress = useMemo(() => {
     if (data.tasks.length === 0) return 0;
@@ -404,16 +379,11 @@ const App = () => {
   };
 
   const updateTask = (id, updates) => updateData('tasks', tasks => tasks.map(t => t.id === id ? { ...t, ...updates } : t));
-  const addTask = () => updateData('tasks', tasks => [...tasks, { id: `t${Date.now()}`, title: '새로운 시스템 모듈', log: '', checkpoints: [] }]);
-  
+  const addTask = () => updateData('tasks', tasks => [...tasks, { id: `t${Date.now()}`, title: '신규 설계 모듈', log: '', checkpoints: [] }]);
   const deleteTask = (id) => {
-    if(confirm("이 작업과 연계된 일정, 저널이 모두 삭제됩니다.")) {
+    if(window.confirm("관련된 일정과 문서가 모두 영구 삭제됩니다. 계속하시겠습니까?")) {
       setData(prev => {
-        const newData = {
-          ...prev,
-          tasks: prev.tasks.filter(t => t.id !== id),
-          blocks: prev.blocks.filter(b => b.taskId !== id)
-        };
+        const newData = { ...prev, tasks: prev.tasks.filter(t => t.id !== id), blocks: prev.blocks.filter(b => b.taskId !== id) };
         saveToCloud(newData);
         return newData;
       });
@@ -421,81 +391,70 @@ const App = () => {
     }
   };
 
-  const deleteCheckpoint = (taskId, cpId) => {
-    setData(prev => {
-      const newData = {
-        ...prev,
-        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, checkpoints: t.checkpoints.filter(c => c.id !== cpId) } : t),
-        blocks: prev.blocks.filter(b => b.checkpointId !== cpId)
-      };
-      saveToCloud(newData);
-      return newData;
-    });
-  };
-
   return (
-    <div className="flex h-screen w-full bg-[#f4f6f8] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-[#f8f9fb] text-slate-800 font-sans overflow-hidden">
       
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 bg-slate-900 text-slate-300 flex flex-col shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-56' : 'w-0 lg:w-16'} overflow-hidden`}>
-        <div className="h-16 flex items-center justify-center border-b border-slate-800 shrink-0">
-          <Cpu size={20} className="text-blue-400" />
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 bg-[#0f172a] text-slate-400 flex flex-col shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 lg:w-20'} overflow-hidden`}>
+        <div className="h-20 flex items-center justify-center border-b border-white/5 shrink-0">
+          <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50">
+            <Cpu className="w-6 h-6" />
+          </div>
         </div>
-        <nav className="flex-1 flex flex-col py-6 space-y-2 px-3">
-          <button onClick={() => setActiveView('overview')} className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-all ${activeView === 'overview' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <LayoutDashboard size={18} className="shrink-0" /> 
-            <span className={`text-xs font-semibold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>Project Overview</span>
+        <nav className="flex-1 flex flex-col py-8 space-y-2 px-4">
+          <button onClick={() => setActiveView('overview')} className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all ${activeView === 'overview' ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20' : 'hover:bg-white/5 hover:text-white'}`}>
+            <LayoutDashboard className="w-5 h-5 shrink-0" /> 
+            <span className={`text-[13px] font-bold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>System Overview</span>
           </button>
-          <button onClick={() => setActiveView('scheduler')} className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-all ${activeView === 'scheduler' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <CalendarDays size={18} className="shrink-0" /> 
-            <span className={`text-xs font-semibold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>Time Scheduler</span>
+          <button onClick={() => setActiveView('scheduler')} className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all ${activeView === 'scheduler' ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20' : 'hover:bg-white/5 hover:text-white'}`}>
+            <CalendarDays className="w-5 h-5 shrink-0" /> 
+            <span className={`text-[13px] font-bold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>Time Scheduler</span>
           </button>
         </nav>
-        <div className={`p-4 border-t border-slate-800 transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
-           <div className="flex justify-between items-center text-[10px] uppercase tracking-wider mb-2 text-slate-400"><span>Yield</span> <span>{globalProgress}%</span></div>
-           <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden"><div className="bg-blue-500 h-full transition-all" style={{width: `${globalProgress}%`}}/></div>
+        <div className={`p-6 border-t border-white/5 transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
+           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest mb-3 text-slate-500"><span>Yield</span> <span>{globalProgress}%</span></div>
+           <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden shadow-inner"><div className="bg-blue-500 h-full transition-all duration-1000 ease-out" style={{width: `${globalProgress}%`}}/></div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
-        <header className="h-16 flex items-center px-6 bg-white border-b border-slate-200 shrink-0 shadow-sm z-20">
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:text-slate-800 transition-colors mr-4">
-            <Menu size={18} />
+        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 shadow-sm z-20">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 text-slate-400 hover:text-slate-900 transition-colors mr-6 bg-slate-50 rounded-xl">
+            <Menu className="w-5 h-5" />
           </button>
-          <CleanInput value={data.projectName} onChange={v => updateData('projectName', v)} className="text-sm font-bold text-slate-800 max-w-sm" />
+          <CleanInput value={data.projectName} onChange={v => updateData('projectName', v)} className="text-lg font-black text-slate-900 max-w-lg" />
           
           <div className="ml-auto flex items-center gap-4">
-            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-slate-400 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-200">
-               <Cloud size={12} className={syncStatus.includes('Error') ? 'text-red-500' : syncStatus.includes('Saving') ? 'text-blue-500 animate-pulse' : 'text-emerald-500'} />
-               {syncStatus}
+            <div className="flex items-center gap-2.5 text-[10px] font-black text-slate-400 px-4 py-2 bg-slate-50 rounded-full border border-slate-200 shadow-inner tracking-wider">
+               <Cloud className={`w-3.5 h-3.5 ${syncStatus.includes('오류') ? 'text-red-500' : syncStatus.includes('저장') ? 'text-blue-500 animate-pulse' : 'text-emerald-500'}`} />
+               {syncStatus.toUpperCase()}
             </div>
           </div>
         </header>
 
         <div className="flex-1 overflow-hidden relative">
           {activeView === 'overview' && (
-            <div className="absolute inset-0 flex p-6 gap-6 overflow-hidden bg-[#fafbfc]">
-              
-              <div className="w-full lg:w-1/2 flex flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                  <h2 className="text-sm font-bold text-slate-800">Task Breakdown</h2>
-                  <button onClick={addTask} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"><Plus size={18}/></button>
+            <div className="absolute inset-0 flex p-8 gap-8 overflow-hidden bg-[#f8f9fb]">
+              <div className="w-full lg:w-[450px] flex flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-lg shadow-slate-200/50 shrink-0">
+                <div className="p-7 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                  <h2 className="text-sm font-black text-slate-800 tracking-tight">Project Breakdown</h2>
+                  <button onClick={addTask} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"><Plus className="w-4 h-4"/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scroll">
+                <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scroll">
                   {data.tasks.map(task => {
                     const total = task.checkpoints.length;
                     const done = task.checkpoints.filter(c=>c.done).length;
                     const progress = total === 0 ? 0 : Math.round((done/total)*100);
                     return (
-                      <div key={task.id} onClick={() => setActiveTaskId(task.id)} className={`group border rounded-2xl p-4 cursor-pointer transition-all ${activeTaskId === task.id ? 'border-blue-400 shadow-md bg-blue-50/20' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm bg-white'}`}>
-                        <div className="flex justify-between items-start mb-3">
-                          <CleanInput value={task.title} onChange={v => updateTask(task.id, {title: v})} className={`text-sm font-bold w-full ${progress === 100 && total > 0 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
-                          <button onClick={(e) => {e.stopPropagation(); deleteTask(task.id)}} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 ml-3"><Trash2 size={16}/></button>
+                      <div key={task.id} onClick={() => setActiveTaskId(task.id)} className={`group border-2 rounded-3xl p-5 cursor-pointer transition-all duration-300 ${activeTaskId === task.id ? 'border-blue-500 bg-blue-50/20 shadow-xl shadow-blue-100/50' : 'border-slate-100 hover:border-slate-300 bg-white hover:shadow-lg'}`}>
+                        <div className="flex justify-between items-start mb-4">
+                          <CleanInput value={task.title} onChange={v => updateTask(task.id, {title: v})} className={`text-sm font-black w-full ${progress === 100 && total > 0 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
+                          <button onClick={(e) => {e.stopPropagation(); deleteTask(task.id)}} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 ml-3 transition-all"><Trash2 className="w-4 h-4"/></button>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-blue-500 h-full transition-all" style={{width: `${progress}%`}}/>
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
+                            <div className="bg-blue-600 h-full transition-all duration-700" style={{width: `${progress}%`}}/>
                           </div>
-                          <span className="text-[10px] font-mono font-medium text-slate-500 w-8 text-right">{done}/{total}</span>
+                          <span className="text-[11px] font-black font-mono text-slate-400 w-10 text-right">{progress}%</span>
                         </div>
                       </div>
                     );
@@ -504,45 +463,48 @@ const App = () => {
               </div>
 
               {activeTask ? (
-                <div className="hidden lg:flex w-1/2 flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-lg animate-in slide-in-from-right-8 duration-300">
-                  <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h2 className="text-sm font-bold text-slate-800 truncate pr-4">{activeTask.title}</h2>
-                    <button onClick={() => setActiveTaskId(null)} className="p-1 text-slate-400 hover:bg-slate-200 rounded-lg"><X size={18}/></button>
+                <div className="hidden lg:flex flex-1 flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200 animate-in fade-in slide-in-from-right-12 duration-500">
+                  <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Active Instance</span>
+                      <h2 className="text-xl font-black text-slate-800 truncate pr-6">{activeTask.title}</h2>
+                    </div>
+                    <button onClick={() => setActiveTaskId(null)} className="p-2.5 text-slate-400 hover:bg-slate-200 rounded-xl transition-all"><X className="w-5 h-5"/></button>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-6 custom-scroll space-y-8">
-                    
+                  <div className="flex-1 overflow-y-auto p-8 custom-scroll space-y-10">
                     <section>
-                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><CheckSquare size={14}/> Sub-Checkpoints</h3>
-                      <div className="space-y-2">
+                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><CheckSquare className="w-4 h-4 text-blue-500"/> Checkpoints & Progress</h3>
+                      <div className="space-y-3 bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 shadow-inner">
                         {activeTask.checkpoints.map((cp, idx) => (
-                          <div key={cp.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg group">
-                            <input type="checkbox" checked={cp.done} onChange={(e) => { const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked; updateTask(activeTask.id, {checkpoints: n}); }} className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                            <CleanInput value={cp.text} onChange={v => { const n = [...activeTask.checkpoints]; n[idx].text = v; updateTask(activeTask.id, {checkpoints: n}); }} className={`text-xs w-full mt-0.5 ${cp.done ? 'text-slate-400 line-through' : 'text-slate-700'}`} />
-                            <button onClick={() => deleteCheckpoint(activeTask.id, cp.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500"><X size={14}/></button>
+                          <div key={cp.id} className="flex items-center gap-4 p-3.5 bg-white border border-slate-100 rounded-2xl group/item shadow-sm hover:shadow-md transition-all">
+                            <input type="checkbox" checked={cp.done} onChange={(e) => { const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked; updateTask(activeTask.id, {checkpoints: n}); }} className="w-4.5 h-4.5 rounded-lg border-2 border-slate-300 text-blue-600 transition-all cursor-pointer" />
+                            <CleanInput value={cp.text} onChange={v => { const n = [...activeTask.checkpoints]; n[idx].text = v; updateTask(activeTask.id, {checkpoints: n}); }} className={`text-xs font-bold w-full ${cp.done ? 'text-slate-300 line-through' : 'text-slate-700'}`} />
+                            <button onClick={() => updateTask(activeTask.id, {checkpoints: activeTask.checkpoints.filter(c=>c.id!==cp.id)})} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500 transition-all"><X className="w-4 h-4"/></button>
                           </div>
                         ))}
-                        <button onClick={() => updateTask(activeTask.id, {checkpoints: [...activeTask.checkpoints, {id: `c${Date.now()}`, text: "신규 검증 사항", done: false}]})} className="text-xs font-semibold text-blue-600 hover:text-blue-800 mt-2 flex items-center gap-1 pl-1"><Plus size={14}/> 항목 추가</button>
+                        <button onClick={() => updateTask(activeTask.id, {checkpoints: [...activeTask.checkpoints, {id: `c${Date.now()}`, text: "신규 검토 사항", done: false}]})} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-black text-slate-400 hover:border-blue-300 hover:text-blue-500 hover:bg-white transition-all flex items-center justify-center gap-2 mt-2 tracking-widest uppercase">+ Add New Log</button>
                       </div>
                     </section>
-
-                    <section className="flex flex-col flex-1">
-                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><FileText size={14}/> Engineering Journal</h3>
+                    <section className="flex flex-col flex-1 pb-4">
+                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-500"/> Engineering Journal</h3>
                       <JournalEditor activeTask={activeTask} updateTask={updateTask} />
                     </section>
-
                   </div>
                 </div>
               ) : (
-                <div className="hidden lg:flex w-1/2 flex-col justify-center items-center text-slate-400 bg-white/50 border border-slate-200 border-dashed rounded-3xl">
-                  <FileText size={48} strokeWidth={1} className="mb-4 text-slate-300"/>
-                  <p className="text-sm font-medium">좌측에서 태스크를 선택하여 상세 문서를 편집하십시오.</p>
+                <div className="hidden lg:flex flex-1 flex-col justify-center items-center text-slate-400 bg-white/50 border-2 border-slate-200 border-dashed rounded-[32px]">
+                  <div className="bg-white p-8 rounded-[32px] shadow-2xl shadow-slate-200 border border-slate-100 flex flex-col items-center">
+                    <FileText className="w-16 h-16 mb-6 text-slate-200" strokeWidth={1} />
+                    <p className="text-sm font-black uppercase tracking-widest text-slate-300">Ready for Documentation</p>
+                    <p className="text-[10px] font-medium mt-3 text-slate-400">항목을 선택하여 저널 기록을 시작하십시오.</p>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
           {activeView === 'scheduler' && (
-            <div className="absolute inset-0 p-6 bg-[#fafbfc]">
+            <div className="absolute inset-0 p-8 bg-[#f8f9fb]">
               <SchedulerBoard tasks={data.tasks} blocks={data.blocks} setBlocks={b => updateData('blocks', b)} updateTask={updateTask} />
             </div>
           )}
@@ -550,14 +512,17 @@ const App = () => {
       </main>
       
       <style>{`
-        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 20px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
         input[type="checkbox"] { accent-color: #2563eb; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fade-in 0.4s ease-out forwards; }
       `}</style>
     </div>
   );
 };
 
 export default App;
+      
