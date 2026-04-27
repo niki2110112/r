@@ -1,581 +1,407 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { 
-  CheckCircle2, Circle, Cpu, Plus, Trash2, Settings2, 
-  CheckSquare, AlignLeft, Download, RotateCcw, Menu, CalendarDays, 
-  Clock, LayoutDashboard, Minimize2, Database,
-  FileText, X, ChevronRight, Layers, GripVertical, Cloud, UploadCloud
-} from 'lucide-react';
-
-// --- Firebase Cloud Imports ---
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
-
-// --- Firebase Initialization (Integrated from your Ledger System) ---
-const firebaseConfig = {
-  apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
-  authDomain: "meal-c8b86.firebaseapp.com",
-  projectId: "meal-c8b86",
-  storageBucket: "meal-c8b86.firebasestorage.app",
-  messagingSenderId: "476361866831",
-  appId: "1:476361866831:web:d1f841697bcfb76dee743a"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = "hydrogel-os-v4-4"; // 고유 앱 ID
-
-// --- Configuration & Utility ---
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const SNAP_STEP = 0.25; 
-const HOUR_HEIGHT = 60; 
-const GRID_HEIGHT = 24 * HOUR_HEIGHT;
-
-const snap = (value) => Math.round(value / SNAP_STEP) * SNAP_STEP;
-const timeToPx = (time) => time * HOUR_HEIGHT;
-const formatTime = (time) => {
-  const h = Math.floor(time);
-  const m = Math.round((time - h) * 60);
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-};
-
-const DEFAULT_DATA = {
-  projectName: "하이드로겔 시스템 OS",
-  tasks: [
-    { 
-      id: 't1', 
-      title: 'Phase 1: 유변학적 거동 수식 모델링', 
-      log: 'Power-law 모델 기반의 점성 계수 산출 로직 설계.', 
-      checkpoints: [
-        {id: 'c1', text: 'K (Consistency Index) 데이터 확보', done: true}, 
-        {id: 'c2', text: 'n (Flow Behavior Index) 측정 시나리오 작성', done: false}
-      ] 
-    }
-  ],
-  vault: [ { id: 'v1', key: 'Target Yield', value: '95', unit: '%' } ],
-  blocks: []
-};
-
-// --- Sub Component: CleanInput ---
-const CleanInput = ({ value, onChange, className, placeholder, multiline = false }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempValue, setTempValue] = useState(value);
-  const inputRef = useRef(null);
-
-  useEffect(() => setTempValue(value), [value]);
-
-  const commit = useCallback(() => {
-    setIsEditing(false);
-    if (tempValue.trim() !== value) onChange(tempValue.trim() || placeholder);
-  }, [tempValue, value, onChange, placeholder]);
-
-  if (isEditing) {
-    const props = {
-      ref: inputRef,
-      className: `bg-white border border-blue-400 outline-none w-full font-medium text-slate-800 rounded px-1 -ml-1 ${className}`,
-      value: tempValue,
-      onChange: (e) => setTempValue(e.target.value),
-      onBlur: commit,
-      onKeyDown: (e) => {
-        if (e.key === 'Enter' && !multiline) commit();
-        if (e.key === 'Escape') { setTempValue(value); setIsEditing(false); }
-      },
-      autoFocus: true,
-    };
-    return multiline ? <textarea {...props} rows={2} className={`${props.className} resize-none`} /> : <input type="text" {...props} />;
-  }
-
-  return (
-    <div onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate min-h-[1.5em] flex items-center ${!value ? 'text-slate-300 italic' : ''} ${className}`}>
-      {value || placeholder}
-    </div>
-  );
-};
-
-// --- Sub Component: Scheduler Board ---
-const SchedulerBoard = ({ tasks, blocks, setBlocks, updateTask }) => {
-  const [dragState, setDragState] = useState(null);
-  const [localBlocks, setLocalBlocks] = useState(blocks);
-  const gridRef = useRef(null);
-
-  useEffect(() => { if (!dragState) setLocalBlocks(blocks); }, [blocks, dragState]);
-
-  const handleDragStart = (e, taskId, checkpointId) => {
-    e.dataTransfer.setData('application/json', JSON.stringify({ taskId, checkpointId }));
-    e.dataTransfer.effectAllowed = 'copy';
-  };
-
-  const handleDrop = (e, dayIdx) => {
-    e.preventDefault();
-    try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      const rect = e.currentTarget.getBoundingClientRect();
-      let start = snap((e.clientY - rect.top) / HOUR_HEIGHT);
-      if (start < 0) start = 0;
-      if (start > 23) start = 23;
-      
-      setBlocks(prev => [...prev, { 
-        id: `b${Date.now()}`, taskId: data.taskId, checkpointId: data.checkpointId, day: dayIdx, start, end: Math.min(start + 1.5, 24) 
-      }]);
-    } catch (err) { console.error("Drop error"); }
-  };
-
-  const handleMouseDown = (e, block, action) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    setDragState({ action, blockId: block.id, startY: e.clientY, originalStart: block.start, originalEnd: block.end, originalDay: block.day });
-  };
-
-  const handleMouseMove = useCallback((e) => {
-    if (!dragState) return;
-    setLocalBlocks(prev => prev.map(b => {
-      if (b.id !== dragState.blockId) return b;
-      const deltaTime = snap((e.clientY - dragState.startY) / HOUR_HEIGHT);
-
-      if (dragState.action === 'resize') {
-        let end = dragState.originalEnd + deltaTime;
-        return { ...b, end: Math.min(Math.max(b.start + SNAP_STEP, end), 24) };
-      }
-      if (dragState.action === 'move') {
-        const dur = dragState.originalEnd - dragState.originalStart;
-        let start = dragState.originalStart + deltaTime;
-        let end = start + dur;
-        let day = dragState.originalDay;
-
-        if (gridRef.current) {
-          const rect = gridRef.current.getBoundingClientRect();
-          const colWidth = (rect.width - 48) / 7;
-          const relX = e.clientX - rect.left + gridRef.current.scrollLeft - 48;
-          if (relX >= 0 && relX <= rect.width - 48) day = Math.max(0, Math.min(6, Math.floor(relX / colWidth)));
-        }
-
-        if (start < 0) { start = 0; end = dur; }
-        else if (end > 24) { end = 24; start = 24 - dur; }
-        return { ...b, start, end, day };
-      }
-      return b;
-    }));
-  }, [dragState]);
-
-  const handleMouseUp = useCallback(() => {
-    if (dragState) {
-       setBlocks(localBlocks);
-       setDragState(null);
-    }
-  }, [dragState, localBlocks, setBlocks]);
-
-  useEffect(() => {
-    if (dragState) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [dragState, handleMouseMove, handleMouseUp]);
-
-  return (
-    <div className="flex h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xl shadow-slate-200/50">
-      <div className="w-72 bg-slate-50/50 border-r border-slate-100 flex flex-col shrink-0 h-full">
-        <div className="p-5 border-b border-slate-100 bg-white">
-          <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-            <LayoutList className="text-blue-500 w-4 h-4 shrink-0" /> Resources
-          </h3>
-          <p className="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium">세부 항목을 드래그하여 일정에 할당하십시오.</p>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scroll">
-          {tasks.map(task => {
-             const progress = task.checkpoints.length === 0 ? 0 : Math.round((task.checkpoints.filter(c=>c.done).length / task.checkpoints.length) * 100);
-             if (progress === 100 && task.checkpoints.length > 0) return null;
-
-             return (
-              <div key={task.id} className="flex flex-col gap-2">
-                <div className="text-[10px] font-bold text-slate-500 tracking-tight flex items-center justify-between border-b border-slate-200 pb-1.5">
-                  <span className="truncate max-w-[80%]">{task.title}</span>
-                  <span className="text-[9px] font-mono opacity-50 shrink-0">{progress}%</span>
-                </div>
-                {task.checkpoints.map(cp => {
-                   if(cp.done) return null;
-                   return (
-                     <div 
-                        key={cp.id} draggable onDragStart={(e) => handleDragStart(e, task.id, cp.id)} 
-                        className="bg-white border border-slate-200 p-3 rounded-xl cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-md transition-all flex items-start gap-3 group"
-                     >
-                        <GripVertical className="text-slate-300 shrink-0 mt-0.5 w-3.5 h-3.5" />
-                        <div className="text-[11px] font-bold text-slate-700 leading-snug">{cp.text}</div>
-                     </div>
-                   );
-                })}
-              </div>
-             );
-          })}
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col relative bg-white overflow-hidden">
-        <div className="flex-1 overflow-auto custom-scroll" ref={gridRef}>
-          <div className="min-w-[850px] h-full flex flex-col">
-            <div className="flex border-b border-slate-100 bg-white sticky top-0 z-30 pl-12 shadow-sm">
-              {DAYS.map(day => (
-                <div key={day} className="flex-1 py-3 text-center border-l border-slate-50 first:border-l-0">
-                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{day}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex relative bg-slate-50/20" style={{ height: GRID_HEIGHT }}>
-              <div className="w-12 shrink-0 border-r border-slate-100 bg-white relative z-20">
-                {HOURS.map(hour => (
-                  <div key={hour} className="absolute w-full flex justify-center -translate-y-1/2" style={{ top: timeToPx(hour) }}>
-                    <span className="text-[10px] font-bold text-slate-300 font-mono">{hour}:00</span>
-                  </div>
-                ))}
-              </div>
-              {DAYS.map((_, dayIdx) => (
-                <div key={dayIdx} className="flex-1 relative border-l border-slate-100/50 first:border-l-0" onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, dayIdx)}>
-                  {HOURS.map(hour => <div key={hour} className="absolute w-full border-t border-slate-100 pointer-events-none" style={{ top: timeToPx(hour), height: HOUR_HEIGHT }} />)}
-                  
-                  {localBlocks.filter(b => b.day === dayIdx).map(block => {
-                    const task = tasks.find(t => t.id === block.taskId);
-                    const cp = task?.checkpoints.find(c => c.id === block.checkpointId);
-                    if (!task || !cp) return null;
-
-                    return (
-                      <div
-                        key={block.id}
-                        onDoubleClick={() => setBlocks(prev => prev.filter(b => b.id !== block.id))}
-                        className={`absolute left-1 right-1 rounded-xl border flex flex-col overflow-hidden shadow-sm transition-all group ${cp.done ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-blue-50 border-blue-200 text-blue-900 hover:shadow-lg'}`}
-                        style={{ top: timeToPx(block.start), height: timeToPx(block.end - block.start), zIndex: dragState?.blockId === block.id ? 50 : 10 }}
-                      >
-                        <div className="flex-1 p-3 cursor-move flex flex-col overflow-hidden relative" onMouseDown={e => handleMouseDown(e, block, 'move')}>
-                          <div className={`text-[9px] font-black uppercase tracking-tight truncate mb-1.5 ${cp.done ? 'text-slate-400' : 'text-blue-500/80'}`}>{task.title}</div>
-                          
-                          <div onMouseDown={(e) => e.stopPropagation()} className="flex items-start gap-2">
-                             <input 
-                               type="checkbox" checked={cp.done}
-                               onChange={(e) => {
-                                 const updatedCps = task.checkpoints.map(c => c.id === cp.id ? { ...c, done: e.target.checked } : c);
-                                 updateTask(task.id, { checkpoints: updatedCps });
-                               }}
-                               className={`mt-[2px] w-3.5 h-3.5 rounded cursor-pointer shrink-0 border-2 transition-all ${cp.done ? 'bg-slate-300 border-slate-300' : 'bg-white border-blue-300 checked:bg-blue-600'}`}
-                             />
-                             <div className="flex-1 min-w-0">
-                               <CleanInput 
-                                  value={cp.text} 
-                                  onChange={(newText) => {
-                                     const updatedCps = task.checkpoints.map(c => c.id === cp.id ? { ...c, text: newText } : c);
-                                     updateTask(task.id, { checkpoints: updatedCps });
-                                  }} 
-                                  className={`text-xs font-bold leading-tight w-full bg-transparent ${cp.done ? 'line-through opacity-50 text-slate-400' : ''}`} 
-                               />
-                             </div>
-                          </div>
-
-                          <div className="text-[9px] font-mono mt-auto flex items-center gap-1 opacity-50 font-bold shrink-0"><Clock className="w-3 h-3 shrink-0" /> {formatTime(block.start)}</div>
-                          <button className="absolute top-2 right-2 p-1.5 hover:bg-black/10 rounded-lg text-black/30 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => { e.stopPropagation(); setBlocks(prev => prev.filter(b => b.id !== block.id)); }}><X className="w-3.5 h-3.5 shrink-0" /></button>
-                        </div>
-                        <div className={`h-2.5 w-full cursor-ns-resize shrink-0 flex items-center justify-center group-hover:bg-black/5`} onMouseDown={e => handleMouseDown(e, block, 'resize')}>
-                          <div className={`w-6 h-1 rounded-full ${cp.done ? 'bg-slate-200' : 'bg-blue-200'}`} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- Main Application ---
-const App = () => {
-  const [user, setUser] = useState(null);
-  const [data, setData] = useState(DEFAULT_DATA);
-  const [syncStatus, setSyncStatus] = useState('Initializing...');
-  
-  const [activeView, setActiveView] = useState('overview'); 
-  const [activeTaskId, setActiveTaskId] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  // --- Auth & Cloud Lifecycle ---
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-        onAuthStateChanged(auth, setUser);
-      } catch (err) { setSyncStatus('Auth Error'); }
-    };
-    initAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    setSyncStatus('Synchronizing...');
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HYDROGEL OS v5.0 (Integrated Cloud)</title>
+    <!-- Libraries (CDN) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) { setData(docSnap.data()); }
-      else { setDoc(docRef, DEFAULT_DATA); }
-      setSyncStatus('Cloud Ready');
-    }, (error) => { setSyncStatus('Sync Error'); });
-  }, [user]);
+    <!-- Firebase (Compat Version for simplicity like your legacy code) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
-  const saveToCloud = useCallback((newData) => {
-    if (!user) return;
-    setSyncStatus('Saving...');
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
-    setDoc(docRef, newData).then(() => setSyncStatus('Cloud Ready')).catch(() => setSyncStatus('Save Error'));
-  }, [user]);
-
-  // Calculations
-  const activeTask = useMemo(() => data.tasks.find(t => t.id === activeTaskId) || null, [data.tasks, activeTaskId]);
-  const globalProgress = useMemo(() => {
-    if (data.tasks.length === 0) return 0;
-    const taskProgresses = data.tasks.map(t => t.checkpoints.length === 0 ? 0 : t.checkpoints.filter(c=>c.done).length / t.checkpoints.length);
-    return Math.round((taskProgresses.reduce((sum, val) => sum + val, 0) / data.tasks.length) * 100);
-  }, [data.tasks]);
-
-  const updateData = (key, updater) => {
-    setData(prev => {
-      const nextVal = typeof updater === 'function' ? updater(prev[key]) : updater;
-      const newData = { ...prev, [key]: nextVal };
-      saveToCloud(newData);
-      return newData;
-    });
-  };
-
-  const updateTask = (id, updates) => updateData('tasks', tasks => tasks.map(t => t.id === id ? { ...t, ...updates } : t));
-  const addTask = () => updateData('tasks', tasks => [...tasks, { id: `t${Date.now()}`, title: '신규 설계 모듈', log: '', checkpoints: [] }]);
-  
-  const deleteTask = (id) => {
-    if(window.confirm("관련된 일정과 문서가 모두 영구 삭제됩니다.")) {
-      setData(prev => {
-        const newData = { ...prev, tasks: prev.tasks.filter(t => t.id !== id), blocks: prev.blocks.filter(b => b.taskId !== id) };
-        saveToCloud(newData);
-        return newData;
-      });
-      if (activeTaskId === id) setActiveTaskId(null);
-    }
-  };
-
-  // --- Export/Import (From your Ledger System) ---
-  const exportData = () => {
-    const dataStr = JSON.stringify(data, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hydrogel_os_backup_${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const importData = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const imported = JSON.parse(event.target.result);
-        if(imported.tasks && imported.vault) {
-          setData(imported);
-          saveToCloud(imported);
-        }
-      } catch (err) { alert("Invalid File Format"); }
-    };
-    reader.readAsText(file);
-  };
-
-  const hardReset = async () => {
-    if(confirm("모든 클라우드 데이터를 초기화하시겠습니까?")) {
-       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projectState', 'main');
-       await deleteDoc(docRef);
-       location.reload();
-    }
-  };
-
-  return (
-    <div className="flex h-screen w-full bg-[#f8f9fb] text-slate-800 font-sans overflow-hidden">
-      
-      {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 bg-[#0f172a] text-slate-400 flex flex-col shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 lg:w-20'} overflow-hidden`}>
-        <div className="h-20 flex items-center justify-center border-b border-white/5 shrink-0">
-          <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50">
-            <Cpu className="w-6 h-6 shrink-0" />
-          </div>
-        </div>
-        <nav className="flex-1 flex flex-col py-8 space-y-2 px-4">
-          <button onClick={() => setActiveView('overview')} className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all ${activeView === 'overview' ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20' : 'hover:bg-white/5 hover:text-white'}`}>
-            <LayoutDashboard className="w-5 h-5 shrink-0" /> 
-            <span className={`text-[13px] font-bold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>System Overview</span>
-          </button>
-          <button onClick={() => setActiveView('scheduler')} className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all ${activeView === 'scheduler' ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20' : 'hover:bg-white/5 hover:text-white'}`}>
-            <CalendarDays className="w-5 h-5 shrink-0" /> 
-            <span className={`text-[13px] font-bold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>Time Scheduler</span>
-          </button>
-          <button onClick={() => setActiveView('settings')} className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all ${activeView === 'settings' ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20' : 'hover:bg-white/5 hover:text-white'}`}>
-            <Settings2 className="w-5 h-5 shrink-0" /> 
-            <span className={`text-[13px] font-bold whitespace-nowrap transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>System Settings</span>
-          </button>
-        </nav>
-        <div className={`p-6 border-t border-white/5 transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
-           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest mb-3 text-slate-500"><span>Yield</span> <span>{globalProgress}%</span></div>
-           <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden shadow-inner"><div className="bg-blue-500 h-full transition-all duration-1000 ease-out" style={{width: `${globalProgress}%`}}/></div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 h-full relative">
-        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20">
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 text-slate-400 hover:text-slate-900 transition-colors mr-6 bg-slate-50 rounded-xl">
-            <Menu className="w-5 h-5 shrink-0" />
-          </button>
-          <CleanInput value={data.projectName} onChange={v => updateData('projectName', v)} className="text-lg font-black text-slate-900 max-w-lg" />
-          
-          <div className="ml-auto flex items-center gap-4">
-            <div className="flex items-center gap-2.5 text-[10px] font-black text-slate-400 px-4 py-2 bg-slate-50 rounded-full border border-slate-200 shadow-inner tracking-wider">
-               <Cloud className={`w-3.5 h-3.5 shrink-0 ${syncStatus.includes('Error') ? 'text-red-500' : syncStatus.includes('Saving') ? 'text-blue-500 animate-pulse' : 'text-emerald-500'}`} />
-               {syncStatus.toUpperCase()}
-            </div>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-hidden relative">
-          {activeView === 'overview' && (
-            <div className="absolute inset-0 flex p-8 gap-8 overflow-hidden bg-[#f8f9fb]">
-              <div className="w-full lg:w-[450px] flex flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-lg shadow-slate-200/50 shrink-0">
-                <div className="p-7 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                  <h2 className="text-sm font-black text-slate-800 tracking-tight">Project Breakdown</h2>
-                  <button onClick={addTask} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"><Plus className="w-4 h-4 shrink-0"/></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scroll">
-                  {data.tasks.map(task => {
-                    const total = task.checkpoints.length;
-                    const done = task.checkpoints.filter(c=>c.done).length;
-                    const progress = total === 0 ? 0 : Math.round((done/total)*100);
-                    return (
-                      <div key={task.id} onClick={() => setActiveTaskId(task.id)} className={`group border-2 rounded-3xl p-5 cursor-pointer transition-all duration-300 ${activeTaskId === task.id ? 'border-blue-500 bg-blue-50/20 shadow-xl shadow-blue-100/50' : 'border-slate-100 hover:border-slate-300 bg-white hover:shadow-lg'}`}>
-                        <div className="flex justify-between items-start mb-4">
-                          <CleanInput value={task.title} onChange={v => updateTask(task.id, {title: v})} className={`text-sm font-black w-full ${progress === 100 && total > 0 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
-                          <button onClick={(e) => {e.stopPropagation(); deleteTask(task.id)}} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 ml-3 transition-all"><Trash2 className="w-4 h-4 shrink-0"/></button>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
-                            <div className="bg-blue-600 h-full transition-all duration-700" style={{width: `${progress}%`}}/>
-                          </div>
-                          <span className="text-[11px] font-black font-mono text-slate-400 w-10 text-right">{progress}%</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {activeTask ? (
-                <div className="hidden lg:flex flex-1 flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200 animate-in fade-in slide-in-from-right-12 duration-500">
-                  <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <div className="flex flex-col gap-1 min-w-0">
-                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Active Module</span>
-                      <h2 className="text-xl font-black text-slate-800 truncate pr-6">{activeTask.title}</h2>
-                    </div>
-                    <button onClick={() => setActiveTaskId(null)} className="p-2.5 text-slate-400 hover:bg-slate-200 rounded-xl transition-all"><X className="w-5 h-5 shrink-0"/></button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-8 custom-scroll space-y-10">
-                    <section>
-                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><CheckSquare className="w-4 h-4 text-blue-500 shrink-0"/> Checkpoints & Progress</h3>
-                      <div className="space-y-3 bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 shadow-inner">
-                        {activeTask.checkpoints.map((cp, idx) => (
-                          <div key={cp.id} className="flex items-center gap-4 p-3.5 bg-white border border-slate-100 rounded-2xl group/item shadow-sm hover:shadow-md transition-all">
-                            <input type="checkbox" checked={cp.done} onChange={(e) => { const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked; updateTask(activeTask.id, {checkpoints: n}); }} className="w-4.5 h-4.5 rounded-lg border-2 border-slate-300 text-blue-600 transition-all cursor-pointer shrink-0" />
-                            <CleanInput value={cp.text} onChange={v => { const n = [...activeTask.checkpoints]; n[idx].text = v; updateTask(activeTask.id, {checkpoints: n}); }} className={`text-xs font-bold w-full ${cp.done ? 'text-slate-300 line-through' : 'text-slate-700'}`} />
-                            <button onClick={() => updateTask(activeTask.id, {checkpoints: activeTask.checkpoints.filter(c=>c.id!==cp.id)})} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500 transition-all"><X className="w-4 h-4 shrink-0"/></button>
-                          </div>
-                        ))}
-                        <button onClick={() => updateTask(activeTask.id, {checkpoints: [...activeTask.checkpoints, {id: `c${Date.now()}`, text: "신규 검토 사항", done: false}]})} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-black text-slate-400 hover:border-blue-300 hover:text-blue-500 hover:bg-white transition-all flex items-center justify-center gap-2 mt-2 tracking-widest uppercase">+ Add New Log</button>
-                      </div>
-                    </section>
-                    <section className="flex flex-col flex-1 pb-4">
-                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-500 shrink-0"/> Engineering Journal</h3>
-                      <textarea 
-                        className="w-full flex-1 min-h-[350px] bg-slate-50/50 border border-slate-200 rounded-2xl p-6 text-sm text-slate-700 leading-loose outline-none resize-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
-                        placeholder="설계 근거 및 수식을 기록하십시오..."
-                        value={activeTask.log}
-                        onChange={(e) => updateTask(activeTask.id, {log: e.target.value})}
-                        onBlur={() => saveToCloud(data)}
-                      />
-                    </section>
-                  </div>
-                </div>
-              ) : (
-                <div className="hidden lg:flex flex-1 flex-col justify-center items-center text-slate-400 bg-white/50 border-2 border-slate-200 border-dashed rounded-[32px]">
-                   <div className="flex flex-col items-center">
-                    <FileText className="w-16 h-16 mb-6 text-slate-200 shrink-0" strokeWidth={1} />
-                    <p className="text-sm font-black uppercase tracking-widest text-slate-300">Ready for Documentation</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeView === 'scheduler' && (
-            <div className="absolute inset-0 p-8 bg-[#f8f9fb]">
-              <SchedulerBoard tasks={data.tasks} blocks={data.blocks} setBlocks={b => updateData('blocks', b)} updateTask={updateTask} />
-            </div>
-          )}
-
-          {activeView === 'settings' && (
-            <div className="absolute inset-0 p-8 bg-[#f8f9fb] overflow-y-auto custom-scroll">
-              <div className="max-w-2xl mx-auto space-y-8">
-                <h2 className="text-2xl font-black text-slate-800">System Settings</h2>
-                
-                <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-lg">
-                  <h3 className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2"><Download className="w-4 h-4 shrink-0 text-blue-500"/> Data Backup & Restore</h3>
-                  <div className="grid grid-cols-1 gap-6">
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
-                      <div>
-                        <p className="text-xs font-bold text-slate-700 mb-1">Export Data</p>
-                        <p className="text-[10px] text-slate-400">현재 모든 프로젝트 데이터를 JSON으로 저장합니다.</p>
-                      </div>
-                      <button onClick={exportData} className="px-4 py-2 bg-slate-800 text-white text-[11px] font-bold rounded-xl hover:bg-slate-700 transition-all">Download</button>
-                    </div>
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-xs font-bold text-slate-700 mb-3">Import Data</p>
-                      <div className="flex gap-4 items-center">
-                        <input type="file" accept=".json" onChange={importData} className="text-[10px] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-lg border-rose-100">
-                  <h3 className="text-sm font-bold text-rose-800 mb-6 flex items-center gap-2"><RotateCcw className="w-4 h-4 shrink-0 text-rose-500"/> System Reset</h3>
-                  <button onClick={hardReset} className="w-full py-4 bg-rose-50 text-rose-600 border border-rose-100 text-xs font-black rounded-2xl hover:bg-rose-600 hover:text-white transition-all">DELETE ALL CLOUD DATA</button>
-                  <p className="text-[10px] text-rose-400 mt-4 text-center">이 작업은 취소할 수 없으며 클라우드의 모든 정보가 즉시 삭제됩니다.</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-      
-      <style>{`
-        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; color: #0f172a; }
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 20px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
         input[type="checkbox"] { accent-color: #2563eb; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-in { animation: fade-in 0.4s ease-out forwards; }
-      `}</style>
-    </div>
-  );
-};
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-export default App;
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+        // --- Firebase Config (From your Ledger code) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+            authDomain: "meal-c8b86.firebaseapp.com",
+            projectId: "meal-c8b86",
+            storageBucket: "meal-c8b86.firebasestorage.app",
+            messagingSenderId: "476361866831",
+            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const appId = "hydrogel-os-final";
+
+        // --- Constants ---
+        const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const HOURS = Array.from({ length: 24 }, (_, i) => i);
+        const SNAP_STEP = 0.25; 
+        const HOUR_HEIGHT = 64; 
+        const GRID_HEIGHT = 24 * HOUR_HEIGHT;
+
+        // --- Utils ---
+        const snap = (v) => Math.round(v / SNAP_STEP) * SNAP_STEP;
+        const formatTime = (t) => {
+            const h = Math.floor(t);
+            const m = Math.round((t - h) * 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        };
+
+        // --- Components ---
+        const Icon = ({ name, className = "w-4 h-4" }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className}></i>;
+        };
+
+        const CleanInput = ({ value, onChange, className, placeholder, multiline = false }) => {
+            const [isEditing, setIsEditing] = useState(false);
+            const [temp, setTemp] = useState(value);
+            useEffect(() => setTemp(value), [value]);
+
+            const commit = () => {
+                setIsEditing(false);
+                if (temp.trim() !== value) onChange(temp.trim() || placeholder);
+            };
+
+            if (isEditing) {
+                return multiline ? (
+                    <textarea 
+                        autoFocus className={`bg-white border border-blue-400 outline-none rounded p-1 ${className}`}
+                        value={temp} onChange={e => setTemp(e.target.value)} onBlur={commit}
+                    />
+                ) : (
+                    <input 
+                        autoFocus className={`bg-white border border-blue-400 outline-none rounded p-1 ${className}`}
+                        value={temp} onChange={e => setTemp(e.target.value)} onBlur={commit}
+                        onKeyDown={e => e.key === 'Enter' && commit()}
+                    />
+                );
+            }
+            return (
+                <div onClick={e => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate ${!value ? 'text-slate-300 italic' : ''} ${className}`}>
+                    {value || placeholder}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [data, setData] = useState({ projectName: "PROJECT OS", tasks: [], blocks: [] });
+            const [view, setView] = useState('overview');
+            const [activeTaskId, setActiveTaskId] = useState(null);
+            const [syncStatus, setSyncStatus] = useState('Initializing...');
+
+            // Auth
+            useEffect(() => {
+                auth.signInAnonymously();
+                return auth.onAuthStateChanged(u => setUser(u));
+            }, []);
+
+            // Sync
+            useEffect(() => {
+                if (!user) return;
+                const docRef = db.collection("hydrogel_data").doc(user.uid);
+                return docRef.onSnapshot(doc => {
+                    if (doc.exists) setData(doc.data());
+                    else docRef.set({ projectName: "새로운 프로젝트", tasks: [], blocks: [] });
+                    setSyncStatus('Cloud Ready');
+                });
+            }, [user]);
+
+            const save = (newData) => {
+                if (!user) return;
+                setSyncStatus('Saving...');
+                db.collection("hydrogel_data").doc(user.uid).set(newData)
+                    .then(() => setSyncStatus('Cloud Ready'));
+            };
+
+            // Calculations
+            const globalYield = useMemo(() => {
+                const allCps = data.tasks.flatMap(t => t.checkpoints);
+                if (allCps.length === 0) return 0;
+                return Math.round((allCps.filter(c => c.done).length / allCps.length) * 100);
+            }, [data.tasks]);
+
+            const activeTask = data.tasks.find(t => t.id === activeTaskId);
+
+            // Handlers
+            const updateTask = (tid, updates) => {
+                const next = { ...data, tasks: data.tasks.map(t => t.id === tid ? { ...t, ...updates } : t) };
+                setData(next);
+                save(next);
+            };
+
+            const addTask = () => {
+                const next = { ...data, tasks: [...data.tasks, { id: `t${Date.now()}`, title: '신규 설계 모듈', log: '', checkpoints: [] }] };
+                setData(next);
+                save(next);
+            };
+
+            const deleteTask = (tid) => {
+                if(!confirm("이 모듈과 연계된 모든 데이터가 삭제됩니다.")) return;
+                const next = { ...data, tasks: data.tasks.filter(t => t.id !== tid), blocks: data.blocks.filter(b => b.taskId !== tid) };
+                setData(next);
+                save(next);
+                if (activeTaskId === tid) setActiveTaskId(null);
+            };
+
+            return (
+                <div className="flex h-screen w-full overflow-hidden">
+                    {/* Sidebar */}
+                    <aside className="w-20 lg:w-64 bg-[#0f172a] text-slate-400 flex flex-col shrink-0 transition-all border-r border-white/5">
+                        <div className="h-20 flex items-center justify-center border-b border-white/5">
+                            <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50">
+                                <Icon name="cpu" className="w-6 h-6" />
+                            </div>
+                        </div>
+                        <nav className="flex-1 p-4 space-y-3">
+                            <button onClick={() => setView('overview')} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${view === 'overview' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white/5'}`}>
+                                <Icon name="layout-dashboard" />
+                                <span className="hidden lg:block font-bold text-sm">Overview</span>
+                            </button>
+                            <button onClick={() => setView('scheduler')} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${view === 'scheduler' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white/5'}`}>
+                                <Icon name="calendar-days" />
+                                <span className="hidden lg:block font-bold text-sm">Scheduler</span>
+                            </button>
+                        </nav>
+                        <div className="p-6 border-t border-white/5 hidden lg:block">
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-3 text-slate-500">
+                                <span>Yield</span><span>{globalYield}%</span>
+                            </div>
+                            <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                                <div className="bg-blue-500 h-full transition-all duration-1000" style={{width: `${globalYield}%`}}></div>
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Main */}
+                    <main className="flex-1 flex flex-col min-w-0 bg-[#f8f9fb]">
+                        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20">
+                            <CleanInput value={data.projectName} onChange={v => { const next = {...data, projectName: v}; setData(next); save(next); }} className="text-xl font-black text-slate-900 flex-1" />
+                            <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-inner">
+                                <Icon name="cloud" className={`w-3.5 h-3.5 ${syncStatus.includes('Ready') ? 'text-emerald-500' : 'text-blue-500 animate-pulse'}`} />
+                                <span className="text-[10px] font-black text-slate-400 tracking-wider uppercase">{syncStatus}</span>
+                            </div>
+                        </header>
+
+                        <div className="flex-1 overflow-hidden relative p-8">
+                            {view === 'overview' ? (
+                                <div className="h-full flex gap-8 animate-fade-in">
+                                    <div className="w-full lg:w-[400px] flex flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-xl shadow-slate-200/50 shrink-0">
+                                        <div className="p-7 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                            <h2 className="text-sm font-black text-slate-800 tracking-tight">Engineering Modules</h2>
+                                            <button onClick={addTask} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all"><Icon name="plus" /></button>
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scroll">
+                                            {data.tasks.map(t => {
+                                                const progress = t.checkpoints.length === 0 ? 0 : Math.round((t.checkpoints.filter(c=>c.done).length / t.checkpoints.length) * 100);
+                                                return (
+                                                    <div key={t.id} onClick={() => setActiveTaskId(t.id)} className={`group border-2 rounded-3xl p-5 cursor-pointer transition-all ${activeTaskId === t.id ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:border-slate-300'}`}>
+                                                        <div className="flex justify-between items-start mb-4">
+                                                            <CleanInput value={t.title} onChange={v => updateTask(t.id, {title: v})} className={`text-sm font-black w-full ${progress === 100 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
+                                                            <button onClick={e => { e.stopPropagation(); deleteTask(t.id); }} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500"><Icon name="trash-2" /></button>
+                                                        </div>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                                                                <div className="bg-blue-600 h-full transition-all duration-700" style={{width: `${progress}%`}}></div>
+                                                            </div>
+                                                            <span className="text-[11px] font-black text-slate-400 w-10 text-right">{progress}%</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    
+                                    {activeTask ? (
+                                        <div className="flex-1 flex flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200/50">
+                                            <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                                <h2 className="text-xl font-black text-slate-800 truncate">{activeTask.title}</h2>
+                                                <button onClick={() => setActiveTaskId(null)} className="p-2 hover:bg-slate-200 rounded-xl"><Icon name="x" className="w-5 h-5"/></button>
+                                            </div>
+                                            <div className="flex-1 overflow-y-auto p-8 custom-scroll space-y-10">
+                                                <section>
+                                                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="check-square" className="text-blue-500" /> Sub-Checkpoints</h3>
+                                                    <div className="space-y-3">
+                                                        {activeTask.checkpoints.map((cp, idx) => (
+                                                            <div key={cp.id} className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item">
+                                                                <input type="checkbox" checked={cp.done} onChange={e => {
+                                                                    const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked;
+                                                                    updateTask(activeTask.id, { checkpoints: n });
+                                                                }} className="w-5 h-5 cursor-pointer" />
+                                                                <CleanInput value={cp.text} onChange={v => {
+                                                                    const n = [...activeTask.checkpoints]; n[idx].text = v;
+                                                                    updateTask(activeTask.id, { checkpoints: n });
+                                                                }} className={`text-xs font-bold w-full ${cp.done ? 'text-slate-400 line-through' : ''}`} />
+                                                                <button onClick={() => updateTask(activeTask.id, { checkpoints: activeTask.checkpoints.filter(c => c.id !== cp.id) })} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500"><Icon name="x" /></button>
+                                                            </div>
+                                                        ))}
+                                                        <button onClick={() => updateTask(activeTask.id, { checkpoints: [...activeTask.checkpoints, { id: `c${Date.now()}`, text: '신규 세부 항목', done: false }] })} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 hover:text-blue-500 hover:border-blue-500 transition-all uppercase tracking-widest">+ Add Sub-item</button>
+                                                    </div>
+                                                </section>
+                                                <section className="flex flex-col flex-1 min-h-[300px]">
+                                                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="file-text" className="text-blue-500" /> Engineering Journal</h3>
+                                                    <textarea 
+                                                        className="w-full flex-1 bg-slate-50 border border-slate-200 rounded-[24px] p-6 text-sm text-slate-700 leading-loose outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
+                                                        placeholder="수식 및 해석 근거를 기록하십시오..."
+                                                        value={activeTask.log} onChange={e => updateTask(activeTask.id, { log: e.target.value })}
+                                                    />
+                                                </section>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-200 rounded-[32px] bg-white/50">
+                                            <Icon name="mouse-pointer-2" className="w-16 h-16 mb-6 opacity-20" />
+                                            <p className="text-sm font-black uppercase tracking-widest">Select a Module</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <SchedulerView tasks={data.tasks} blocks={data.blocks} onUpdate={next => { setData({...data, ...next}); save({...data, ...next}); }} updateTask={updateTask} />
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const SchedulerView = ({ tasks, blocks, onUpdate, updateTask }) => {
+            const [dragState, setDragState] = useState(null);
+            const gridRef = useRef(null);
+
+            const handleDragStart = (e, tid, cid) => {
+                e.dataTransfer.setData('application/json', JSON.stringify({ tid, cid }));
+            };
+
+            const handleDrop = (e, day) => {
+                e.preventDefault();
+                const { tid, cid } = JSON.parse(e.dataTransfer.getData('application/json'));
+                const rect = e.currentTarget.getBoundingClientRect();
+                const start = snap((e.clientY - rect.top) / HOUR_HEIGHT);
+                onUpdate({ blocks: [...blocks, { id: `b${Date.now()}`, taskId: tid, checkpointId: cid, day, start, end: start + 1.5 }] });
+            };
+
+            const handleMouseDown = (e, b, action) => {
+                e.stopPropagation();
+                setDragState({ action, bid: b.id, startY: e.clientY, oStart: b.start, oEnd: b.end, oDay: b.day });
+            };
+
+            useEffect(() => {
+                const move = (e) => {
+                    if (!dragState) return;
+                    const delta = snap((e.clientY - dragState.startY) / HOUR_HEIGHT);
+                    onUpdate({ blocks: blocks.map(b => {
+                        if (b.id !== dragState.bid) return b;
+                        if (dragState.action === 'resize') return { ...b, end: Math.max(b.start + 0.5, dragState.oEnd + delta) };
+                        if (dragState.action === 'move') {
+                            const dur = dragState.oEnd - dragState.oStart;
+                            let nDay = dragState.oDay;
+                            if (gridRef.current) {
+                                const rect = gridRef.current.getBoundingClientRect();
+                                const colW = (rect.width - 48) / 7;
+                                const relX = e.clientX - rect.left - 48;
+                                nDay = Math.max(0, Math.min(6, Math.floor(relX / colW)));
+                            }
+                            return { ...b, start: Math.max(0, dragState.oStart + delta), end: Math.min(24, dragState.oStart + delta + dur), day: nDay };
+                        }
+                        return b;
+                    }) });
+                };
+                const up = () => setDragState(null);
+                window.addEventListener('mousemove', move);
+                window.addEventListener('mouseup', up);
+                return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+            }, [dragState, blocks]);
+
+            return (
+                <div className="h-full flex gap-8 animate-fade-in" ref={gridRef}>
+                    <div className="w-72 bg-white border border-slate-200 rounded-[32px] flex flex-col overflow-hidden shadow-lg">
+                        <div className="p-6 border-b bg-slate-50/50 font-black text-xs uppercase tracking-widest text-slate-500">Resource Pool</div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scroll">
+                            {tasks.map(t => (
+                                <div key={t.id} className="space-y-2">
+                                    <div className="text-[10px] font-black text-slate-400 border-b border-slate-100 pb-1 truncate">{t.title}</div>
+                                    {t.checkpoints.filter(c=>!c.done).map(cp => (
+                                        <div key={cp.id} draggable onDragStart={e => handleDragStart(e, t.id, cp.id)} className="p-3 bg-white border border-slate-200 rounded-xl cursor-grab active:cursor-grabbing hover:border-blue-400 shadow-sm transition-all flex items-center gap-2">
+                                            <Icon name="grip-vertical" className="w-3 h-3 text-slate-300" />
+                                            <span className="text-[11px] font-bold text-slate-700 leading-tight">{cp.text}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl flex flex-col">
+                        <div className="flex border-b border-slate-100 bg-white sticky top-0 z-30 pl-12">
+                            {DAYS.map(d => <div key={d} className="flex-1 py-4 text-center border-l border-slate-50 font-black text-[10px] text-slate-400 uppercase tracking-widest">{d}</div>)}
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scroll relative">
+                            <div className="flex relative bg-slate-50/30" style={{ height: GRID_HEIGHT }}>
+                                <div className="w-12 shrink-0 border-r border-slate-200 bg-white sticky left-0 z-20">
+                                    {HOURS.map(h => <div key={h} className="absolute w-full flex justify-center -translate-y-1/2" style={{ top: h * HOUR_HEIGHT }}><span className="text-[9px] font-black text-slate-300 font-mono">{h}:00</span></div>)}
+                                </div>
+                                {DAYS.map((_, di) => (
+                                    <div key={di} className="flex-1 relative border-l border-slate-100" onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, di)}>
+                                        {HOURS.map(h => <div key={h} className="absolute w-full border-t border-slate-100/50 pointer-events-none" style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }} />)}
+                                        {blocks.filter(b => b.day === di).map(b => {
+                                            const task = tasks.find(t => t.id === b.taskId);
+                                            const cp = task?.checkpoints.find(c => c.id === b.checkpointId);
+                                            if(!task || !cp) return null;
+                                            return (
+                                                <div key={b.id} onDoubleClick={() => onUpdate({ blocks: blocks.filter(x => x.id !== b.id) })} className={`absolute left-1 right-1 rounded-xl border flex flex-col overflow-hidden shadow-md transition-all group ${cp.done ? 'bg-slate-100 border-slate-200' : 'bg-blue-50 border-blue-200'}`} style={{ top: b.start * HOUR_HEIGHT, height: (b.end - b.start) * HOUR_HEIGHT, zIndex: 10 }}>
+                                                    <div className="flex-1 p-3 cursor-move flex flex-col relative" onMouseDown={e => handleMouseDown(e, b, 'move')}>
+                                                        <span className="text-[8px] font-black text-blue-500/80 uppercase truncate mb-1">{task.title}</span>
+                                                        <div className="flex items-start gap-2" onMouseDown={e => e.stopPropagation()}>
+                                                            <input type="checkbox" checked={cp.done} onChange={e => {
+                                                                const n = [...task.checkpoints];
+                                                                const idx = n.findIndex(c => c.id === cp.id);
+                                                                n[idx].done = e.target.checked;
+                                                                updateTask(task.id, { checkpoints: n });
+                                                            }} className="mt-0.5 w-3.5 h-3.5" />
+                                                            <CleanInput value={cp.text} onChange={v => {
+                                                                const n = [...task.checkpoints];
+                                                                const idx = n.findIndex(c => c.id === cp.id);
+                                                                n[idx].text = v;
+                                                                updateTask(task.id, { checkpoints: n });
+                                                            }} className={`text-[10px] font-black leading-tight ${cp.done ? 'line-through text-slate-400' : 'text-slate-800'}`} />
+                                                        </div>
+                                                        <div className="mt-auto text-[9px] font-mono text-slate-400 flex items-center gap-1"><Icon name="clock" className="w-2.5 h-2.5" /> {formatTime(b.start)}</div>
+                                                        <button onClick={e => { e.stopPropagation(); onUpdate({ blocks: blocks.filter(x => x.id !== b.id) }); }} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"><Icon name="x" className="w-3.5 h-3.5" /></button>
+                                                    </div>
+                                                    <div className="h-2 w-full cursor-ns-resize hover:bg-black/5 flex items-center justify-center" onMouseDown={e => handleMouseDown(e, b, 'resize')}>
+                                                        <div className="w-6 h-0.5 bg-slate-300 rounded-full" />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
