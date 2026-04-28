@@ -34,19 +34,30 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
-        // --- Firebase Config (From your Ledger code) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
-            authDomain: "meal-c8b86.firebaseapp.com",
-            projectId: "meal-c8b86",
-            storageBucket: "meal-c8b86.firebasestorage.app",
-            messagingSenderId: "476361866831",
-            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
-        };
-        firebase.initializeApp(firebaseConfig);
+        // --- Firebase Config & Environment Setup ---
+        let firebaseConfig;
+        let appId = "hydrogel-os-final";
+
+        if (typeof __firebase_config !== 'undefined') {
+            firebaseConfig = JSON.parse(__firebase_config);
+            appId = typeof __app_id !== 'undefined' ? __app_id : "hydrogel-os-final";
+        } else {
+            firebaseConfig = {
+                apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+                authDomain: "meal-c8b86.firebaseapp.com",
+                projectId: "meal-c8b86",
+                storageBucket: "meal-c8b86.firebasestorage.app",
+                messagingSenderId: "476361866831",
+                appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+            };
+        }
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
         const db = firebase.firestore();
         const auth = firebase.auth();
-        const appId = "hydrogel-os-final";
 
         // --- Constants ---
         const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -64,9 +75,19 @@
         };
 
         // --- Components ---
+        // 오류의 원인이었던 부분을 수정한 Icon 컴포넌트입니다.
+        // React가 관리하는 DOM과 외부 라이브러리(Lucide)의 직접적인 DOM 수정이 충돌하지 않도록 처리했습니다.
         const Icon = ({ name, className = "w-4 h-4" }) => {
-            useEffect(() => { lucide.createIcons(); }, [name]);
-            return <i data-lucide={name} className={className}></i>;
+            const spanRef = useRef(null);
+            useEffect(() => {
+                if (spanRef.current) {
+                    spanRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
+                    lucide.createIcons({ root: spanRef.current });
+                }
+            }, [name, className]);
+            
+            // display: contents를 사용하여 감싸고 있는 span 태그가 레이아웃에 영향을 주지 않도록 합니다.
+            return <span ref={spanRef} style={{ display: 'contents' }}></span>;
         };
 
         const CleanInput = ({ value, onChange, className, placeholder, multiline = false }) => {
@@ -100,69 +121,207 @@
             );
         };
 
+        const TaskDetailPane = ({ task, updateTask, onClose, isModal = false }) => {
+            if (!task) return null;
+            return (
+                <div className={`flex flex-col h-full bg-white overflow-hidden ${isModal ? '' : 'border border-slate-200 rounded-[32px] shadow-2xl shadow-slate-200/50'}`}>
+                    <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                            <CleanInput 
+                                value={task.title} 
+                                onChange={v => updateTask(task.id, { title: v })} 
+                                className="text-2xl font-black text-slate-800 w-full mb-3" 
+                                placeholder="모듈명 (큰 틀) 입력..."
+                            />
+                            <textarea 
+                                className="w-full bg-transparent border-none p-0 text-sm text-slate-500 outline-none resize-none placeholder-slate-300 custom-scroll"
+                                rows="2"
+                                placeholder="이 설계 모듈의 전체적인 목표와 개요(큰 틀)를 작성하십시오..."
+                                value={task.description || ''} 
+                                onChange={e => updateTask(task.id, { description: e.target.value })}
+                            />
+                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl shrink-0"><Icon name="x" className="w-5 h-5"/></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-8 custom-scroll space-y-10">
+                        <section>
+                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="check-square" className="text-blue-500" /> Sub-Checkpoints (세부 일정)</h3>
+                            <div className="space-y-3">
+                                {(task.checkpoints || []).map((cp, idx) => (
+                                    <div key={cp.id} className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item">
+                                        <input type="checkbox" checked={cp.done} onChange={e => {
+                                            const n = [...(task.checkpoints || [])]; n[idx].done = e.target.checked;
+                                            updateTask(task.id, { checkpoints: n });
+                                        }} className="w-5 h-5 cursor-pointer" />
+                                        <CleanInput value={cp.text} onChange={v => {
+                                            const n = [...(task.checkpoints || [])]; n[idx].text = v;
+                                            updateTask(task.id, { checkpoints: n });
+                                        }} className={`text-xs font-bold w-full ${cp.done ? 'text-slate-400 line-through' : ''}`} placeholder="세부 항목 입력..." />
+                                        <button onClick={() => updateTask(task.id, { checkpoints: (task.checkpoints || []).filter(c => c.id !== cp.id) })} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500"><Icon name="x" /></button>
+                                    </div>
+                                ))}
+                                <button onClick={() => updateTask(task.id, { checkpoints: [...(task.checkpoints || []), { id: `c${Date.now()}`, text: '', done: false }] })} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 hover:text-blue-500 hover:border-blue-500 transition-all uppercase tracking-widest">+ Add Sub-item</button>
+                            </div>
+                        </section>
+                        <section className="flex flex-col flex-1 min-h-[300px]">
+                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="file-text" className="text-blue-500" /> Engineering Journal (엔지니어링 저널)</h3>
+                            <textarea 
+                                className="w-full flex-1 bg-slate-50 border border-slate-200 rounded-[24px] p-6 text-sm text-slate-700 leading-loose outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
+                                placeholder="수식 및 해석 근거를 기록하십시오..."
+                                value={task.log || ''} onChange={e => updateTask(task.id, { log: e.target.value })}
+                            />
+                        </section>
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [user, setUser] = useState(null);
-            const [data, setData] = useState({ projectName: "PROJECT OS", tasks: [], blocks: [] });
+            const [data, setData] = useState({ projectName: "프로젝트", tasks: [], blocks: [] });
             const [view, setView] = useState('overview');
             const [activeTaskId, setActiveTaskId] = useState(null);
+            const [modalTaskId, setModalTaskId] = useState(null);
             const [syncStatus, setSyncStatus] = useState('Initializing...');
 
             // Auth
             useEffect(() => {
-                auth.signInAnonymously();
-                return auth.onAuthStateChanged(u => setUser(u));
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (error) {
+                        console.error("Auth error:", error);
+                        setSyncStatus('Local Mode (Offline)');
+                        setUser({ uid: 'local_offline_user' });
+                    }
+                };
+                initAuth();
+
+                const unsubscribe = auth.onAuthStateChanged(u => {
+                    if (u) setUser(u);
+                });
+                return () => unsubscribe();
             }, []);
 
             // Sync
             useEffect(() => {
                 if (!user) return;
-                const docRef = db.collection("hydrogel_data").doc(user.uid);
-                return docRef.onSnapshot(doc => {
-                    if (doc.exists) setData(doc.data());
-                    else docRef.set({ projectName: "새로운 프로젝트", tasks: [], blocks: [] });
+                if (user.uid === 'local_offline_user') return; // Skip cloud sync if local fallback
+                
+                // Using exact mandatory paths for Canvas environments to prevent permission issues
+                const docRef = db.collection("artifacts").doc(appId).collection("users").doc(user.uid).collection("hydrogel_data").doc("main");
+                
+                const unsubscribe = docRef.onSnapshot(doc => {
+                    if (doc.exists) {
+                        const fetchedData = doc.data();
+                        setData({
+                            projectName: fetchedData.projectName || "프로젝트",
+                            tasks: fetchedData.tasks || [],
+                            blocks: fetchedData.blocks || []
+                        });
+                    } else {
+                        docRef.set({ projectName: "프로젝트", tasks: [], blocks: [] });
+                    }
                     setSyncStatus('Cloud Ready');
+                }, (error) => {
+                    console.error("Sync error:", error);
+                    setSyncStatus('Sync Error');
                 });
+                
+                return () => unsubscribe();
             }, [user]);
 
             const save = (newData) => {
                 if (!user) return;
+                if (user.uid === 'local_offline_user') {
+                    setSyncStatus('Local Mode (Unsaved)');
+                    return;
+                }
+                
                 setSyncStatus('Saving...');
-                db.collection("hydrogel_data").doc(user.uid).set(newData)
-                    .then(() => setSyncStatus('Cloud Ready'));
+                const docRef = db.collection("artifacts").doc(appId).collection("users").doc(user.uid).collection("hydrogel_data").doc("main");
+                
+                docRef.set(newData)
+                    .then(() => setSyncStatus('Cloud Ready'))
+                    .catch((e) => { 
+                        console.error(e); 
+                        setSyncStatus('Save Error'); 
+                    });
             };
 
             // Calculations
             const globalYield = useMemo(() => {
-                const allCps = data.tasks.flatMap(t => t.checkpoints);
+                const safeTasks = data.tasks || [];
+                const allCps = safeTasks.flatMap(t => t.checkpoints || []);
                 if (allCps.length === 0) return 0;
                 return Math.round((allCps.filter(c => c.done).length / allCps.length) * 100);
             }, [data.tasks]);
 
-            const activeTask = data.tasks.find(t => t.id === activeTaskId);
+            const activeTask = (data.tasks || []).find(t => t.id === activeTaskId);
 
             // Handlers
             const updateTask = (tid, updates) => {
-                const next = { ...data, tasks: data.tasks.map(t => t.id === tid ? { ...t, ...updates } : t) };
+                const nextTasks = (data.tasks || []).map(t => t.id === tid ? { ...t, ...updates } : t);
+                const next = { ...data, tasks: nextTasks };
                 setData(next);
                 save(next);
             };
 
             const addTask = () => {
-                const next = { ...data, tasks: [...data.tasks, { id: `t${Date.now()}`, title: '신규 설계 모듈', log: '', checkpoints: [] }] };
+                const newTask = { id: `t${Date.now()}`, title: '신규 설계 모듈', description: '', log: '', checkpoints: [] };
+                const next = { ...data, tasks: [...(data.tasks || []), newTask] };
                 setData(next);
                 save(next);
+                setActiveTaskId(newTask.id);
             };
 
             const deleteTask = (tid) => {
-                if(!confirm("이 모듈과 연계된 모든 데이터가 삭제됩니다.")) return;
-                const next = { ...data, tasks: data.tasks.filter(t => t.id !== tid), blocks: data.blocks.filter(b => b.taskId !== tid) };
+                const next = { 
+                    ...data, 
+                    tasks: (data.tasks || []).filter(t => t.id !== tid), 
+                    blocks: (data.blocks || []).filter(b => b.taskId !== tid) 
+                };
                 setData(next);
                 save(next);
                 if (activeTaskId === tid) setActiveTaskId(null);
             };
 
+            // Backup & Restore
+            const handleExport = () => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `backup_hydrogel_${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (importedData && Array.isArray(importedData.tasks)) {
+                            setData(importedData);
+                            save(importedData);
+                        }
+                    } catch (err) {
+                        console.error("Parse error:", err);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = null; // reset input
+            };
+
             return (
-                <div className="flex h-screen w-full overflow-hidden">
+                <div className="flex h-screen w-full overflow-hidden relative">
                     {/* Sidebar */}
                     <aside className="w-20 lg:w-64 bg-[#0f172a] text-slate-400 flex flex-col shrink-0 transition-all border-r border-white/5">
                         <div className="h-20 flex items-center justify-center border-b border-white/5">
@@ -192,8 +351,21 @@
 
                     {/* Main */}
                     <main className="flex-1 flex flex-col min-w-0 bg-[#f8f9fb]">
-                        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20">
+                        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20 gap-4">
                             <CleanInput value={data.projectName} onChange={v => { const next = {...data, projectName: v}; setData(next); save(next); }} className="text-xl font-black text-slate-900 flex-1" />
+                            
+                            <div className="flex items-center gap-2">
+                                <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs px-4 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2">
+                                    <Icon name="upload" className="w-3.5 h-3.5" />
+                                    <span>Import</span>
+                                    <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+                                </label>
+                                <button onClick={handleExport} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs px-4 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2">
+                                    <Icon name="download" className="w-3.5 h-3.5" />
+                                    <span>Export</span>
+                                </button>
+                            </div>
+
                             <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-inner">
                                 <Icon name="cloud" className={`w-3.5 h-3.5 ${syncStatus.includes('Ready') ? 'text-emerald-500' : 'text-blue-500 animate-pulse'}`} />
                                 <span className="text-[10px] font-black text-slate-400 tracking-wider uppercase">{syncStatus}</span>
@@ -209,8 +381,9 @@
                                             <button onClick={addTask} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all"><Icon name="plus" /></button>
                                         </div>
                                         <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scroll">
-                                            {data.tasks.map(t => {
-                                                const progress = t.checkpoints.length === 0 ? 0 : Math.round((t.checkpoints.filter(c=>c.done).length / t.checkpoints.length) * 100);
+                                            {(data.tasks || []).map(t => {
+                                                const cps = t.checkpoints || [];
+                                                const progress = cps.length === 0 ? 0 : Math.round((cps.filter(c=>c.done).length / cps.length) * 100);
                                                 return (
                                                     <div key={t.id} onClick={() => setActiveTaskId(t.id)} className={`group border-2 rounded-3xl p-5 cursor-pointer transition-all ${activeTaskId === t.id ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:border-slate-300'}`}>
                                                         <div className="flex justify-between items-start mb-4">
@@ -230,40 +403,8 @@
                                     </div>
                                     
                                     {activeTask ? (
-                                        <div className="flex-1 flex flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl shadow-slate-200/50">
-                                            <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                                                <h2 className="text-xl font-black text-slate-800 truncate">{activeTask.title}</h2>
-                                                <button onClick={() => setActiveTaskId(null)} className="p-2 hover:bg-slate-200 rounded-xl"><Icon name="x" className="w-5 h-5"/></button>
-                                            </div>
-                                            <div className="flex-1 overflow-y-auto p-8 custom-scroll space-y-10">
-                                                <section>
-                                                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="check-square" className="text-blue-500" /> Sub-Checkpoints</h3>
-                                                    <div className="space-y-3">
-                                                        {activeTask.checkpoints.map((cp, idx) => (
-                                                            <div key={cp.id} className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item">
-                                                                <input type="checkbox" checked={cp.done} onChange={e => {
-                                                                    const n = [...activeTask.checkpoints]; n[idx].done = e.target.checked;
-                                                                    updateTask(activeTask.id, { checkpoints: n });
-                                                                }} className="w-5 h-5 cursor-pointer" />
-                                                                <CleanInput value={cp.text} onChange={v => {
-                                                                    const n = [...activeTask.checkpoints]; n[idx].text = v;
-                                                                    updateTask(activeTask.id, { checkpoints: n });
-                                                                }} className={`text-xs font-bold w-full ${cp.done ? 'text-slate-400 line-through' : ''}`} />
-                                                                <button onClick={() => updateTask(activeTask.id, { checkpoints: activeTask.checkpoints.filter(c => c.id !== cp.id) })} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500"><Icon name="x" /></button>
-                                                            </div>
-                                                        ))}
-                                                        <button onClick={() => updateTask(activeTask.id, { checkpoints: [...activeTask.checkpoints, { id: `c${Date.now()}`, text: '신규 세부 항목', done: false }] })} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 hover:text-blue-500 hover:border-blue-500 transition-all uppercase tracking-widest">+ Add Sub-item</button>
-                                                    </div>
-                                                </section>
-                                                <section className="flex flex-col flex-1 min-h-[300px]">
-                                                    <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="file-text" className="text-blue-500" /> Engineering Journal</h3>
-                                                    <textarea 
-                                                        className="w-full flex-1 bg-slate-50 border border-slate-200 rounded-[24px] p-6 text-sm text-slate-700 leading-loose outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
-                                                        placeholder="수식 및 해석 근거를 기록하십시오..."
-                                                        value={activeTask.log} onChange={e => updateTask(activeTask.id, { log: e.target.value })}
-                                                    />
-                                                </section>
-                                            </div>
+                                        <div className="flex-1">
+                                            <TaskDetailPane task={activeTask} updateTask={updateTask} onClose={() => setActiveTaskId(null)} />
                                         </div>
                                     ) : (
                                         <div className="flex-1 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-200 rounded-[32px] bg-white/50">
@@ -273,15 +414,23 @@
                                     )}
                                 </div>
                             ) : (
-                                <SchedulerView tasks={data.tasks} blocks={data.blocks} onUpdate={next => { setData({...data, ...next}); save({...data, ...next}); }} updateTask={updateTask} />
+                                <SchedulerView tasks={data.tasks || []} blocks={data.blocks || []} onUpdate={next => { setData({...data, ...next}); save({...data, ...next}); }} updateTask={updateTask} onOpenTask={setModalTaskId} />
                             )}
                         </div>
                     </main>
+
+                    {modalTaskId && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setModalTaskId(null)}>
+                            <div className="w-full max-w-2xl h-[80vh] bg-white rounded-[32px] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                                <TaskDetailPane task={(data.tasks || []).find(t=>t.id===modalTaskId)} updateTask={updateTask} onClose={() => setModalTaskId(null)} isModal={true} />
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
 
-        const SchedulerView = ({ tasks, blocks, onUpdate, updateTask }) => {
+        const SchedulerView = ({ tasks, blocks, onUpdate, updateTask, onOpenTask }) => {
             const [dragState, setDragState] = useState(null);
             const gridRef = useRef(null);
 
@@ -337,7 +486,7 @@
                             {tasks.map(t => (
                                 <div key={t.id} className="space-y-2">
                                     <div className="text-[10px] font-black text-slate-400 border-b border-slate-100 pb-1 truncate">{t.title}</div>
-                                    {t.checkpoints.filter(c=>!c.done).map(cp => (
+                                    {(t.checkpoints || []).filter(c=>!c.done).map(cp => (
                                         <div key={cp.id} draggable onDragStart={e => handleDragStart(e, t.id, cp.id)} className="p-3 bg-white border border-slate-200 rounded-xl cursor-grab active:cursor-grabbing hover:border-blue-400 shadow-sm transition-all flex items-center gap-2">
                                             <Icon name="grip-vertical" className="w-3 h-3 text-slate-300" />
                                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{cp.text}</span>
@@ -362,21 +511,21 @@
                                         {HOURS.map(h => <div key={h} className="absolute w-full border-t border-slate-100/50 pointer-events-none" style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }} />)}
                                         {blocks.filter(b => b.day === di).map(b => {
                                             const task = tasks.find(t => t.id === b.taskId);
-                                            const cp = task?.checkpoints.find(c => c.id === b.checkpointId);
+                                            const cp = (task?.checkpoints || []).find(c => c.id === b.checkpointId);
                                             if(!task || !cp) return null;
                                             return (
-                                                <div key={b.id} onDoubleClick={() => onUpdate({ blocks: blocks.filter(x => x.id !== b.id) })} className={`absolute left-1 right-1 rounded-xl border flex flex-col overflow-hidden shadow-md transition-all group ${cp.done ? 'bg-slate-100 border-slate-200' : 'bg-blue-50 border-blue-200'}`} style={{ top: b.start * HOUR_HEIGHT, height: (b.end - b.start) * HOUR_HEIGHT, zIndex: 10 }}>
+                                                <div key={b.id} onDoubleClick={() => onOpenTask(task.id)} className={`absolute left-1 right-1 rounded-xl border flex flex-col overflow-hidden shadow-md transition-all group ${cp.done ? 'bg-slate-100 border-slate-200' : 'bg-blue-50 border-blue-200'}`} style={{ top: b.start * HOUR_HEIGHT, height: (b.end - b.start) * HOUR_HEIGHT, zIndex: 10 }}>
                                                     <div className="flex-1 p-3 cursor-move flex flex-col relative" onMouseDown={e => handleMouseDown(e, b, 'move')}>
                                                         <span className="text-[8px] font-black text-blue-500/80 uppercase truncate mb-1">{task.title}</span>
                                                         <div className="flex items-start gap-2" onMouseDown={e => e.stopPropagation()}>
                                                             <input type="checkbox" checked={cp.done} onChange={e => {
-                                                                const n = [...task.checkpoints];
+                                                                const n = [...(task.checkpoints || [])];
                                                                 const idx = n.findIndex(c => c.id === cp.id);
                                                                 n[idx].done = e.target.checked;
                                                                 updateTask(task.id, { checkpoints: n });
                                                             }} className="mt-0.5 w-3.5 h-3.5" />
                                                             <CleanInput value={cp.text} onChange={v => {
-                                                                const n = [...task.checkpoints];
+                                                                const n = [...(task.checkpoints || [])];
                                                                 const idx = n.findIndex(c => c.id === cp.id);
                                                                 n[idx].text = v;
                                                                 updateTask(task.id, { checkpoints: n });
