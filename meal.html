@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HYDROGEL OS v5.0 (Integrated Cloud)</title>
+    <title> project! (Integrated Cloud)</title>
     <!-- Libraries (CDN) -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -19,13 +19,13 @@
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; color: #0f172a; }
-        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-        input[type="checkbox"] { accent-color: #2563eb; }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        input[type="checkbox"] { accent-color: #3b82f6; width: 1.125rem; height: 1.125rem; cursor: pointer; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -61,22 +61,23 @@
 
         // --- Constants ---
         const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const HOURS = Array.from({ length: 24 }, (_, i) => i);
+        const START_HOUR = 7; // 오전 7시 시작
+        const TOTAL_HOURS = 24;
+        const HOURS = Array.from({ length: TOTAL_HOURS }, (_, i) => i);
         const SNAP_STEP = 0.25; 
-        const HOUR_HEIGHT = 64; 
-        const GRID_HEIGHT = 24 * HOUR_HEIGHT;
+        const HOUR_HEIGHT = 80; // 가독성을 위해 블록 높이 증가
+        const GRID_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT;
 
         // --- Utils ---
         const snap = (v) => Math.round(v / SNAP_STEP) * SNAP_STEP;
         const formatTime = (t) => {
-            const h = Math.floor(t);
-            const m = Math.round((t - h) * 60);
+            const absoluteTime = t + START_HOUR;
+            const h = Math.floor(absoluteTime) % 24;
+            const m = Math.round((absoluteTime - Math.floor(absoluteTime)) * 60);
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
 
         // --- Components ---
-        // 오류의 원인이었던 부분을 수정한 Icon 컴포넌트입니다.
-        // React가 관리하는 DOM과 외부 라이브러리(Lucide)의 직접적인 DOM 수정이 충돌하지 않도록 처리했습니다.
         const Icon = ({ name, className = "w-4 h-4" }) => {
             const spanRef = useRef(null);
             useEffect(() => {
@@ -85,8 +86,6 @@
                     lucide.createIcons({ root: spanRef.current });
                 }
             }, [name, className]);
-            
-            // display: contents를 사용하여 감싸고 있는 span 태그가 레이아웃에 영향을 주지 않도록 합니다.
             return <span ref={spanRef} style={{ display: 'contents' }}></span>;
         };
 
@@ -100,22 +99,24 @@
                 if (temp.trim() !== value) onChange(temp.trim() || placeholder);
             };
 
+            const inputClasses = `bg-blue-50/50 border border-blue-400 outline-none rounded-lg p-1.5 focus:ring-2 focus:ring-blue-500/20 transition-all ${className}`;
+
             if (isEditing) {
                 return multiline ? (
                     <textarea 
-                        autoFocus className={`bg-white border border-blue-400 outline-none rounded p-1 ${className}`}
+                        autoFocus className={inputClasses}
                         value={temp} onChange={e => setTemp(e.target.value)} onBlur={commit}
                     />
                 ) : (
                     <input 
-                        autoFocus className={`bg-white border border-blue-400 outline-none rounded p-1 ${className}`}
+                        autoFocus className={inputClasses}
                         value={temp} onChange={e => setTemp(e.target.value)} onBlur={commit}
                         onKeyDown={e => e.key === 'Enter' && commit()}
                     />
                 );
             }
             return (
-                <div onClick={e => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate ${!value ? 'text-slate-300 italic' : ''} ${className}`}>
+                <div onClick={e => { e.stopPropagation(); setIsEditing(true); }} className={`cursor-text truncate hover:bg-slate-100/70 p-1.5 rounded-lg transition-colors ${!value ? 'text-slate-400 italic' : ''} ${className}`}>
                     {value || placeholder}
                 </div>
             );
@@ -124,50 +125,50 @@
         const TaskDetailPane = ({ task, updateTask, onClose, isModal = false }) => {
             if (!task) return null;
             return (
-                <div className={`flex flex-col h-full bg-white overflow-hidden ${isModal ? '' : 'border border-slate-200 rounded-[32px] shadow-2xl shadow-slate-200/50'}`}>
-                    <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-start gap-4">
+                <div className={`flex flex-col h-full bg-white overflow-hidden ${isModal ? '' : 'border border-slate-200 rounded-[24px] shadow-xl'}`}>
+                    <div className="px-8 py-6 border-b border-slate-100 bg-white flex justify-between items-start gap-6">
                         <div className="flex-1 min-w-0">
                             <CleanInput 
                                 value={task.title} 
                                 onChange={v => updateTask(task.id, { title: v })} 
-                                className="text-2xl font-black text-slate-800 w-full mb-3" 
+                                className="text-2xl font-bold text-slate-800 w-full mb-2 tracking-tight" 
                                 placeholder="모듈명 (큰 틀) 입력..."
                             />
                             <textarea 
-                                className="w-full bg-transparent border-none p-0 text-sm text-slate-500 outline-none resize-none placeholder-slate-300 custom-scroll"
+                                className="w-full bg-slate-50/50 border border-slate-100 rounded-xl p-4 text-sm text-slate-600 outline-none resize-none focus:ring-2 focus:ring-slate-200 transition-all custom-scroll"
                                 rows="2"
-                                placeholder="이 설계 모듈의 전체적인 목표와 개요(큰 틀)를 작성하십시오..."
+                                placeholder="이 설계 모듈의 전체적인 목표와 개요를 작성하십시오..."
                                 value={task.description || ''} 
                                 onChange={e => updateTask(task.id, { description: e.target.value })}
                             />
                         </div>
-                        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl shrink-0"><Icon name="x" className="w-5 h-5"/></button>
+                        <button onClick={onClose} className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl shrink-0 transition-colors"><Icon name="x" className="w-5 h-5"/></button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-8 custom-scroll space-y-10">
+                    <div className="flex-1 overflow-y-auto px-8 py-6 custom-scroll space-y-10 bg-slate-50/30">
                         <section>
-                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="check-square" className="text-blue-500" /> Sub-Checkpoints (세부 일정)</h3>
+                            <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><Icon name="check-square" className="text-blue-500 w-5 h-5" /> 세부 일정 (Sub-Checkpoints)</h3>
                             <div className="space-y-3">
                                 {(task.checkpoints || []).map((cp, idx) => (
-                                    <div key={cp.id} className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item">
+                                    <div key={cp.id} className="flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm group/item transition-all hover:border-blue-300">
                                         <input type="checkbox" checked={cp.done} onChange={e => {
                                             const n = [...(task.checkpoints || [])]; n[idx].done = e.target.checked;
                                             updateTask(task.id, { checkpoints: n });
-                                        }} className="w-5 h-5 cursor-pointer" />
+                                        }} />
                                         <CleanInput value={cp.text} onChange={v => {
                                             const n = [...(task.checkpoints || [])]; n[idx].text = v;
                                             updateTask(task.id, { checkpoints: n });
-                                        }} className={`text-xs font-bold w-full ${cp.done ? 'text-slate-400 line-through' : ''}`} placeholder="세부 항목 입력..." />
-                                        <button onClick={() => updateTask(task.id, { checkpoints: (task.checkpoints || []).filter(c => c.id !== cp.id) })} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500"><Icon name="x" /></button>
+                                        }} className={`text-sm font-medium w-full ${cp.done ? 'text-slate-400 line-through' : 'text-slate-700'}`} placeholder="세부 항목 입력..." />
+                                        <button onClick={() => updateTask(task.id, { checkpoints: (task.checkpoints || []).filter(c => c.id !== cp.id) })} className="opacity-0 group-hover/item:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 hover:bg-red-50 rounded-lg"><Icon name="trash-2" /></button>
                                     </div>
                                 ))}
-                                <button onClick={() => updateTask(task.id, { checkpoints: [...(task.checkpoints || []), { id: `c${Date.now()}`, text: '', done: false }] })} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 hover:text-blue-500 hover:border-blue-500 transition-all uppercase tracking-widest">+ Add Sub-item</button>
+                                <button onClick={() => updateTask(task.id, { checkpoints: [...(task.checkpoints || []), { id: `c${Date.now()}`, text: '', done: false }] })} className="w-full py-4 bg-white border-2 border-dashed border-slate-200 rounded-xl text-sm font-semibold text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50/50 transition-all">+ 항목 추가하기</button>
                             </div>
                         </section>
-                        <section className="flex flex-col flex-1 min-h-[300px]">
-                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Icon name="file-text" className="text-blue-500" /> Engineering Journal (엔지니어링 저널)</h3>
+                        <section className="flex flex-col flex-1 min-h-[350px]">
+                            <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><Icon name="file-text" className="text-blue-500 w-5 h-5" /> 엔지니어링 저널 (Engineering Journal)</h3>
                             <textarea 
-                                className="w-full flex-1 bg-slate-50 border border-slate-200 rounded-[24px] p-6 text-sm text-slate-700 leading-loose outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-inner"
-                                placeholder="수식 및 해석 근거를 기록하십시오..."
+                                className="w-full flex-1 bg-white border border-slate-200 rounded-xl p-6 text-sm text-slate-700 leading-relaxed outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all custom-scroll shadow-sm"
+                                placeholder="수식 및 해석 근거, 핵심 원리를 기록하십시오..."
                                 value={task.log || ''} onChange={e => updateTask(task.id, { log: e.target.value })}
                             />
                         </section>
@@ -182,7 +183,7 @@
             const [view, setView] = useState('overview');
             const [activeTaskId, setActiveTaskId] = useState(null);
             const [modalTaskId, setModalTaskId] = useState(null);
-            const [syncStatus, setSyncStatus] = useState('Initializing...');
+            const [syncStatus, setSyncStatus] = useState('초기화 중...');
 
             // Auth
             useEffect(() => {
@@ -195,7 +196,7 @@
                         }
                     } catch (error) {
                         console.error("Auth error:", error);
-                        setSyncStatus('Local Mode (Offline)');
+                        setSyncStatus('로컬 모드 (오프라인)');
                         setUser({ uid: 'local_offline_user' });
                     }
                 };
@@ -210,9 +211,8 @@
             // Sync
             useEffect(() => {
                 if (!user) return;
-                if (user.uid === 'local_offline_user') return; // Skip cloud sync if local fallback
+                if (user.uid === 'local_offline_user') return; 
                 
-                // Using exact mandatory paths for Canvas environments to prevent permission issues
                 const docRef = db.collection("artifacts").doc(appId).collection("users").doc(user.uid).collection("hydrogel_data").doc("main");
                 
                 const unsubscribe = docRef.onSnapshot(doc => {
@@ -224,12 +224,12 @@
                             blocks: fetchedData.blocks || []
                         });
                     } else {
-                        docRef.set({ projectName: "프로젝트", tasks: [], blocks: [] });
+                        docRef.set({ projectName: "새 프로젝트", tasks: [], blocks: [] });
                     }
-                    setSyncStatus('Cloud Ready');
+                    setSyncStatus('클라우드 동기화됨');
                 }, (error) => {
                     console.error("Sync error:", error);
-                    setSyncStatus('Sync Error');
+                    setSyncStatus('동기화 오류');
                 });
                 
                 return () => unsubscribe();
@@ -238,22 +238,21 @@
             const save = (newData) => {
                 if (!user) return;
                 if (user.uid === 'local_offline_user') {
-                    setSyncStatus('Local Mode (Unsaved)');
+                    setSyncStatus('로컬 모드 (저장되지 않음)');
                     return;
                 }
                 
-                setSyncStatus('Saving...');
+                setSyncStatus('저장 중...');
                 const docRef = db.collection("artifacts").doc(appId).collection("users").doc(user.uid).collection("hydrogel_data").doc("main");
                 
                 docRef.set(newData)
-                    .then(() => setSyncStatus('Cloud Ready'))
+                    .then(() => setSyncStatus('클라우드 동기화됨'))
                     .catch((e) => { 
                         console.error(e); 
-                        setSyncStatus('Save Error'); 
+                        setSyncStatus('저장 오류'); 
                     });
             };
 
-            // Calculations
             const globalYield = useMemo(() => {
                 const safeTasks = data.tasks || [];
                 const allCps = safeTasks.flatMap(t => t.checkpoints || []);
@@ -263,7 +262,6 @@
 
             const activeTask = (data.tasks || []).find(t => t.id === activeTaskId);
 
-            // Handlers
             const updateTask = (tid, updates) => {
                 const nextTasks = (data.tasks || []).map(t => t.id === tid ? { ...t, ...updates } : t);
                 const next = { ...data, tasks: nextTasks };
@@ -290,7 +288,6 @@
                 if (activeTaskId === tid) setActiveTaskId(null);
             };
 
-            // Backup & Restore
             const handleExport = () => {
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
@@ -317,84 +314,85 @@
                     }
                 };
                 reader.readAsText(file);
-                e.target.value = null; // reset input
+                e.target.value = null; 
             };
 
             return (
-                <div className="flex h-screen w-full overflow-hidden relative">
+                <div className="flex h-screen w-full text-slate-800 overflow-hidden relative font-sans">
                     {/* Sidebar */}
-                    <aside className="w-20 lg:w-64 bg-[#0f172a] text-slate-400 flex flex-col shrink-0 transition-all border-r border-white/5">
-                        <div className="h-20 flex items-center justify-center border-b border-white/5">
-                            <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50">
-                                <Icon name="cpu" className="w-6 h-6" />
+                    <aside className="w-20 lg:w-64 bg-slate-900 text-slate-400 flex flex-col shrink-0 transition-all border-r border-slate-800">
+                        <div className="h-20 flex items-center justify-center border-b border-slate-800/50">
+                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/30">
+                                <Icon name="cpu" className="w-5 h-5" />
                             </div>
+                            <span className="hidden lg:block ml-3 font-bold text-slate-200 tracking-wide">HYDROGEL</span>
                         </div>
-                        <nav className="flex-1 p-4 space-y-3">
-                            <button onClick={() => setView('overview')} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${view === 'overview' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white/5'}`}>
+                        <nav className="flex-1 px-4 py-6 space-y-2">
+                            <button onClick={() => setView('overview')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold text-sm ${view === 'overview' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-slate-200'}`}>
                                 <Icon name="layout-dashboard" />
-                                <span className="hidden lg:block font-bold text-sm">Overview</span>
+                                <span className="hidden lg:block">Overview</span>
                             </button>
-                            <button onClick={() => setView('scheduler')} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${view === 'scheduler' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white/5'}`}>
+                            <button onClick={() => setView('scheduler')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-semibold text-sm ${view === 'scheduler' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-slate-200'}`}>
                                 <Icon name="calendar-days" />
-                                <span className="hidden lg:block font-bold text-sm">Scheduler</span>
+                                <span className="hidden lg:block">Scheduler</span>
                             </button>
                         </nav>
-                        <div className="p-6 border-t border-white/5 hidden lg:block">
-                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-3 text-slate-500">
-                                <span>Yield</span><span>{globalYield}%</span>
+                        <div className="p-6 border-t border-slate-800/50 hidden lg:block bg-slate-900/50">
+                            <div className="flex justify-between text-xs font-bold text-slate-500 mb-2.5 tracking-wider">
+                                <span>TOTAL YIELD</span><span className="text-blue-400">{globalYield}%</span>
                             </div>
-                            <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
-                                <div className="bg-blue-500 h-full transition-all duration-1000" style={{width: `${globalYield}%`}}></div>
+                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-blue-500 h-full transition-all duration-1000 ease-out" style={{width: `${globalYield}%`}}></div>
                             </div>
                         </div>
                     </aside>
 
                     {/* Main */}
-                    <main className="flex-1 flex flex-col min-w-0 bg-[#f8f9fb]">
-                        <header className="h-20 flex items-center px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20 gap-4">
-                            <CleanInput value={data.projectName} onChange={v => { const next = {...data, projectName: v}; setData(next); save(next); }} className="text-xl font-black text-slate-900 flex-1" />
+                    <main className="flex-1 flex flex-col min-w-0 bg-[#f8fafc]">
+                        <header className="h-20 flex items-center px-8 bg-white border-b border-slate-200 shrink-0 z-20 gap-4 shadow-sm">
+                            <CleanInput value={data.projectName} onChange={v => { const next = {...data, projectName: v}; setData(next); save(next); }} className="text-xl font-bold text-slate-800 flex-1" />
                             
-                            <div className="flex items-center gap-2">
-                                <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs px-4 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2">
-                                    <Icon name="upload" className="w-3.5 h-3.5" />
-                                    <span>Import</span>
+                            <div className="flex items-center gap-3">
+                                <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 shadow-sm">
+                                    <Icon name="upload" className="w-4 h-4" />
+                                    <span>가져오기</span>
                                     <input type="file" accept=".json" className="hidden" onChange={handleImport} />
                                 </label>
-                                <button onClick={handleExport} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs px-4 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2">
-                                    <Icon name="download" className="w-3.5 h-3.5" />
-                                    <span>Export</span>
+                                <button onClick={handleExport} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 shadow-sm">
+                                    <Icon name="download" className="w-4 h-4" />
+                                    <span>내보내기</span>
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-inner">
-                                <Icon name="cloud" className={`w-3.5 h-3.5 ${syncStatus.includes('Ready') ? 'text-emerald-500' : 'text-blue-500 animate-pulse'}`} />
-                                <span className="text-[10px] font-black text-slate-400 tracking-wider uppercase">{syncStatus}</span>
+                            <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">
+                                <Icon name="cloud" className={`w-4 h-4 ${syncStatus.includes('동기화됨') ? 'text-emerald-500' : 'text-blue-500'}`} />
+                                <span className="text-xs font-semibold text-slate-500">{syncStatus}</span>
                             </div>
                         </header>
 
                         <div className="flex-1 overflow-hidden relative p-8">
                             {view === 'overview' ? (
                                 <div className="h-full flex gap-8 animate-fade-in">
-                                    <div className="w-full lg:w-[400px] flex flex-col h-full bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-xl shadow-slate-200/50 shrink-0">
-                                        <div className="p-7 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                            <h2 className="text-sm font-black text-slate-800 tracking-tight">Engineering Modules</h2>
-                                            <button onClick={addTask} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all"><Icon name="plus" /></button>
+                                    <div className="w-full lg:w-[420px] flex flex-col h-full bg-white border border-slate-200 rounded-[24px] overflow-hidden shadow-lg shrink-0">
+                                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white">
+                                            <h2 className="text-base font-bold text-slate-800">모듈 리스트</h2>
+                                            <button onClick={addTask} className="bg-blue-50 text-blue-600 p-2 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200/50"><Icon name="plus" className="w-4 h-4"/></button>
                                         </div>
-                                        <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scroll">
+                                        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scroll bg-slate-50/50">
                                             {(data.tasks || []).map(t => {
                                                 const cps = t.checkpoints || [];
                                                 const progress = cps.length === 0 ? 0 : Math.round((cps.filter(c=>c.done).length / cps.length) * 100);
                                                 return (
-                                                    <div key={t.id} onClick={() => setActiveTaskId(t.id)} className={`group border-2 rounded-3xl p-5 cursor-pointer transition-all ${activeTaskId === t.id ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:border-slate-300'}`}>
-                                                        <div className="flex justify-between items-start mb-4">
-                                                            <CleanInput value={t.title} onChange={v => updateTask(t.id, {title: v})} className={`text-sm font-black w-full ${progress === 100 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
-                                                            <button onClick={e => { e.stopPropagation(); deleteTask(t.id); }} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500"><Icon name="trash-2" /></button>
+                                                    <div key={t.id} onClick={() => setActiveTaskId(t.id)} className={`group bg-white border rounded-2xl p-5 cursor-pointer transition-all shadow-sm ${activeTaskId === t.id ? 'border-blue-400 ring-2 ring-blue-50' : 'border-slate-200 hover:border-slate-300 hover:shadow-md'}`}>
+                                                        <div className="flex justify-between items-start mb-4 gap-3">
+                                                            <CleanInput value={t.title} onChange={v => updateTask(t.id, {title: v})} className={`text-sm font-bold flex-1 ${progress === 100 ? 'text-slate-400 line-through' : 'text-slate-800'}`} />
+                                                            <button onClick={e => { e.stopPropagation(); deleteTask(t.id); }} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-1 hover:bg-red-50 rounded transition-all"><Icon name="trash-2" className="w-4 h-4"/></button>
                                                         </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                                                                <div className="bg-blue-600 h-full transition-all duration-700" style={{width: `${progress}%`}}></div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                                                <div className="bg-blue-500 h-full transition-all duration-700 ease-out" style={{width: `${progress}%`}}></div>
                                                             </div>
-                                                            <span className="text-[11px] font-black text-slate-400 w-10 text-right">{progress}%</span>
+                                                            <span className="text-xs font-bold text-slate-500 w-8 text-right">{progress}%</span>
                                                         </div>
                                                     </div>
                                                 );
@@ -407,9 +405,9 @@
                                             <TaskDetailPane task={activeTask} updateTask={updateTask} onClose={() => setActiveTaskId(null)} />
                                         </div>
                                     ) : (
-                                        <div className="flex-1 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-200 rounded-[32px] bg-white/50">
-                                            <Icon name="mouse-pointer-2" className="w-16 h-16 mb-6 opacity-20" />
-                                            <p className="text-sm font-black uppercase tracking-widest">Select a Module</p>
+                                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[24px]">
+                                            <Icon name="layout-template" className="w-12 h-12 mb-4 text-slate-300" />
+                                            <p className="text-sm font-semibold">좌측에서 모듈을 선택하여 세부 내용을 열람하십시오.</p>
                                         </div>
                                     )}
                                 </div>
@@ -420,8 +418,8 @@
                     </main>
 
                     {modalTaskId && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setModalTaskId(null)}>
-                            <div className="w-full max-w-2xl h-[80vh] bg-white rounded-[32px] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6 animate-fade-in" onClick={() => setModalTaskId(null)}>
+                            <div className="w-full max-w-4xl h-[85vh] bg-white rounded-[24px] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                                 <TaskDetailPane task={(data.tasks || []).find(t=>t.id===modalTaskId)} updateTask={updateTask} onClose={() => setModalTaskId(null)} isModal={true} />
                             </div>
                         </div>
@@ -463,11 +461,11 @@
                             let nDay = dragState.oDay;
                             if (gridRef.current) {
                                 const rect = gridRef.current.getBoundingClientRect();
-                                const colW = (rect.width - 48) / 7;
-                                const relX = e.clientX - rect.left - 48;
+                                const colW = (rect.width - 64) / 7; // 왼쪽 16rem(64px) 여백 제외
+                                const relX = e.clientX - rect.left - 64;
                                 nDay = Math.max(0, Math.min(6, Math.floor(relX / colW)));
                             }
-                            return { ...b, start: Math.max(0, dragState.oStart + delta), end: Math.min(24, dragState.oStart + delta + dur), day: nDay };
+                            return { ...b, start: Math.max(0, dragState.oStart + delta), end: Math.min(TOTAL_HOURS, dragState.oStart + delta + dur), day: nDay };
                         }
                         return b;
                     }) });
@@ -480,16 +478,16 @@
 
             return (
                 <div className="h-full flex gap-8 animate-fade-in" ref={gridRef}>
-                    <div className="w-72 bg-white border border-slate-200 rounded-[32px] flex flex-col overflow-hidden shadow-lg">
-                        <div className="p-6 border-b bg-slate-50/50 font-black text-xs uppercase tracking-widest text-slate-500">Resource Pool</div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scroll">
+                    <div className="w-80 bg-white border border-slate-200 rounded-[24px] flex flex-col overflow-hidden shadow-lg shrink-0">
+                        <div className="px-6 py-5 border-b border-slate-100 bg-white font-bold text-sm text-slate-700">대기 중인 리소스</div>
+                        <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scroll bg-slate-50/50">
                             {tasks.map(t => (
-                                <div key={t.id} className="space-y-2">
-                                    <div className="text-[10px] font-black text-slate-400 border-b border-slate-100 pb-1 truncate">{t.title}</div>
+                                <div key={t.id} className="space-y-3">
+                                    <div className="text-xs font-bold text-slate-500 border-b border-slate-200 pb-1.5 truncate">{t.title}</div>
                                     {(t.checkpoints || []).filter(c=>!c.done).map(cp => (
-                                        <div key={cp.id} draggable onDragStart={e => handleDragStart(e, t.id, cp.id)} className="p-3 bg-white border border-slate-200 rounded-xl cursor-grab active:cursor-grabbing hover:border-blue-400 shadow-sm transition-all flex items-center gap-2">
-                                            <Icon name="grip-vertical" className="w-3 h-3 text-slate-300" />
-                                            <span className="text-[11px] font-bold text-slate-700 leading-tight">{cp.text}</span>
+                                        <div key={cp.id} draggable onDragStart={e => handleDragStart(e, t.id, cp.id)} className="p-3.5 bg-white border border-slate-200 rounded-xl cursor-grab active:cursor-grabbing hover:border-blue-400 hover:shadow-md shadow-sm transition-all flex items-center gap-3">
+                                            <Icon name="grip-vertical" className="w-4 h-4 text-slate-400" />
+                                            <span className="text-sm font-medium text-slate-700 leading-tight">{cp.text || '제목 없음'}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -497,27 +495,33 @@
                         </div>
                     </div>
                     
-                    <div className="flex-1 bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-2xl flex flex-col">
-                        <div className="flex border-b border-slate-100 bg-white sticky top-0 z-30 pl-12">
-                            {DAYS.map(d => <div key={d} className="flex-1 py-4 text-center border-l border-slate-50 font-black text-[10px] text-slate-400 uppercase tracking-widest">{d}</div>)}
+                    <div className="flex-1 bg-white border border-slate-200 rounded-[24px] overflow-hidden shadow-lg flex flex-col">
+                        <div className="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-30 pl-16">
+                            {DAYS.map(d => <div key={d} className="flex-1 py-4 text-center border-l border-slate-200 font-bold text-sm text-slate-600 tracking-wider">{d}</div>)}
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scroll relative">
                             <div className="flex relative bg-slate-50/30" style={{ height: GRID_HEIGHT }}>
-                                <div className="w-12 shrink-0 border-r border-slate-200 bg-white sticky left-0 z-20">
-                                    {HOURS.map(h => <div key={h} className="absolute w-full flex justify-center -translate-y-1/2" style={{ top: h * HOUR_HEIGHT }}><span className="text-[9px] font-black text-slate-300 font-mono">{h}:00</span></div>)}
+                                <div className="w-16 shrink-0 border-r border-slate-200 bg-white sticky left-0 z-20">
+                                    {HOURS.map(h => (
+                                        <div key={h} className="absolute w-full flex justify-center -translate-y-1/2" style={{ top: h * HOUR_HEIGHT }}>
+                                            <span className="text-xs font-semibold text-slate-400 font-mono">
+                                                {((h + START_HOUR) % 24).toString().padStart(2, '0')}:00
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                                 {DAYS.map((_, di) => (
-                                    <div key={di} className="flex-1 relative border-l border-slate-100" onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, di)}>
-                                        {HOURS.map(h => <div key={h} className="absolute w-full border-t border-slate-100/50 pointer-events-none" style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }} />)}
+                                    <div key={di} className="flex-1 relative border-l border-slate-200/60" onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, di)}>
+                                        {HOURS.map(h => <div key={h} className="absolute w-full border-t border-slate-200/50 pointer-events-none" style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }} />)}
                                         {blocks.filter(b => b.day === di).map(b => {
                                             const task = tasks.find(t => t.id === b.taskId);
                                             const cp = (task?.checkpoints || []).find(c => c.id === b.checkpointId);
                                             if(!task || !cp) return null;
                                             return (
-                                                <div key={b.id} onDoubleClick={() => onOpenTask(task.id)} className={`absolute left-1 right-1 rounded-xl border flex flex-col overflow-hidden shadow-md transition-all group ${cp.done ? 'bg-slate-100 border-slate-200' : 'bg-blue-50 border-blue-200'}`} style={{ top: b.start * HOUR_HEIGHT, height: (b.end - b.start) * HOUR_HEIGHT, zIndex: 10 }}>
+                                                <div key={b.id} onDoubleClick={() => onOpenTask(task.id)} className={`absolute left-1 right-1 rounded-xl border flex flex-col overflow-hidden shadow-sm transition-all group hover:shadow-md ${cp.done ? 'bg-slate-100/90 border-slate-300' : 'bg-blue-50/90 border-blue-300'}`} style={{ top: b.start * HOUR_HEIGHT, height: (b.end - b.start) * HOUR_HEIGHT, zIndex: 10 }}>
                                                     <div className="flex-1 p-3 cursor-move flex flex-col relative" onMouseDown={e => handleMouseDown(e, b, 'move')}>
-                                                        <span className="text-[8px] font-black text-blue-500/80 uppercase truncate mb-1">{task.title}</span>
-                                                        <div className="flex items-start gap-2" onMouseDown={e => e.stopPropagation()}>
+                                                        <span className={`text-[10px] font-bold uppercase truncate mb-1.5 ${cp.done ? 'text-slate-500' : 'text-blue-600'}`}>{task.title}</span>
+                                                        <div className="flex items-start gap-2.5" onMouseDown={e => e.stopPropagation()}>
                                                             <input type="checkbox" checked={cp.done} onChange={e => {
                                                                 const n = [...(task.checkpoints || [])];
                                                                 const idx = n.findIndex(c => c.id === cp.id);
@@ -529,13 +533,13 @@
                                                                 const idx = n.findIndex(c => c.id === cp.id);
                                                                 n[idx].text = v;
                                                                 updateTask(task.id, { checkpoints: n });
-                                                            }} className={`text-[10px] font-black leading-tight ${cp.done ? 'line-through text-slate-400' : 'text-slate-800'}`} />
+                                                            }} className={`text-xs font-semibold leading-snug w-full bg-transparent border-none p-0 focus:ring-0 ${cp.done ? 'line-through text-slate-500' : 'text-slate-800'}`} />
                                                         </div>
-                                                        <div className="mt-auto text-[9px] font-mono text-slate-400 flex items-center gap-1"><Icon name="clock" className="w-2.5 h-2.5" /> {formatTime(b.start)}</div>
-                                                        <button onClick={e => { e.stopPropagation(); onUpdate({ blocks: blocks.filter(x => x.id !== b.id) }); }} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"><Icon name="x" className="w-3.5 h-3.5" /></button>
+                                                        <div className="mt-auto text-[10px] font-medium text-slate-500 flex items-center gap-1.5 pt-2"><Icon name="clock" className="w-3 h-3" /> {formatTime(b.start)}</div>
+                                                        <button onClick={e => { e.stopPropagation(); onUpdate({ blocks: blocks.filter(x => x.id !== b.id) }); }} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-all"><Icon name="x" className="w-3.5 h-3.5" /></button>
                                                     </div>
-                                                    <div className="h-2 w-full cursor-ns-resize hover:bg-black/5 flex items-center justify-center" onMouseDown={e => handleMouseDown(e, b, 'resize')}>
-                                                        <div className="w-6 h-0.5 bg-slate-300 rounded-full" />
+                                                    <div className="h-2.5 w-full cursor-ns-resize hover:bg-black/5 flex items-center justify-center transition-colors" onMouseDown={e => handleMouseDown(e, b, 'resize')}>
+                                                        <div className="w-8 h-1 bg-slate-300 rounded-full" />
                                                     </div>
                                                 </div>
                                             );
