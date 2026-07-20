@@ -58,7 +58,7 @@
             background-color: var(--ut-black);
             color: var(--ut-white);
             border: 2px solid #555;
-            padding: 10px;
+            padding: 8px;
             outline: none;
             border-radius: 0;
             transition: border-color 0.2s;
@@ -66,7 +66,6 @@
         .ut-input:focus { border-color: var(--ut-yellow); }
         .ut-input::placeholder { color: #666; }
 
-        /* 가독성 최적화를 위한 메뉴 아이템 설정 수정 */
         .ut-menu-item {
             position: relative;
             cursor: pointer;
@@ -124,7 +123,7 @@
 
     <!-- 최상단 상태 표시줄 -->
     <div class="flex justify-between text-xs text-gray-600 mb-2 px-2 uppercase tracking-widest shrink-0">
-        <span>STEP <span id="ui-step">0/3</span> / STATUS: <span id="ui-status" class="text-red-500">BLIND MAPPED</span></span>
+        <span>STEP <span id="ui-step">0/3</span> / STATUS: <span id="ui-status" class="text-red-500">BLIND MAPPED (HARD)</span></span>
         <span id="sync-status" class="text-yellow-500 animate-pulse">CONNECTING TO CLOUD...</span>
     </div>
 
@@ -134,17 +133,18 @@
         <section class="w-full lg:w-[45%] flex flex-col gap-4 h-full shrink-0">
             <div id="game-container" class="w-full aspect-[4/3] ut-box flex flex-col bg-black p-2 relative shrink-0">
                 
-                <!-- 상단 비주얼 영역 -->
+                <!-- 상단 비주얼 영역 (이모지 또는 이미지 출력) -->
                 <div class="h-[45%] w-full flex justify-center items-center relative border-b-2 border-gray-900 overflow-hidden shrink-0">
+                    <img id="game-image" src="" class="absolute inset-0 m-auto max-w-full max-h-[95%] object-contain hidden pixelated" alt="Visual" onerror="handleImageError()">
                     <div id="game-emoji" class="text-[5rem] md:text-[6.5rem] text-white animate-pulse">🔮</div>
                 </div>
                 
-                <!-- 하단 텍스트 및 선택지 영역 (비율 및 여백 최적화) -->
+                <!-- 하단 텍스트 및 선택지 영역 -->
                 <div class="h-[55%] w-full ut-box p-4 mt-2 flex flex-col relative bg-black overflow-hidden">
-                    <div id="game-dialogue" class="text-white text-sm md:text-base leading-[1.6] whitespace-pre-wrap shrink-0 max-h-[45%] overflow-y-auto typing-cursor mb-2">
+                    <div id="game-dialogue" class="text-white text-sm md:text-base leading-[1.6] whitespace-pre-wrap shrink-0 max-h-[40%] overflow-y-auto typing-cursor mb-2">
                         * 서버에서 데이터를 불러오는 중...
                     </div>
-                    <div id="game-choices" class="flex flex-col gap-2.5 text-xs md:text-sm text-white flex-grow overflow-y-auto pr-1 border-t border-gray-900 pt-2.5"></div>
+                    <div id="game-choices" class="flex flex-col gap-2 text-xs md:text-sm text-white flex-grow overflow-y-auto pr-1 border-t border-gray-900 pt-2"></div>
                 </div>
             </div>
 
@@ -153,7 +153,7 @@
                     <span class="btn-heart">❤️</span> 음식관리
                 </div>
                 <div class="ut-action-btn border-[#4CAF50] text-[#4CAF50]" onclick="navigate('question', this)" id="btn-nav-question">
-                    <span class="btn-heart">❤️</span> 질문관리
+                    <span class="btn-heart">❤️</span> 질문/그리기
                 </div>
                 <div class="ut-action-btn border-[#2196F3] text-[#2196F3]" onclick="navigate('arcade', this)" id="btn-nav-arcade">
                     <span class="btn-heart">❤️</span> 아케이드
@@ -182,14 +182,73 @@
                 <div id="food-list-container" class="space-y-3 flex-grow overflow-y-auto"></div>
             </div>
 
-            <!-- 2. 심리테스트 질문 관리 뷰 -->
+            <!-- 2. 심리테스트 질문 및 시각요소(그리기) 관리 뷰 -->
             <div id="view-question" class="hidden h-full flex flex-col overflow-y-auto pr-2 pb-4">
-                <div class="text-xl md:text-2xl mb-4 border-b-2 border-dashed border-gray-700 pb-3 flex justify-between items-end shrink-0">
-                    <span class="text-[#4CAF50]">* 심리테스트 질문 풀 (Pool)</span>
-                    <button onclick="addQuestionItem()" class="border border-[#4CAF50] text-[#4CAF50] px-3 py-1 text-xs hover:bg-[#4CAF50] hover:text-black">+ 질문 추가</button>
+                <div class="text-xl md:text-2xl mb-4 border-b-2 border-dashed border-gray-700 pb-3 flex justify-between items-center shrink-0">
+                    <span class="text-[#4CAF50]">* 질문/시각요소 편집기</span>
+                    <div class="flex gap-2 items-center">
+                        <select id="question-selector" class="ut-input bg-black text-sm text-[#4CAF50] border-[#4CAF50] cursor-pointer py-1" onchange="selectQuestionToEdit(this.value)"></select>
+                        <button onclick="addQuestionItem()" class="border border-[#4CAF50] text-[#4CAF50] px-2 py-1 text-xs hover:bg-[#4CAF50] hover:text-black">+ 새 질문</button>
+                        <button onclick="deleteCurrentQuestion()" class="border border-red-600 text-red-500 px-2 py-1 text-xs hover:bg-red-900 hover:text-white">삭제</button>
+                    </div>
                 </div>
-                <p class="text-gray-500 text-xs mb-4 shrink-0">* 선택지에는 특정 음식을 지정하지 않습니다. 테스트 시작 시 무작위 비밀 매핑됩니다.</p>
-                <div id="question-list-container" class="space-y-4 flex-grow overflow-y-auto"></div>
+
+                <div class="space-y-6 flex-grow overflow-y-auto">
+                    <!-- 미디어 설정 섹션 -->
+                    <div class="bg-gray-900 p-3 border border-gray-700 space-y-3">
+                        <div class="text-sm font-bold text-gray-300">* 장면 시각 요소 (현재 선택된 질문에 반영)</div>
+                        <div class="flex gap-4 text-xs bg-black p-2 border border-gray-800 inline-flex">
+                            <div class="ut-menu-item active" id="menu-media-emoji" onclick="setMediaMode('emoji')">기호(이모지)</div>
+                            <div class="ut-menu-item" id="menu-media-upload" onclick="setMediaMode('upload')">이미지 업로드</div>
+                            <div class="ut-menu-item" id="menu-media-canvas" onclick="setMediaMode('canvas')">직접 그리기</div>
+                        </div>
+
+                        <!-- 이모지 입력 -->
+                        <div id="panel-media-emoji" class="pl-2">
+                            <div class="flex items-center gap-3">
+                                <input type="text" id="edit-emoji" class="ut-input w-16 text-2xl text-center p-1" placeholder="🔮" oninput="saveCurrentQuestionMedia()">
+                                <span class="text-xs text-gray-500">* 이 질문이 화면에 뜰 때 나타날 기호입니다.</span>
+                            </div>
+                        </div>
+
+                        <!-- 파일 업로드 -->
+                        <div id="panel-media-upload" class="pl-2 hidden flex items-center gap-3">
+                            <label for="edit-file" class="border border-white px-3 py-1 text-xs cursor-pointer hover:bg-white hover:text-black">* 내 PC에서 이미지 선택</label>
+                            <input type="file" id="edit-file" accept="image/*" class="hidden" onchange="uploadImage(event)">
+                            <button onclick="clearImage()" class="text-red-500 text-xs hover:underline">[이미지 초기화]</button>
+                        </div>
+
+                        <!-- 캔버스 그리기 -->
+                        <div id="panel-media-canvas" class="pl-2 hidden">
+                            <div class="flex flex-col sm:flex-row gap-4 items-start">
+                                <div class="bg-black border-2 border-gray-600 p-1">
+                                    <canvas id="paint-canvas" width="220" height="150" class="cursor-crosshair pixelated bg-white"></canvas>
+                                </div>
+                                <div class="flex flex-col gap-2 text-xs">
+                                    <button class="ut-menu-item text-sm" onclick="setDrawMode('draw', this)">> 펜 (그리기)</button>
+                                    <button class="ut-menu-item text-sm" onclick="setDrawMode('eraser', this)">> 지우개</button>
+                                    <button class="ut-menu-item text-sm text-red-400" onclick="clearCanvas()">> 캔버스 비우기</button>
+                                    <button class="border border-green-500 text-green-500 p-1.5 mt-2 hover:bg-green-900 font-bold" onclick="saveCanvas()">* 그린 그림을 장면에 적용</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 질문 텍스트 섹션 -->
+                    <div>
+                        <div class="text-sm mb-1 text-gray-300">* 심리테스트 질문 대사</div>
+                        <textarea id="edit-title" rows="3" class="ut-input w-full text-xs md:text-sm leading-relaxed" placeholder="* (질문 내용을 입력하십시오.)" oninput="saveCurrentQuestionText()"></textarea>
+                    </div>
+
+                    <!-- 선택지 구성 섹션 (최대 6개) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-gray-300">* 선택지 구성 (최대 6개)</span>
+                            <button onclick="addOptionToCurrent()" class="border border-yellow-400 text-yellow-400 px-2 py-0.5 text-xs hover:bg-yellow-900">+ 선택지 추가</button>
+                        </div>
+                        <div id="options-editor-list" class="space-y-2"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- 3. 아케이드 뷰 (미니게임) -->
@@ -267,34 +326,42 @@
                 {
                     id: "q1",
                     title: "* 깊은 밤, 당신은 낡은 저택의 문을 열었다.\n* 가장 먼저 눈에 들어온 것은 무엇인가?",
-                    emoji: "🏰",
+                    mediaType: "emoji",
+                    mediaContent: "🏰",
                     options: [
                         "* 벽난로에서 타오르는 붉고 강렬한 불꽃",
-                        "* 테이블 위에 놓인 바삭해 보이는 황금 조각상",
-                        "* 창문 밖으로 내리는 시원하고 차가운 밤비",
-                        "* 어둠 속에서 은은하게 풍기는 바다의 향기"
+                        "* 테이블 위에 놓인 황금 조각상",
+                        "* 창문 밖으로 내리는 차가운 밤비",
+                        "* 어둠 속에서 은은하게 풍기는 바다의 향기",
+                        "* 바닥에 떨어져 있는 낡은 양피지 지도",
+                        "* 천장에 매달려 흔들리는 화려한 샹들리에"
                     ]
                 },
                 {
                     id: "q2",
-                    title: "* 알 수 없는 마법사가 당신에게 4개의 물약 중 하나를 고르라고 한다.\n* 어떤 색의 병을 선택하겠는가?",
-                    emoji: "🧪",
+                    title: "* 알 수 없는 마법사가 당신에게 물약 중 하나를 고르라고 한다.\n* 어떤 색의 병을 선택하겠는가?",
+                    mediaType: "emoji",
+                    mediaContent: "🧪",
                     options: [
                         "* 마실수록 열정이 끓어오르는 붉은 물약",
                         "* 마음이 차분해지고 머리가 맑아지는 푸른 물약",
                         "* 묵직한 포만감과 힘을 주는 황금빛 물약",
-                        "* 혀끝을 자극하는 신비로운 보랏빛 물약"
+                        "* 혀끝을 자극하는 신비로운 보랏빛 물약",
+                        "* 투명하지만 심장이 떨리는 은빛 물약"
                     ]
                 },
                 {
                     id: "q3",
                     title: "* 미지의 섬으로 떠나게 되었다.\n* 배에 단 한 가지 물건만 실을 수 있다면?",
-                    emoji: "⛵",
+                    mediaType: "emoji",
+                    mediaContent: "⛵",
                     options: [
                         "* 언제든 불을 피울 수 있는 마법 발화석",
                         "* 어떤 재료든 깔끔하게 손질하는 명검",
                         "* 체력을 단숨에 회복시키는 고칼로리 식량",
-                        "* 이국적인 향신료가 담긴 보물 상자"
+                        "* 이국적인 향신료가 담긴 보물 상자",
+                        "* 밤하늘의 길을 안내하는 고대 나침반",
+                        "* 날씨를 맑게 변화시키는 신비한 피리"
                     ]
                 }
             ]
@@ -309,6 +376,7 @@
         const TOTAL_STEPS = 3;
         let sessionQuestions = [];
         let scoreBoard = {};
+        let activeQIdx = 0; // 질문 관리 에디터에서 선택된 인덱스
 
         const firebaseConfig = {
             apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
@@ -320,16 +388,18 @@
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const docRef = db.collection("projects").doc("ut_blind_food_tarot_v2_readable");
+        const docRef = db.collection("projects").doc("ut_blind_food_tarot_v3_media");
 
         window.onload = () => {
+            initCanvas();
             docRef.onSnapshot((doc) => {
                 const statusEl = document.getElementById('sync-status');
                 if (doc.exists) {
                     isRemoteUpdating = true;
                     APP_DATA = doc.data();
                     renderFoodList();
-                    renderQuestionList();
+                    updateQuestionSelector();
+                    loadQuestionToEditor(activeQIdx);
                     statusEl.innerText = 'ONLINE (LIVE SYNCED)';
                     statusEl.className = 'text-green-400';
                     isRemoteUpdating = false;
@@ -341,10 +411,11 @@
             }, () => {
                 document.getElementById('sync-status').innerText = 'OFFLINE (LOCAL MODE)';
                 document.getElementById('sync-status').className = 'text-red-500';
-                const saved = localStorage.getItem('ut_blind_tarot_save_v2');
+                const saved = localStorage.getItem('ut_blind_tarot_save_v3');
                 if(saved) { try { APP_DATA = JSON.parse(saved); } catch(e){} }
                 renderFoodList();
-                renderQuestionList();
+                updateQuestionSelector();
+                loadQuestionToEditor(activeQIdx);
             });
 
             startBlindTest();
@@ -359,7 +430,7 @@
 
         function saveToCloud() {
             if(isRemoteUpdating) return;
-            localStorage.setItem('ut_blind_tarot_save_v2', JSON.stringify(APP_DATA));
+            localStorage.setItem('ut_blind_tarot_save_v3', JSON.stringify(APP_DATA));
             docRef.set(APP_DATA).catch(e => console.warn("클라우드 저장 실패, 로컬 임시 저장됨", e));
         }
 
@@ -403,6 +474,13 @@
             setTimeout(() => { box.style.opacity = '0'; }, 2000);
         }
 
+        function handleImageError() {
+            document.getElementById('game-image').classList.add('hidden');
+            const emoji = document.getElementById('game-emoji');
+            emoji.classList.remove('hidden');
+            emoji.innerText = '❌';
+        }
+
         function navigate(view, btnEl) {
             playSound('select');
             document.querySelectorAll('.ut-action-btn').forEach(el => el.classList.remove('active-tab'));
@@ -411,11 +489,15 @@
             document.querySelectorAll('section > div[id^="view-"]').forEach(el => el.classList.add('hidden'));
             document.getElementById(`view-${view}`).classList.remove('hidden');
 
+            if(view === 'question') {
+                updateQuestionSelector();
+                loadQuestionToEditor(activeQIdx);
+            }
             if(view === 'settings') document.getElementById('data-raw').value = JSON.stringify(APP_DATA, null, 2);
         }
 
         /* =========================================================
-           3. 블라인드 심리테스트 코어 로직
+           3. 블라인드 심리테스트 코어 로직 (동적 매핑 + 랜덤 가중치)
            ========================================================= */
         function startBlindTest() {
             if (APP_DATA.foods.length === 0 || APP_DATA.questions.length === 0) {
@@ -429,7 +511,7 @@
             APP_DATA.foods.forEach(f => scoreBoard[f.id] = 0);
 
             let pool = [...APP_DATA.questions].sort(() => Math.random() - 0.5);
-            sessionQuestions = pool.slice(0, TOTAL_STEPS);
+            sessionQuestions = pool.slice(0, Math.min(TOTAL_STEPS, APP_DATA.questions.length));
 
             renderTestStep();
             showMessage("새로운 블라인드 심리테스트가 생성되었습니다.");
@@ -443,25 +525,39 @@
 
             const q = sessionQuestions[currentStep];
             document.getElementById('ui-step').innerText = `${currentStep + 1}/${TOTAL_STEPS}`;
-            document.getElementById('game-emoji').innerText = q.emoji || "🔮";
+            
+            // 시각 요소(이모지/업로드/캔버스) 출력 로직
+            const imgNode = document.getElementById('game-image');
+            const emojiNode = document.getElementById('game-emoji');
+            if (q.mediaType && q.mediaType !== 'emoji' && q.mediaContent) {
+                imgNode.src = q.mediaContent;
+                imgNode.classList.remove('hidden');
+                emojiNode.classList.add('hidden');
+            } else {
+                imgNode.classList.add('hidden');
+                emojiNode.classList.remove('hidden');
+                emojiNode.innerText = q.mediaContent || q.emoji || "🔮";
+            }
             
             typeText(q.title || "* (질문 내용이 없습니다.)");
 
             const choiceBox = document.getElementById('game-choices');
             choiceBox.innerHTML = '';
 
+            // 선택지 순서 무작위 셔플 및 음식 풀 독립 셔플, 랜덤 가중치 부여
             let optionsPool = [...q.options].sort(() => Math.random() - 0.5);
             let foodPool = [...APP_DATA.foods].sort(() => Math.random() - 0.5);
 
             optionsPool.forEach((optText, idx) => {
                 const mappedFood = foodPool[idx % foodPool.length];
+                const randomWeight = Math.floor(Math.random() * 3) + 1; // 1~3점 무작위 점수 부여
                 
                 const btn = document.createElement('div');
                 btn.className = 'ut-menu-item cursor-pointer text-xs md:text-sm';
                 btn.innerHTML = optText.startsWith('*') ? optText : `* ${optText}`;
                 btn.onclick = () => {
                     playSound('select');
-                    scoreBoard[mappedFood.id] += (TOTAL_STEPS - currentStep);
+                    scoreBoard[mappedFood.id] += randomWeight;
                     currentStep++;
                     renderTestStep();
                 };
@@ -511,7 +607,10 @@
             let bestFoodId = Object.keys(scoreBoard).reduce((a, b) => scoreBoard[a] >= scoreBoard[b] ? a : b);
             let resultFood = APP_DATA.foods.find(f => f.id === bestFoodId) || APP_DATA.foods[0];
 
-            document.getElementById('game-emoji').innerText = resultFood.emoji || "🍽️";
+            document.getElementById('game-image').classList.add('hidden');
+            const emojiNode = document.getElementById('game-emoji');
+            emojiNode.classList.remove('hidden');
+            emojiNode.innerText = resultFood.emoji || "🍽️";
             
             const resultMsg = `* 당신의 무의식이 선택한 오늘 식사는...\n\n* [ ${resultFood.name} ] 입니다!\n* "${resultFood.desc}"`;
             typeText(resultMsg);
@@ -565,83 +664,232 @@
         }
 
         /* =========================================================
-           5. 질문 풀 관리자 (CRUD)
+           5. 질문 및 시각요소(그리기) 에디터 관리
            ========================================================= */
-        function renderQuestionList() {
-            const container = document.getElementById('question-list-container');
-            container.innerHTML = '';
+        function updateQuestionSelector() {
+            const selector = document.getElementById('question-selector');
+            if(!selector) return;
+            selector.innerHTML = APP_DATA.questions.map((q, idx) => 
+                `<option value="${idx}" ${idx === activeQIdx ? 'selected' : ''}>질문 #${idx+1}</option>`
+            ).join('');
+        }
 
-            APP_DATA.questions.forEach((q, qIdx) => {
-                const card = document.createElement('div');
-                card.className = "bg-gray-900 p-4 border-2 border-gray-700 space-y-2.5 shrink-0";
-                
-                let optionsHtml = '';
-                q.options.forEach((opt, oIdx) => {
-                    optionsHtml += `
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-[10px] text-gray-500 font-mono w-12">OPT #${oIdx+1}</span>
-                            <input type="text" value="${opt}" class="ut-input flex-grow text-xs p-1.5" oninput="updateOption(${qIdx}, ${oIdx}, this.value)">
-                            <button onclick="deleteOption(${qIdx}, ${oIdx})" class="text-red-500 px-2 font-bold hover:text-white text-sm">X</button>
-                        </div>
-                    `;
-                });
+        function selectQuestionToEdit(idx) {
+            activeQIdx = parseInt(idx);
+            loadQuestionToEditor(activeQIdx);
+            playSound('select');
+        }
 
-                card.innerHTML = `
-                    <div class="flex justify-between items-center border-b border-gray-800 pb-2">
-                        <div class="flex items-center gap-2">
-                            <input type="text" value="${q.emoji}" class="ut-input w-10 text-lg text-center p-1" oninput="updateQuestion(${qIdx}, 'emoji', this.value)">
-                            <span class="text-green-400 font-bold text-xs">질문 카드 #${qIdx+1}</span>
-                        </div>
-                        <button onclick="deleteQuestion(${qIdx})" class="text-red-500 text-xs hover:underline">[질문 삭제]</button>
-                    </div>
-                    <textarea rows="2" class="ut-input w-full text-xs p-1.5" placeholder="심리테스트 질문 대사 입력" oninput="updateQuestion(${qIdx}, 'title', this.value)">${q.title}</textarea>
-                    <div class="space-y-1.5 pt-1">
-                        <label class="block text-[10px] text-gray-400">* 선택지 구성 (최소 2개 ~ 최대 4개 권장)</label>
-                        ${optionsHtml}
-                        <button onclick="addOption(${qIdx})" class="w-full py-1 border border-dashed border-gray-600 text-yellow-400 hover:border-yellow-400 text-[11px] mt-1">+ 선택지 추가 작성</button>
-                    </div>
-                `;
-                container.appendChild(card);
+        function loadQuestionToEditor(idx) {
+            const q = APP_DATA.questions[idx];
+            if(!q) return;
+
+            document.getElementById('edit-title').value = q.title || '';
+            setMediaMode(q.mediaType || 'emoji', false);
+            if((q.mediaType || 'emoji') === 'emoji') {
+                document.getElementById('edit-emoji').value = q.mediaContent || q.emoji || '🔮';
+            }
+
+            renderOptionsInEditor(q);
+        }
+
+        function setMediaMode(mode, doSave = true) {
+            if(APP_DATA.questions[activeQIdx]) {
+                APP_DATA.questions[activeQIdx].mediaType = mode;
+            }
+            ['emoji','upload','canvas'].forEach(m => {
+                const menu = document.getElementById(`menu-media-${m}`);
+                const panel = document.getElementById(`panel-media-${m}`);
+                if(m === mode) {
+                    menu.classList.add('active');
+                    panel.classList.remove('hidden');
+                } else {
+                    menu.classList.remove('active');
+                    panel.classList.add('hidden');
+                }
             });
+            if(doSave) { saveToCloud(); }
+        }
+
+        function saveCurrentQuestionMedia() {
+            const q = APP_DATA.questions[activeQIdx];
+            if(!q) return;
+            q.mediaContent = document.getElementById('edit-emoji').value;
+            q.emoji = q.mediaContent;
+            saveToCloud();
+        }
+
+        function saveCurrentQuestionText() {
+            const q = APP_DATA.questions[activeQIdx];
+            if(!q) return;
+            q.title = document.getElementById('edit-title').value;
+            saveToCloud();
+        }
+
+        function uploadImage(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                APP_DATA.questions[activeQIdx].mediaContent = event.target.result;
+                APP_DATA.questions[activeQIdx].mediaType = 'upload';
+                saveToCloud();
+                showMessage("이미지가 질문에 첨부되었습니다.");
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+
+        function clearImage() {
+            APP_DATA.questions[activeQIdx].mediaContent = '🔮';
+            APP_DATA.questions[activeQIdx].mediaType = 'emoji';
+            setMediaMode('emoji');
+            saveToCloud();
+            showMessage("시각 정보가 이모지로 초기화되었습니다.");
+        }
+
+        function renderOptionsInEditor(q) {
+            const list = document.getElementById('options-editor-list');
+            list.innerHTML = '';
+
+            q.options.forEach((opt, oIdx) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-2";
+                div.innerHTML = `
+                    <span class="text-xs text-gray-500 font-mono w-12">OPT #${oIdx+1}</span>
+                    <input type="text" value="${opt}" class="ut-input flex-grow text-xs p-1.5" oninput="updateOptionInEditor(${activeQIdx}, ${oIdx}, this.value)">
+                    <button onclick="deleteOptionFromEditor(${activeQIdx}, ${oIdx})" class="text-red-500 px-2 font-bold hover:text-white text-sm">X</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function addOptionToCurrent() {
+            const q = APP_DATA.questions[activeQIdx];
+            if(!q) return;
+            if(q.options.length >= 6) { showMessage("선택지는 최대 6개까지만 작성할 수 있습니다."); return; }
+            q.options.push("* 새로운 선택지 내용");
+            saveToCloud();
+            renderOptionsInEditor(q);
+        }
+
+        function updateOptionInEditor(qIdx, oIdx, val) {
+            APP_DATA.questions[qIdx].options[oIdx] = val;
+            saveToCloud();
+        }
+
+        function deleteOptionFromEditor(qIdx, oIdx) {
+            if(APP_DATA.questions[qIdx].options.length <= 2) { showMessage("선택지는 최소 2개 이상이어야 합니다."); return; }
+            APP_DATA.questions[qIdx].options.splice(oIdx, 1);
+            saveToCloud();
+            renderOptionsInEditor(APP_DATA.questions[qIdx]);
         }
 
         function addQuestionItem() {
             APP_DATA.questions.push({
                 id: "q_" + Date.now(),
                 title: "* 새로운 심리테스트 상황 질문이다.\n* 당신은 어떤 행동을 취하겠는가?",
-                emoji: "❓",
-                options: ["* 첫 번째 무의식적 행동", "* 두 번째 무의식적 행동", "* 세 번째 무의식적 행동"]
+                mediaType: "emoji",
+                mediaContent: "❓",
+                options: [
+                    "* 첫 번째 무의식적 행동",
+                    "* 두 번째 무의식적 행동",
+                    "* 세 번째 무의식적 행동",
+                    "* 네 번째 무의식적 행동"
+                ]
             });
+            activeQIdx = APP_DATA.questions.length - 1;
             saveToCloud();
-            renderQuestionList();
+            updateQuestionSelector();
+            loadQuestionToEditor(activeQIdx);
             showMessage("새 질문 카드가 생성되었습니다.");
         }
 
-        function updateQuestion(idx, key, val) { APP_DATA.questions[idx][key] = val; saveToCloud(); }
-        function deleteQuestion(idx) {
-            if (APP_DATA.questions.length <= 1) { showMessage("최소 1개 이상의 질문은 유지해야 합니다."); return; }
-            APP_DATA.questions.splice(idx, 1);
+        function deleteCurrentQuestion() {
+            if(APP_DATA.questions.length <= 1) { showMessage("최소 1개 이상의 질문은 유지해야 합니다."); return; }
+            APP_DATA.questions.splice(activeQIdx, 1);
+            activeQIdx = Math.max(0, activeQIdx - 1);
             saveToCloud();
-            renderQuestionList();
+            updateQuestionSelector();
+            loadQuestionToEditor(activeQIdx);
             showMessage("질문이 삭제되었습니다.");
         }
 
-        function addOption(qIdx) {
-            if (APP_DATA.questions[qIdx].options.length >= 4) { showMessage("선택지는 최대 4개까지만 권장합니다."); return; }
-            APP_DATA.questions[qIdx].options.push("* 새로운 선택지 내용");
-            saveToCloud();
-            renderQuestionList();
+        /* =========================================================
+           6. 캔버스 그리기 로직 (스케치북)
+           ========================================================= */
+        let canvas, ctx;
+        let isDrawing = false;
+        let drawMode = 'draw';
+        
+        function initCanvas() {
+            canvas = document.getElementById('paint-canvas');
+            if(!canvas) return;
+            ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            ctx.fillStyle = '#ffffff'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const startDraw = (e) => { e.preventDefault(); isDrawing = true; draw(e); };
+            const moveDraw = (e) => { if(isDrawing) { e.preventDefault(); draw(e); } };
+            const endDraw = () => { isDrawing = false; ctx.beginPath(); };
+
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', moveDraw);
+            canvas.addEventListener('mouseup', endDraw);
+            canvas.addEventListener('mouseleave', endDraw);
+
+            canvas.addEventListener('touchstart', startDraw, {passive:false});
+            canvas.addEventListener('touchmove', moveDraw, {passive:false});
+            canvas.addEventListener('touchend', endDraw);
         }
-        function updateOption(qIdx, oIdx, val) { APP_DATA.questions[qIdx].options[oIdx] = val; saveToCloud(); }
-        function deleteOption(qIdx, oIdx) {
-            if (APP_DATA.questions[qIdx].options.length <= 2) { showMessage("선택지는 최소 2개 이상이어야 합니다."); return; }
-            APP_DATA.questions[qIdx].options.splice(oIdx, 1);
+        
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+        
+        function draw(e) {
+            const pos = getPos(e);
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'square';
+            ctx.strokeStyle = drawMode === 'draw' ? '#000000' : '#ffffff'; 
+            
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+        
+        function setDrawMode(mode, btn) {
+            drawMode = mode;
+            playSound('select');
+            const parent = btn.parentElement;
+            parent.querySelectorAll('.ut-menu-item').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function clearCanvas() {
+            playSound('damage');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function saveCanvas() {
+            if(!APP_DATA.questions[activeQIdx]) return;
+            APP_DATA.questions[activeQIdx].mediaContent = canvas.toDataURL('image/png');
+            APP_DATA.questions[activeQIdx].mediaType = 'canvas';
             saveToCloud();
-            renderQuestionList();
+            showMessage("그린 그림이 현재 질문에 적용되었습니다.");
         }
 
         /* =========================================================
-           6. 아케이드 배틀 미니게임
+           7. 아케이드 배틀 미니게임
            ========================================================= */
         let rpgGold = 0;
         let rpgLv = 1;
@@ -670,7 +918,7 @@
         }
 
         /* =========================================================
-           7. 설정 및 데이터 관리
+           8. 설정 및 데이터 관리
            ========================================================= */
         function exportData() {
             const code = JSON.stringify(APP_DATA, null, 2);
@@ -693,7 +941,8 @@
                     APP_DATA = parsed; 
                     saveToCloud(); 
                     renderFoodList(); 
-                    renderQuestionList(); 
+                    updateQuestionSelector();
+                    loadQuestionToEditor(activeQIdx);
                     startBlindTest();
                     showMessage("서버 전체의 데이터가 덮어씌워졌습니다.");
                 } else throw new Error("Invalid structure");
@@ -702,11 +951,12 @@
 
         function resetAll() {
             if(confirm("정말로 클라우드 서버의 모든 데이터를 기본값으로 초기화하시겠습니까?")) {
-                localStorage.removeItem('ut_blind_tarot_save_v2');
+                localStorage.removeItem('ut_blind_tarot_save_v3');
                 APP_DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
                 saveToCloud();
                 renderFoodList();
-                renderQuestionList();
+                updateQuestionSelector();
+                loadQuestionToEditor(0);
                 startBlindTest();
                 showMessage("모든 데이터가 TRUE RESET 되었습니다.");
             }
