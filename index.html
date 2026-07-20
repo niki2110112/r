@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNDERTALE - Story Maker (Live Sync)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK (v10.8.0 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <!-- 언더테일 픽셀 폰트 (네오 둥근모) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/neodgm-web-font@1.530/neodgm/style.css">
+
+    <style>
+        :root {
+            --ut-black: #000000;
+            --ut-white: #ffffff;
+            --ut-yellow: #ffff00;
+            --ut-orange: #f59e0b;
+            --ut-red: #ff0000;
+        }
+
+        * {
+            font-family: 'NeoDunggeunmo', 'Courier New', monospace !important;
+        }
+
+        body { 
+            background-color: var(--ut-black); 
+            color: var(--ut-white); 
+            overflow: hidden; 
+            user-select: none; 
+            -webkit-font-smoothing: none; 
+            font-smooth: never;
+        }
+        
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: var(--ut-black); border-left: 2px solid #333; }
+        ::-webkit-scrollbar-thumb { background: #555; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--ut-white); }
+
+        .pixelated {
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        .ut-box {
+            background-color: var(--ut-black);
+            border: 4px solid var(--ut-white);
+            border-radius: 0 !important;
+        }
+
+        .ut-input {
+            background-color: var(--ut-black);
+            color: var(--ut-white);
+            border: 2px solid #555;
+            padding: 10px;
+            outline: none;
+            border-radius: 0;
+            transition: border-color 0.2s;
+        }
+        .ut-input:focus { border-color: var(--ut-yellow); }
+        .ut-input::placeholder { color: #666; }
+
+        .ut-menu-item {
+            position: relative;
+            cursor: pointer;
+            padding-left: 28px;
+            color: #aaa;
+            transition: color 0.1s;
+        }
+        .ut-menu-item:hover, .ut-menu-item.active { color: var(--ut-white); }
+        .ut-menu-item::before {
+            content: '❤️';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            font-size: 1rem;
+            color: var(--ut-red);
+        }
+        .ut-menu-item:hover::before, .ut-menu-item.active::before { opacity: 1; }
+
+        .ut-action-btn {
+            border: 3px solid var(--ut-orange);
+            color: var(--ut-orange);
+            background: var(--ut-black);
+            text-align: center;
+            padding: 10px 0;
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.1s;
+        }
+        .ut-action-btn:hover, .ut-action-btn.active-tab {
+            color: var(--ut-yellow);
+            border-color: var(--ut-yellow);
+        }
+        .ut-action-btn .btn-heart { opacity: 0; color: var(--ut-red); font-size: 1.1rem; }
+        .ut-action-btn:hover .btn-heart, .ut-action-btn.active-tab .btn-heart { opacity: 1; }
+
+        input[type="checkbox"].ut-checkbox { display: none; }
+        button:focus, input:focus, textarea:focus { outline: none; }
+        
+        .typing-cursor::after {
+            content: ' _';
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+        .typing-done::after { display: none !important; }
+
+        .drag-over { border-color: var(--ut-yellow) !important; background-color: #111; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col p-4 md:p-6 bg-black">
+
+    <!-- 최상단 상태 표시줄 -->
+    <div class="flex justify-between text-xs text-gray-600 mb-2 px-2 uppercase tracking-widest">
+        <span>LV <span id="ui-lv">1</span> / HP <span id="ui-hp">20/20</span></span>
+        <span id="sync-status" class="text-yellow-500 animate-pulse">CONNECTING TO CLOUD...</span>
+    </div>
+
+    <main class="flex-grow flex flex-col lg:flex-row gap-6 overflow-hidden h-full">
+        
+        <!-- [좌측] 게임 플레이 화면 -->
+        <section class="w-full lg:w-[45%] flex flex-col gap-4 h-full shrink-0">
+            <div id="game-container" class="w-full aspect-[4/3] ut-box flex flex-col bg-black p-2 relative">
+                <div class="h-[60%] w-full flex justify-center items-center relative border-b-2 border-gray-900 overflow-hidden">
+                    <img id="game-image" src="" class="absolute inset-0 m-auto max-w-full max-h-[95%] object-contain hidden pixelated" alt="Visual" onerror="handleImageError()">
+                    <div id="game-emoji" class="text-[6rem] md:text-[8rem] text-white">🤍</div>
+                </div>
+                
+                <div class="h-[40%] w-full ut-box p-4 mt-2 flex flex-col justify-between relative bg-black">
+                    <div id="game-dialogue" class="text-white text-xl md:text-2xl leading-[1.6] whitespace-pre-wrap h-full overflow-y-auto typing-cursor">
+                        * 서버에서 데이터를 불러오는 중...
+                    </div>
+                    <div id="game-choices" class="grid grid-cols-2 gap-x-8 gap-y-3 text-xl text-white mt-2 pb-1"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-auto shrink-0">
+                <div class="ut-action-btn active-tab" onclick="navigate('editor', this)" id="btn-nav-editor">
+                    <span class="btn-heart">❤️</span> 에디터
+                </div>
+                <div class="ut-action-btn border-[#4CAF50] text-[#4CAF50]" onclick="navigate('flow', this)" id="btn-nav-flow">
+                    <span class="btn-heart">❤️</span> 맵
+                </div>
+                <div class="ut-action-btn border-[#2196F3] text-[#2196F3]" onclick="navigate('arcade', this)" id="btn-nav-arcade">
+                    <span class="btn-heart">❤️</span> 행동
+                </div>
+                <div class="ut-action-btn border-[#9C27B0] text-[#9C27B0]" onclick="navigate('settings', this)" id="btn-nav-settings">
+                    <span class="btn-heart">❤️</span> 설정
+                </div>
+            </div>
+            
+            <div class="text-center text-gray-600 text-sm mt-1">* 팁: 대화창을 더블클릭하면 텍스트가 즉시 출력됩니다.</div>
+        </section>
+
+        <!-- [우측] 메뉴 패널 -->
+        <section class="w-full lg:w-[55%] h-full ut-box p-6 md:p-8 flex flex-col overflow-hidden relative">
+            
+            <!-- 1. 에디터 뷰 -->
+            <div id="view-editor" class="h-full flex flex-col overflow-y-auto pr-2 pb-4">
+                <div class="text-2xl mb-6 border-b-2 border-dashed border-gray-700 pb-3 flex justify-between items-end">
+                    <span class="text-yellow-400">* 이야기 수정 중... (자동 동기화)</span>
+                    <span id="current-scene-badge" class="text-gray-400 text-sm bg-gray-900 px-2 py-1">ID: start</span>
+                </div>
+
+                <div class="space-y-8 flex-grow">
+                    <div>
+                        <div class="text-xl mb-3">* 시각 요소 <span class="text-sm text-gray-500">(주인공 혹은 배경)</span></div>
+                        <div class="flex gap-6 text-lg mb-4 bg-gray-900 p-2 rounded-sm inline-flex">
+                            <div class="ut-menu-item active" id="menu-media-emoji" onclick="setMediaMode('emoji')">기호</div>
+                            <div class="ut-menu-item" id="menu-media-upload" onclick="setMediaMode('upload')">이미지</div>
+                            <div class="ut-menu-item" id="menu-media-canvas" onclick="setMediaMode('canvas')">그리기</div>
+                        </div>
+
+                        <div id="panel-media-emoji" class="pl-4">
+                            <input type="text" id="edit-emoji" class="ut-input w-24 text-4xl text-center" placeholder="🤍" oninput="debouncedSave()">
+                        </div>
+                        
+                        <div id="panel-media-upload" class="pl-4 hidden flex flex-col gap-3">
+                            <div class="flex items-center gap-4">
+                                <label for="edit-file" class="border-2 border-white px-4 py-2 cursor-pointer hover:bg-white hover:text-black transition-colors text-lg">* 파일 선택</label>
+                                <input type="file" id="edit-file" accept="image/*" class="hidden" onchange="uploadImage(event)">
+                                <button onclick="clearImage()" class="text-red-500 hover:text-red-300 ml-auto">[이미지 초기화]</button>
+                            </div>
+                            <div class="text-sm text-gray-500">* 배경이 투명한 PNG 이미지를 권장합니다. (저장 시 클라우드 공유)</div>
+                        </div>
+
+                        <div id="panel-media-canvas" class="pl-4 hidden">
+                            <div class="flex gap-4 items-start">
+                                <div class="bg-black border-2 border-gray-600 p-1">
+                                    <canvas id="paint-canvas" width="200" height="200" class="cursor-crosshair pixelated bg-white"></canvas>
+                                </div>
+                                <div class="flex flex-col gap-3">
+                                    <button class="ut-menu-item text-lg" onclick="setDrawMode('draw', this)">> 펜</button>
+                                    <button class="ut-menu-item text-lg" onclick="setDrawMode('eraser', this)">> 지우개</button>
+                                    <button class="ut-menu-item text-lg text-red-400" onclick="clearCanvas()">> 비우기</button>
+                                    <button class="border-2 border-green-500 text-green-500 p-2 mt-2 hover:bg-green-900" onclick="saveCanvas()">* 서버에 그림 저장</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="text-xl mb-3 flex justify-between items-center">
+                            <span>* 대사 입력</span>
+                            <span class="text-xs text-green-400">클라우드 실시간 동기화 중</span>
+                        </div>
+                        <textarea id="edit-text" rows="4" class="ut-input w-full text-xl leading-[1.6] resize-none" placeholder="* (여기에 대사를 입력하세요.)" oninput="debouncedSave()"></textarea>
+                    </div>
+
+                    <div class="bg-gray-900 p-3">
+                        <label class="cursor-pointer flex items-center gap-4 text-xl">
+                            <input type="checkbox" id="edit-is-ending" class="ut-checkbox" onchange="toggleEnding()">
+                            <span id="ending-checkbox-ui" class="text-2xl text-red-500">[ ]</span> 
+                            <span class="text-red-400">* 이 공간을 이야기의 엔딩(끝)으로 지정</span>
+                        </label>
+                    </div>
+
+                    <div id="choices-section">
+                        <div class="flex justify-between items-center mb-3">
+                            <div class="text-xl">* 행동 (선택지)</div>
+                            <button onclick="addChoice()" class="border border-yellow-400 text-yellow-400 px-3 py-1 text-sm hover:bg-yellow-900">+ 추가</button>
+                        </div>
+                        <div id="choices-list" class="space-y-4 pl-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 플로우 뷰 (지도) -->
+            <div id="view-flow" class="hidden h-full flex flex-col overflow-hidden">
+                <div class="text-2xl mb-4 border-b-2 border-dashed border-gray-700 pb-3 flex justify-between items-end">
+                    <span class="text-[#4CAF50]">* 공간 지도 (실시간 공유)</span>
+                    <button onclick="createScene()" class="border-2 border-white px-3 py-1 hover:bg-white hover:text-black text-sm">* 새 공간 만들기</button>
+                </div>
+                
+                <p class="text-gray-500 text-sm mb-4">* 항목을 위아래로 드래그하여 순서를 바꿀 수 있습니다. 클릭하면 이동합니다.</p>
+                <div id="flow-list" class="flex-grow overflow-y-auto space-y-3 pr-2 pb-4"></div>
+            </div>
+
+            <!-- 3. 아케이드 뷰 -->
+            <div id="view-arcade" class="hidden h-full flex flex-col">
+                <div class="text-2xl mb-6 border-b-2 border-dashed border-gray-700 pb-3">
+                    <span class="text-[#2196F3]">* 야생의 조우</span>
+                </div>
+                
+                <div class="flex-grow flex flex-col justify-center items-center">
+                    <div class="flex gap-8 text-xl mb-12 border-4 border-white p-4 w-[80%] justify-center bg-black">
+                        <div>LV <span id="rpg-lv-disp">1</span></div>
+                        <div>HP <span class="text-green-500">20 / 20</span></div>
+                        <div>G <span id="rpg-gold" class="text-yellow-400">0</span></div>
+                    </div>
+
+                    <div class="text-[6rem] mb-8 animate-bounce pixelated" id="rpg-monster">👻</div>
+                    <div class="text-xl mb-12 h-8 text-center" id="rpg-msg">* 몬스터가 당신의 길을 막아선다.</div>
+
+                    <div class="grid grid-cols-2 gap-6 w-[80%]">
+                        <button class="border-4 border-orange-500 text-orange-500 py-4 text-2xl hover:bg-orange-900 transition-colors" onclick="rpgAct('fight')">
+                            ❤️ 공격
+                        </button>
+                        <button class="border-4 border-yellow-400 text-yellow-400 py-4 text-2xl hover:bg-yellow-900 transition-colors" onclick="rpgAct('mercy')">
+                            ❤️ 자비
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 설정 뷰 -->
+            <div id="view-settings" class="hidden h-full flex flex-col">
+                <div class="text-2xl mb-6 border-b-2 border-dashed border-gray-700 pb-3">
+                    <span class="text-[#9C27B0]">* 시스템 설정</span>
+                </div>
+
+                <div class="space-y-6 text-xl pl-2 overflow-y-auto">
+                    <div class="ut-box p-4 bg-gray-900">
+                        <div class="text-green-400 mb-2">* 클라우드 자동 동기화 활성화됨</div>
+                        <p class="text-sm text-gray-400">* 이 웹사이트에 접속하는 모든 사람이 같은 스토리를 공유하며 실시간으로 수정할 수 있습니다.</p>
+                    </div>
+
+                    <div class="ut-box p-4">
+                        <div class="mb-3">* 수동 백업 / 복원 (코드)</div>
+                        <textarea id="data-raw" rows="4" class="ut-input w-full text-sm leading-tight mb-3 font-mono"></textarea>
+                        <div class="flex gap-4">
+                            <button class="border-2 border-white px-4 py-2 hover:bg-white hover:text-black text-lg" onclick="exportData()">* 내보내기 (복사)</button>
+                            <button class="border-2 border-yellow-400 text-yellow-400 px-4 py-2 hover:bg-yellow-400 hover:text-black text-lg" onclick="importData()">* 덮어쓰기</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 pt-4 border-t-2 border-gray-800">
+                        <button class="w-full border-4 border-red-600 text-red-500 py-4 text-xl hover:bg-red-900 transition-colors" onclick="resetAll()">
+                            * TRUE RESET (모든 클라우드 데이터 초기화)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- 게임 알림 메시지 (토스트) -->
+    <div id="toast" class="fixed top-10 left-1/2 transform -translate-x-1/2 bg-black border-4 border-white text-white px-8 py-4 text-2xl opacity-0 pointer-events-none transition-opacity duration-200 z-50 shadow-2xl">
+        * 메시지
+    </div>
+
+    <script>
+        /* =========================================================
+           1. 코어 데이터 및 초기화 (Firebase 연동 강화)
+           ========================================================= */
+        const DEFAULT_STORY = {
+            startScene: 'start',
+            sceneOrder: ['start', 'room', 'end'],
+            scenes: {
+                'start': {
+                    id: 'start', text: '* 당신은 어두운 방에 떨어졌다.\n* 앞에는 문이 하나 있다.', mediaType: 'emoji', mediaContent: '🚪',
+                    choices: [{ text: '* 문을 연다.', targetId: 'room' }]
+                },
+                'room': {
+                    id: 'room', text: '* 방 안에는 누군가 남긴 쪽지가 있다.\n* "의지를 가져라."', mediaType: 'emoji', mediaContent: '📜',
+                    choices: [{ text: '* 쪽지를 읽는다.', targetId: 'end' }, { text: '* 무시한다.', targetId: 'end' }]
+                },
+                'end': {
+                    id: 'end', text: '* (알 수 없는 힘이 당신을 감싼다...)\n* 데모 종료.', mediaType: 'emoji', mediaContent: '✨', isEnding: true, choices: []
+                }
+            }
+        };
+
+        let STORY = JSON.parse(JSON.stringify(DEFAULT_STORY));
+        let activeScene = 'start';
+        let audioCtx = null;
+        let typingTimer = null;
+        let saveTimeout = null;
+        let dragSrcId = null;
+        let isRemoteUpdating = false; // 타인에 의한 업데이트 중복 저장 방지
+
+        // Firebase 설정 (기존 키 유지)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+            authDomain: "meal-c8b86.firebaseapp.com",
+            projectId: "meal-c8b86",
+            storageBucket: "meal-c8b86.firebasestorage.app",
+            messagingSenderId: "476361866831",
+            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const docRef = db.collection("projects").doc("ut_save_v3_live"); // 라이브 동기화 전용 문서
+
+        window.onload = () => {
+            initCanvas();
+            
+            // Firebase 실시간 리스너 작동 (로그인 없이 누구나 동기화)
+            docRef.onSnapshot((doc) => {
+                const statusEl = document.getElementById('sync-status');
+                if (doc.exists) {
+                    isRemoteUpdating = true;
+                    STORY = doc.data();
+                    if(!STORY.scenes[STORY.startScene]) STORY.startScene = STORY.sceneOrder[0] || 'start';
+                    if(!STORY.scenes[activeScene]) activeScene = STORY.startScene;
+                    
+                    loadSceneToEditor();
+                    playScene(activeScene);
+                    if(document.getElementById('view-flow').classList.contains('hidden') === false) renderFlow();
+                    
+                    statusEl.innerText = 'ONLINE (LIVE SYNCED)';
+                    statusEl.className = 'text-green-400';
+                    isRemoteUpdating = false;
+                } else {
+                    // 데이터가 없을 때 최초 생성
+                    saveToCloud();
+                    statusEl.innerText = 'ONLINE (NEW DATABASE)';
+                    statusEl.className = 'text-green-400';
+                }
+            }, (error) => {
+                document.getElementById('sync-status').innerText = 'OFFLINE (LOCAL MODE)';
+                document.getElementById('sync-status').className = 'text-red-500';
+                // 오프라인 대비 로컬스토리지 로드
+                const saved = localStorage.getItem('ut_story_data_v3');
+                if(saved) { try { STORY = JSON.parse(saved); } catch(e){} }
+                loadSceneToEditor();
+                playScene(activeScene);
+            });
+            
+            document.body.addEventListener('click', () => {
+                if(!audioCtx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    audioCtx = new AudioContext();
+                }
+            }, {once:true});
+        };
+
+        // 클라우드 저장 코어 함수 (누구나 수정 시 즉시 Firebase 반영)
+        function saveToCloud() {
+            if(isRemoteUpdating) return;
+            localStorage.setItem('ut_story_data_v3', JSON.stringify(STORY));
+            docRef.set(STORY).catch(e => {
+                console.warn("클라우드 저장 실패, 로컬에 임시 저장됨", e);
+            });
+        }
+
+        /* =========================================================
+           2. 효과음 및 알림 UI
+           ========================================================= */
+        function playSound(type) {
+            if(!audioCtx || audioCtx.state === 'suspended') return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                if (type === 'text') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(400 + Math.random()*50, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+                } else if (type === 'select') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+                } else if (type === 'damage') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                }
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+            } catch(e) {}
+        }
+
+        function showMessage(msg) {
+            const box = document.getElementById('toast');
+            box.innerText = `* ${msg}`;
+            box.style.opacity = '1';
+            playSound('select');
+            setTimeout(() => { box.style.opacity = '0'; }, 2000);
+        }
+
+        function handleImageError() {
+            const img = document.getElementById('game-image');
+            const emoji = document.getElementById('game-emoji');
+            img.classList.add('hidden');
+            emoji.classList.remove('hidden');
+            emoji.innerText = '❌';
+        }
+
+        /* =========================================================
+           3. UI 내비게이션
+           ========================================================= */
+        function navigate(view, btnEl) {
+            playSound('select');
+            document.querySelectorAll('.ut-action-btn').forEach(el => el.classList.remove('active-tab'));
+            btnEl.classList.add('active-tab');
+
+            document.querySelectorAll('section > div[id^="view-"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+
+            if(view === 'editor') loadSceneToEditor();
+            if(view === 'flow') renderFlow();
+            if(view === 'settings') document.getElementById('data-raw').value = JSON.stringify(STORY, null, 2);
+        }
+
+        /* =========================================================
+           4. 게임 화면 미리보기 연출 (타이핑)
+           ========================================================= */
+        function playScene(sceneId) {
+            const scene = STORY.scenes[sceneId];
+            if(!scene) return;
+            activeScene = sceneId;
+
+            const img = document.getElementById('game-image');
+            const emoji = document.getElementById('game-emoji');
+            
+            if (scene.mediaType === 'emoji') {
+                img.classList.add('hidden');
+                emoji.classList.remove('hidden');
+                emoji.innerText = scene.mediaContent || '🤍';
+            } else {
+                img.src = scene.mediaContent || '';
+                img.classList.remove('hidden');
+                emoji.classList.add('hidden');
+            }
+
+            const diaBox = document.getElementById('game-dialogue');
+            const choiceBox = document.getElementById('game-choices');
+            diaBox.classList.remove('typing-done');
+            choiceBox.innerHTML = '';
+            
+            if(typingTimer) clearInterval(typingTimer);
+            
+            let text = scene.text || '';
+            let chars = text.split('');
+            let idx = 0;
+            diaBox.innerHTML = '';
+            
+            typingTimer = setInterval(() => {
+                if(idx < chars.length) {
+                    const char = chars[idx];
+                    if(char === '\n') diaBox.innerHTML += '<br>';
+                    else diaBox.innerHTML += char;
+                    
+                    if(char.trim() !== '') playSound('text');
+                    
+                    diaBox.scrollTop = diaBox.scrollHeight;
+                    idx++;
+                } else {
+                    finishTyping(scene);
+                }
+            }, 35);
+        }
+
+        function finishTyping(scene) {
+            if(typingTimer) clearInterval(typingTimer);
+            const diaBox = document.getElementById('game-dialogue');
+            diaBox.innerHTML = (scene.text || '').replace(/\n/g, '<br>');
+            diaBox.classList.add('typing-done');
+            diaBox.scrollTop = diaBox.scrollHeight;
+            
+            renderChoicesPlay(scene);
+        }
+
+        function renderChoicesPlay(scene) {
+            const choiceBox = document.getElementById('game-choices');
+            choiceBox.innerHTML = '';
+            
+            if (scene.isEnding) {
+                const btn = document.createElement('div');
+                btn.className = 'ut-menu-item text-red-400 cursor-pointer w-fit';
+                btn.innerHTML = '처음으로 돌아간다.';
+                btn.onclick = () => { playSound('select'); playScene(STORY.startScene); };
+                choiceBox.appendChild(btn);
+            } else if (scene.choices && scene.choices.length > 0) {
+                scene.choices.forEach(ch => {
+                    const btn = document.createElement('div');
+                    btn.className = 'ut-menu-item cursor-pointer w-fit';
+                    btn.innerHTML = ch.text.startsWith('*') ? ch.text : `* ${ch.text}`;
+                    btn.onclick = () => {
+                        playSound('select');
+                        if(STORY.scenes[ch.targetId]) playScene(ch.targetId);
+                        else showMessage("이어지는 공간이 없습니다.");
+                    };
+                    choiceBox.appendChild(btn);
+                });
+            }
+        }
+
+        document.getElementById('game-dialogue').addEventListener('dblclick', () => {
+            finishTyping(STORY.scenes[activeScene]);
+        });
+
+        /* =========================================================
+           5. 에디터 뷰 로직 (수정 시 실시간 클라우드 전송)
+           ========================================================= */
+        function loadSceneToEditor() {
+            const scene = STORY.scenes[activeScene];
+            if(!scene) return;
+
+            document.getElementById('current-scene-badge').innerText = `ID: ${scene.id}`;
+            document.getElementById('edit-text').value = scene.text || '';
+            
+            setMediaMode(scene.mediaType || 'emoji', false);
+            if(scene.mediaType === 'emoji') document.getElementById('edit-emoji').value = scene.mediaContent || '🤍';
+
+            const chkBox = document.getElementById('edit-is-ending');
+            chkBox.checked = !!scene.isEnding;
+            document.getElementById('ending-checkbox-ui').innerText = chkBox.checked ? '[X]' : '[ ]';
+
+            renderChoicesEditor(scene);
+        }
+
+        function setMediaMode(mode, doSave = true) {
+            STORY.scenes[activeScene].mediaType = mode;
+            ['emoji','upload','canvas'].forEach(m => {
+                const menu = document.getElementById(`menu-media-${m}`);
+                const panel = document.getElementById(`panel-media-${m}`);
+                if(m === mode) {
+                    menu.classList.add('active');
+                    panel.classList.remove('hidden');
+                } else {
+                    menu.classList.remove('active');
+                    panel.classList.add('hidden');
+                }
+            });
+            if(doSave) { saveScene(); saveToCloud(); }
+        }
+
+        function uploadImage(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                STORY.scenes[activeScene].mediaContent = event.target.result;
+                saveScene();
+                saveToCloud();
+                showMessage("이미지가 서버에 기록되었습니다.");
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+
+        function clearImage() {
+            STORY.scenes[activeScene].mediaContent = '🤍';
+            setMediaMode('emoji');
+            saveToCloud();
+            showMessage("시각 정보가 초기화되었습니다.");
+        }
+
+        function toggleEnding() {
+            const chk = document.getElementById('edit-is-ending');
+            STORY.scenes[activeScene].isEnding = chk.checked;
+            document.getElementById('ending-checkbox-ui').innerText = chk.checked ? '[X]' : '[ ]';
+            if(chk.checked) STORY.scenes[activeScene].choices = [];
+            saveScene();
+            saveToCloud();
+            renderChoicesEditor(STORY.scenes[activeScene]);
+        }
+
+        function renderChoicesEditor(scene) {
+            const list = document.getElementById('choices-list');
+            list.innerHTML = '';
+            
+            if(scene.isEnding) {
+                list.innerHTML = '<div class="text-red-500 text-lg bg-gray-900 p-2">* 이 공간은 이야기의 끝입니다. (선택지 불가)</div>';
+                return;
+            }
+
+            if(!scene.choices || scene.choices.length===0) {
+                list.innerHTML = '<div class="text-gray-500 text-lg">* 갈림길이 없습니다.</div>';
+                return;
+            }
+
+            scene.choices.forEach((ch, idx) => {
+                const div = document.createElement('div');
+                div.className = "flex gap-2 items-center bg-gray-900 p-2 border-l-4 border-yellow-400";
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = "ut-input flex-grow text-lg";
+                input.value = ch.text;
+                input.oninput = (e) => { 
+                    ch.text = e.target.value; 
+                    debouncedSave(); 
+                }; 
+
+                const select = document.createElement('select');
+                select.className = "ut-input w-32 bg-black text-lg cursor-pointer";
+                select.innerHTML = `<option value="">=이동=</option>` + 
+                                   STORY.sceneOrder.map(id => `<option value="${id}" ${ch.targetId===id?'selected':''}>${id}</option>`).join('');
+                select.onchange = (e) => { ch.targetId = e.target.value; saveScene(); saveToCloud(); };
+
+                const delBtn = document.createElement('button');
+                delBtn.className = "text-red-500 hover:text-red-300 ml-2 text-xl font-bold px-2";
+                delBtn.innerText = "X";
+                delBtn.onclick = () => { scene.choices.splice(idx,1); saveScene(); saveToCloud(); renderChoicesEditor(scene); };
+
+                div.appendChild(input);
+                div.appendChild(select);
+                div.appendChild(delBtn);
+                list.appendChild(div);
+            });
+        }
+
+        function addChoice() {
+            const scene = STORY.scenes[activeScene];
+            if(scene.isEnding) return;
+            if(!scene.choices) scene.choices = [];
+            if(scene.choices.length >= 4) { showMessage("선택지는 4개까지만 가능합니다."); return; }
+            
+            scene.choices.push({text: '* 새로운 행동', targetId: ''});
+            saveScene();
+            saveToCloud();
+            renderChoicesEditor(scene);
+        }
+
+        function debouncedSave() {
+            saveScene(true);
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                saveToCloud(); // 0.6초간 입력이 없으면 서버로 전송
+            }, 600);
+        }
+
+        function saveScene(updatePreview = true) {
+            const scene = STORY.scenes[activeScene];
+            if(!scene) return;
+            scene.text = document.getElementById('edit-text').value;
+            if(scene.mediaType === 'emoji') scene.mediaContent = document.getElementById('edit-emoji').value;
+            
+            if(updatePreview) {
+                finishTyping(scene);
+                const img = document.getElementById('game-image');
+                const emoji = document.getElementById('game-emoji');
+                if(scene.mediaType === 'emoji') {
+                    img.classList.add('hidden');
+                    emoji.classList.remove('hidden');
+                    emoji.innerText = scene.mediaContent || '🤍';
+                } else {
+                    img.src = scene.mediaContent || '';
+                    img.classList.remove('hidden');
+                    emoji.classList.add('hidden');
+                }
+            }
+        }
+
+        /* =========================================================
+           6. 지도(플로우) 로직
+           ========================================================= */
+        function renderFlow() {
+            const list = document.getElementById('flow-list');
+            list.innerHTML = '';
+            
+            STORY.sceneOrder.forEach(id => {
+                const s = STORY.scenes[id] || { text:'[오류]', mediaType:'emoji', mediaContent:'?' };
+                const div = document.createElement('div');
+                const isStart = id === STORY.startScene;
+                const isActive = id === activeScene;
+                
+                div.className = `ut-box p-3 flex justify-between items-center cursor-grab active:cursor-grabbing transition-colors
+                                 ${isStart ? 'border-[#4CAF50]' : (isActive ? 'border-yellow-400' : 'border-gray-700 hover:border-white')}`;
+                div.draggable = true;
+                
+                div.ondragstart = (e) => { 
+                    dragSrcId = id; 
+                    setTimeout(()=> div.classList.add('opacity-50'), 0);
+                };
+                div.ondragover = (e) => { e.preventDefault(); div.classList.add('drag-over'); };
+                div.ondragleave = (e) => { div.classList.remove('drag-over'); };
+                div.ondrop = (e) => {
+                    e.preventDefault();
+                    div.classList.remove('drag-over');
+                    if(dragSrcId && dragSrcId !== id) {
+                        const arr = STORY.sceneOrder;
+                        arr.splice(arr.indexOf(dragSrcId), 1);
+                        arr.splice(arr.indexOf(id), 0, dragSrcId);
+                        saveToCloud(); renderFlow(); showMessage("서버에 재배열 저장됨.");
+                    }
+                };
+                div.ondragend = () => { div.classList.remove('opacity-50'); };
+                
+                div.innerHTML = `
+                    <div class="flex-grow flex items-center gap-4 overflow-hidden" onclick="jumpTo('${id}')">
+                        <span class="text-3xl w-10 text-center shrink-0 pixelated">${s.mediaType==='emoji'?s.mediaContent:'🖼️'}</span>
+                        <div class="min-w-0">
+                            <div class="text-xl font-bold flex items-center gap-2">
+                                ${id} 
+                                ${isStart ? '<span class="text-xs bg-[#4CAF50] text-black px-1">START</span>' : ''}
+                                ${isActive ? '<span class="text-xs bg-yellow-400 text-black px-1">CURRENT</span>' : ''}
+                            </div>
+                            <div class="text-sm text-gray-400 truncate max-w-full">${(s.text||'').replace(/\n/g,' ')}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 shrink-0 text-sm ml-2">
+                        ${!isStart ? `<button class="border border-gray-600 px-2 py-1 hover:text-[#4CAF50] hover:border-[#4CAF50]" onclick="setStart('${id}')">시작지정</button>` : ''}
+                        <button class="border border-red-900 text-red-500 px-2 py-1 hover:bg-red-900 hover:text-white" onclick="delScene('${id}')">삭제</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function jumpTo(id) {
+            playScene(id);
+            const btnEditor = document.getElementById('btn-nav-editor');
+            navigate('editor', btnEditor);
+        }
+
+        function createScene() {
+            const id = 'S_' + Math.floor(Math.random()*10000);
+            STORY.scenes[id] = { id: id, text: '* (텅 빈 공간이다.)', mediaType: 'emoji', mediaContent: '🌑', choices: [] };
+            STORY.sceneOrder.push(id);
+            saveToCloud();
+            renderFlow();
+            showMessage(`공간 [${id}] 생성 및 클라우드 동기화됨.`);
+            setTimeout(() => jumpTo(id), 300);
+        }
+
+        function delScene(id) {
+            if(STORY.sceneOrder.length <= 1) { showMessage("마지막 남은 세계는 파괴할 수 없습니다."); return; }
+            if(confirm(`정말로 [${id}] 공간을 지우시겠습니까?`)) {
+                delete STORY.scenes[id];
+                STORY.sceneOrder = STORY.sceneOrder.filter(x => x !== id);
+                if(STORY.startScene === id) STORY.startScene = STORY.sceneOrder[0];
+                if(activeScene === id) playScene(STORY.sceneOrder[0]);
+                
+                Object.values(STORY.scenes).forEach(s => {
+                    if(s.choices) s.choices.forEach(c => { if(c.targetId === id) c.targetId = ''; });
+                });
+                saveToCloud(); renderFlow(); showMessage("공간이 무(無)로 돌아갔습니다.");
+            }
+        }
+        function setStart(id) { STORY.startScene = id; saveToCloud(); renderFlow(); }
+
+        /* =========================================================
+           7. 캔버스 그리기 로직
+           ========================================================= */
+        let canvas, ctx;
+        let isDrawing = false;
+        let drawMode = 'draw';
+        
+        function initCanvas() {
+            canvas = document.getElementById('paint-canvas');
+            if(!canvas) return;
+            ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            ctx.fillStyle = '#ffffff'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const startDraw = (e) => { e.preventDefault(); isDrawing = true; draw(e); };
+            const moveDraw = (e) => { if(isDrawing) { e.preventDefault(); draw(e); } };
+            const endDraw = () => { isDrawing = false; ctx.beginPath(); };
+
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', moveDraw);
+            canvas.addEventListener('mouseup', endDraw);
+            canvas.addEventListener('mouseleave', endDraw);
+
+            canvas.addEventListener('touchstart', startDraw, {passive:false});
+            canvas.addEventListener('touchmove', moveDraw, {passive:false});
+            canvas.addEventListener('touchend', endDraw);
+        }
+        
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+        
+        function draw(e) {
+            const pos = getPos(e);
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'square';
+            ctx.strokeStyle = drawMode === 'draw' ? '#000000' : '#ffffff'; 
+            
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+        
+        function setDrawMode(mode, btn) {
+            drawMode = mode;
+            playSound('select');
+            const parent = btn.parentElement;
+            parent.querySelectorAll('.ut-menu-item').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        function clearCanvas() {
+            playSound('damage');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        function saveCanvas() {
+            STORY.scenes[activeScene].mediaContent = canvas.toDataURL('image/png');
+            saveScene();
+            saveToCloud();
+            showMessage("그림이 서버에 동기화되었습니다.");
+        }
+
+        /* =========================================================
+           8. 아케이드 배틀 미니게임
+           ========================================================= */
+        let rpgGold = 0;
+        let rpgLv = 1;
+        function rpgAct(action) {
+            const msg = document.getElementById('rpg-msg');
+            const monster = document.getElementById('rpg-monster');
+            
+            if(action === 'fight') {
+                playSound('damage');
+                msg.innerText = "* 당신은 무기를 휘둘렀다! 몬스터는 겁먹었다.";
+                monster.classList.remove('animate-bounce');
+                monster.style.transform = 'translate(15px, -15px)';
+                setTimeout(()=> monster.style.transform = 'translate(-10px, 10px)', 50);
+                setTimeout(()=> monster.style.transform = 'translate(0,0)', 100);
+            } else if (action === 'mercy') {
+                playSound('select');
+                rpgGold += Math.floor(Math.random()*15)+5;
+                if(rpgGold > 50 && rpgLv === 1) { rpgLv=2; msg.innerText="* 레벨 업! LV 2"; playSound('damage'); }
+                else { msg.innerText = "* 당신은 자비를 베풀었다. 승리!"; }
+                
+                document.getElementById('rpg-gold').innerText = rpgGold;
+                document.getElementById('rpg-lv-disp').innerText = rpgLv;
+                document.getElementById('ui-lv').innerText = rpgLv;
+                
+                monster.innerText = ['🐶','🐸','👻','🦴','🌸'][Math.floor(Math.random()*5)];
+                monster.classList.add('animate-bounce');
+            }
+        }
+
+        /* =========================================================
+           9. 설정 및 데이터 관리
+           ========================================================= */
+        function exportData() {
+            const code = JSON.stringify(STORY);
+            document.getElementById('data-raw').value = code;
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(code).then(()=>showMessage("코드가 복사되었습니다."));
+            } else {
+                const textarea = document.getElementById('data-raw');
+                textarea.select();
+                try { document.execCommand('copy'); showMessage("코드가 복사되었습니다."); }
+                catch (err) { showMessage("수동으로 복사해주세요."); }
+            }
+        }
+
+        function importData() {
+            const txt = document.getElementById('data-raw').value;
+            try {
+                const parsed = JSON.parse(txt);
+                if(parsed && parsed.scenes) {
+                    STORY = parsed; saveToCloud(); activeScene=STORY.startScene; playScene(activeScene);
+                    showMessage("서버 전체의 세계관이 덮어씌워졌습니다.");
+                } else throw new Error("Invalid structure");
+            } catch(e) { showMessage("잘못된 형식의 데이터입니다."); }
+        }
+
+        function resetAll() {
+            if(confirm("정말로 클라우드 서버의 모든 데이터를 삭제하고 초기화하시겠습니까?\n이 행동은 웹사이트를 이용하는 모든 사람에게 반영됩니다.")) {
+                STORY = JSON.parse(JSON.stringify(DEFAULT_STORY));
+                activeScene = STORY.startScene;
+                saveToCloud();
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
