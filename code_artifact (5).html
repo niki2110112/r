@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Cloud Studio - Premium Home Edition</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK (v10.8.0 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Google Web Fonts for Custom Themes -->
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Press+Start+2P&family=Pretendard:wght@400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for UI Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { 
+            font-family: 'Pretendard', sans-serif; 
+            background-color: #f1f5f9; 
+            color: #0f172a; 
+            overflow-x: hidden; 
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Smooth Scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Draggable visual feedback */
+        .draggable-item { cursor: grab; transition: all 0.2s ease; }
+        .draggable-item:active { cursor: grabbing; }
+        .drag-over { border: 2px dashed #3b82f6 !important; background-color: #eff6ff !important; transform: scale(1.01); }
+
+        /* Canvas workspace border & touch styling */
+        #canvas-paint {
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        /* -------------------------------------------------------------
+           PREMIUM THEMES CONFIGURATION
+           ------------------------------------------------------------- */
+        .theme-modern .game-box { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 1.5rem; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.03); 
+        }
+        .theme-modern .game-text { color: #334155; font-weight: 600; font-size: 1.1rem; line-height: 1.6; }
+        .theme-modern .game-btn { background: #f8fafc; color: #3b82f6; border: 1px solid #e2e8f0; border-radius: 0.75rem; transition: all 0.2s; font-weight: 800; }
+        .theme-modern .game-btn:hover { background: #3b82f6; color: white; border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); }
+        .theme-modern .photo-frame { background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 1rem; padding: 0.5rem; }
+
+        .theme-stardew .game-box { 
+            background: #f4e3b5; 
+            border: 8px solid #7d5e3c; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 0px #5a442a, inset 0 0 24px rgba(125, 94, 60, 0.25); 
+            font-family: 'Gowun Dodum', sans-serif;
+        }
+        .theme-stardew .game-text { color: #3e2723; font-weight: 800; font-size: 1.25rem; text-shadow: 1px 1px 0px #fffaf0; line-height: 1.6; }
+        .theme-stardew .game-btn { 
+            background: #fff8e1; 
+            color: #5d4037; 
+            border: 4px solid #8d6e63; 
+            border-radius: 10px;
+            font-weight: 800; 
+            font-size: 1.05rem;
+            box-shadow: 0 4px 0 #5d4037;
+            transition: all 0.1s ease;
+        }
+        .theme-stardew .game-btn:hover { background: #ffecb3; transform: translateY(2px); box-shadow: 0 2px 0 #5d4037; }
+        .theme-stardew .photo-frame { 
+            background: #faf6eb; 
+            border: 6px solid #8d6e63; 
+            border-radius: 8px; 
+            outline: 3px solid #4e342e; 
+            padding: 0.5rem;
+            box-shadow: inset 0 0 12px rgba(0,0,0,0.15), 0 4px 6px rgba(0,0,0,0.1); 
+        }
+
+        .theme-retro .game-box { 
+            background: #000000; 
+            border: 4px solid #ffffff; 
+            border-radius: 0px; 
+            box-shadow: 8px 8px 0px #4ade80; 
+            font-family: 'Press Start 2P', monospace;
+        }
+        .theme-retro .game-text { color: #ffffff; font-size: 0.85rem; line-height: 1.8; text-shadow: 2px 2px 0px #000; }
+        .theme-retro .game-btn { 
+            background: #000000; 
+            color: #4ade80; 
+            border: 2px solid #4ade80; 
+            border-radius: 0px;
+            text-transform: uppercase; 
+            font-size: 0.75rem; 
+            transition: all 0.1s; 
+        }
+        .theme-retro .game-btn:hover { background: #4ade80; color: #000000; box-shadow: 4px 4px 0px #ffffff; transform: translate(-2px, -2px); }
+        .theme-retro .photo-frame { background: #111111; border: 4px dashed #4ade80; border-radius: 0px; padding: 0.5rem; }
+
+        .theme-cyber .game-box { 
+            background: #0f0c1b; 
+            border: 2px solid #ff007f; 
+            border-radius: 0.75rem; 
+            box-shadow: 0 0 20px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.1); 
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .theme-cyber .game-text { color: #00f0ff; font-weight: bold; font-size: 1.15rem; text-shadow: 0 0 5px rgba(0, 240, 255, 0.6); line-height: 1.6; }
+        .theme-cyber .game-btn { 
+            background: rgba(0, 240, 255, 0.05); 
+            color: #00f0ff; 
+            border: 2px solid #00f0ff; 
+            border-radius: 0.5rem; 
+            font-weight: bold;
+            text-shadow: 0 0 4px rgba(0, 240, 255, 0.5);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+            transition: all 0.2s;
+        }
+        .theme-cyber .game-btn:hover { background: #00f0ff; color: #0f0c1b; text-shadow: none; box-shadow: 0 0 15px #00f0ff; transform: scale(1.02); }
+        .theme-cyber .photo-frame { background: #18142c; border: 2px solid #39ff14; border-radius: 0.5rem; padding: 0.5rem; box-shadow: 0 0 10px rgba(57, 255, 20, 0.2); }
+
+        .tab-active { border-bottom: 4px solid #3b82f6; color: #3b82f6; font-weight: 800; }
+        
+        @keyframes slideInUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col h-screen overflow-hidden bg-slate-50">
+
+    <header class="bg-white border-b border-slate-200 z-40 shadow-sm flex-shrink-0">
+        <div class="max-w-[1700px] mx-auto px-6 flex justify-between h-16 items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-cloud-bolt text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-xl text-slate-800 flex items-center gap-2 tracking-tight">
+                        Novel Studio <span class="text-[10px] text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 font-extrabold tracking-wider uppercase">Cloud & Arcade v5.0</span>
+                    </h1>
+                </div>
+            </div>
+            
+            <div class="flex space-x-1 sm:space-x-4 text-sm font-bold h-full">
+                <button onclick="navigate('editor')" id="nav-editor" class="nav-link tab-active h-full px-4 hover:text-blue-500 transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square"></i> 씬 에디터 / 그리기
+                </button>
+                <button onclick="navigate('flow')" id="nav-flow" class="nav-link text-slate-500 h-full px-4 hover:text-blue-500 transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-network-wired"></i> 스토리 플로우
+                </button>
+                <button onclick="navigate('arcade')" id="nav-arcade" class="nav-link text-slate-500 h-full px-4 hover:text-blue-500 transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-gamepad text-emerald-500"></i> 미니 아케이드 탭
+                </button>
+                <button onclick="navigate('settings')" id="nav-settings" class="nav-link text-slate-500 h-full px-4 hover:text-blue-500 transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-database"></i> DB 연동 / 백업
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow flex w-full h-[calc(100vh-4rem)] overflow-hidden">
+        
+        <!-- [좌측 섹션] 실시간 플레이 및 미디어 프리뷰 시뮬레이터 -->
+        <section class="w-1/2 lg:w-[45%] bg-slate-200 p-6 md:p-10 flex flex-col items-center justify-center relative border-r border-slate-300 shadow-inner overflow-y-auto">
+            <div class="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-md border border-slate-200 text-xs font-black text-slate-700 flex items-center gap-2 z-10">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> 
+                <span id="sync-status-indicator">클라우드 로컬 연동중</span>
+            </div>
+            
+            <div id="game-container" class="w-full max-w-md flex flex-col transition-all duration-300 transform scale-100 theme-modern">
+                <div class="game-box p-6 md:p-8 flex flex-col min-h-[520px] w-full relative">
+                    
+                    <!-- 이미지 / 미디어 박스 -->
+                    <div class="photo-frame w-full h-56 flex justify-center items-center mb-6 relative group mx-auto overflow-hidden">
+                        <div class="w-full h-full bg-white flex justify-center items-center overflow-hidden rounded-lg relative">
+                            <!-- 로딩 마스크 -->
+                            <div id="media-loader" class="absolute inset-0 bg-slate-900/10 hidden items-center justify-center">
+                                <i class="fa-solid fa-spinner animate-spin text-3xl text-blue-600"></i>
+                            </div>
+                            <img id="game-image" src="" class="max-h-full max-w-full object-contain hidden" alt="Scene Visual Source" onerror="handleImageError()">
+                            <div id="game-emoji" class="text-7xl md:text-8xl drop-shadow-md transition-transform hover:scale-110">🌲</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 인터랙티브 텍스트 공간 -->
+                    <div class="w-full min-h-[110px] mb-6">
+                        <div id="game-dialogue" class="game-text whitespace-pre-wrap break-keep">이곳에 작성한 아름다운 스토리가 실시간으로 연출됩니다.</div>
+                    </div>
+                    
+                    <!-- 선택지 분기 버튼 컨테이너 -->
+                    <div id="game-choices" class="w-full flex flex-col gap-2.5 mt-auto">
+                        <!-- 동적 렌더링 영역 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="w-1/2 lg:w-[55%] bg-white flex flex-col h-full overflow-y-auto relative">
+            
+            <!-- 1. 장면 씬 에디터 뷰 -->
+            <div id="view-editor" class="view p-8 lg:p-12 w-full max-w-3xl mx-auto space-y-8 animate-slide-up">
+                <div class="flex justify-between items-center pb-4 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <span id="current-scene-badge" class="bg-blue-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-black shadow-sm tracking-wide">start</span>
+                        <h2 class="text-2xl font-black text-slate-800">장면 시나리오 편집기</h2>
+                    </div>
+                    <button onclick="refreshPreviewToCurrent()" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-rotate"></i> 처음부터 미리보기
+                    </button>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <label class="block text-base font-extrabold text-slate-800 flex items-center justify-between">
+                        <span><i class="fa-solid fa-photo-film text-blue-500 mr-2"></i> 장면 비주얼 미디어 (이모지 / 캔버스 / 파일)</span>
+                        <span class="text-xs font-semibold text-slate-400">자체 드로잉 시스템 탑재</span>
+                    </label>
+                    
+                    <div class="flex gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto whitespace-nowrap">
+                        <button onclick="setMediaSelection('emoji')" id="media-tab-emoji" class="flex-1 py-2 px-3 text-xs font-extrabold rounded-lg transition-colors bg-white text-slate-800 shadow-sm">이모지</button>
+                        <button onclick="setMediaSelection('upload')" id="media-tab-upload" class="flex-1 py-2 px-3 text-xs font-extrabold rounded-lg transition-colors text-slate-500 hover:text-slate-800">파일 업로드</button>
+                        <button onclick="setMediaSelection('canvas')" id="media-tab-canvas" class="flex-1 py-2 px-3 text-xs font-extrabold rounded-lg transition-colors text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1"><i class="fa-solid fa-palette text-[10px]"></i> 스케치북</button>
+                    </div>
+
+                    <!-- 이모지 인풋 -->
+                    <div id="media-emoji-section" class="pt-2">
+                        <div class="flex items-center gap-3">
+                            <input type="text" id="edit-emoji" class="w-20 p-3 border-2 border-slate-200 rounded-xl text-3xl text-center outline-none transition-all focus:border-blue-500 shadow-inner" placeholder="🌲" oninput="updateSceneData()">
+                            <p class="text-xs text-slate-400 font-semibold">하나의 이모지를 적용하여 즉석 씬을 구성할 수 있습니다.</p>
+                        </div>
+                    </div>
+
+                    <!-- 파일 업로드 인풋 -->
+                    <div id="media-upload-section" class="hidden pt-2 space-y-3">
+                        <div class="flex items-center gap-4">
+                            <label for="edit-image-file" class="cursor-pointer bg-blue-50 text-blue-700 px-5 py-3 rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors font-extrabold text-sm shadow-sm flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> 내 PC에서 선택 (GIF, PNG, JPG)
+                            </label>
+                            <input type="file" id="edit-image-file" accept="image/*" class="hidden" onchange="processLocalImage(event)">
+                            <button onclick="resetImageValue()" class="text-red-500 text-sm font-bold hover:underline px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">기본화</button>
+                        </div>
+                    </div>
+
+                    <div id="media-canvas-section" class="hidden pt-2 space-y-4">
+                        <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-slate-50 p-4">
+                            <!-- 드로잉 모드 컨트롤러 -->
+                            <div class="flex flex-wrap items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-200">
+                                <div class="flex items-center gap-2">
+                                    <button onclick="setCanvasTool('draw')" id="tool-draw" class="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm flex items-center gap-1"><i class="fa-solid fa-pencil"></i> 그리기</button>
+                                    <button onclick="setCanvasTool('eraser')" id="tool-eraser" class="bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"><i class="fa-solid fa-eraser"></i> 지우개</button>
+                                    <button onclick="setCanvasTool('stamp')" id="tool-stamp" class="bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"><i class="fa-solid fa-face-smile"></i> 자유 스탬프</button>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="clearCanvasDrawBoard()" class="bg-white text-rose-500 hover:bg-rose-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-trash-can"></i> 전체 비우기</button>
+                                    <button onclick="applyCanvasToScene()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-md flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> 장면에 적용</button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                                <!-- 드로잉 보드 실체 -->
+                                <div class="md:col-span-8 flex justify-center bg-white border border-slate-200 rounded-xl p-2 relative shadow-inner">
+                                    <canvas id="canvas-paint" width="450" height="280" class="border border-slate-100 rounded bg-white w-full max-w-[450px]"></canvas>
+                                </div>
+
+                                <!-- 드로잉 디테일 세팅 플레이트 -->
+                                <div class="md:col-span-4 space-y-3.5 text-xs">
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between font-bold text-slate-600">
+                                            <span>선 두께 / 크기</span>
+                                            <span id="brush-size-label">8px</span>
+                                        </div>
+                                        <input type="range" id="canvas-brush-size" min="1" max="60" value="8" class="w-full accent-blue-500" oninput="changeBrushSizeValue(this.value)">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block font-bold text-slate-600">컬러 팔레트</label>
+                                        <div class="grid grid-cols-5 gap-1.5" id="color-palette-grid">
+                                            <!-- 동적 드롭 -->
+                                        </div>
+                                    </div>
+
+                                    <!-- 자유 스탬프 선택 플레이트 (아무 이모지나 입력 가능하도록 개량) -->
+                                    <div id="stamp-select-box" class="space-y-2 p-2 bg-white rounded-xl border border-slate-200 hidden">
+                                        <label class="block font-extrabold text-slate-700 text-[11px] mb-1">
+                                            <i class="fa-solid fa-keyboard text-blue-500 mr-1"></i> 도장 이모지 직접 지정
+                                        </label>
+                                        <div class="flex gap-1.5 items-center">
+                                            <input type="text" id="custom-stamp-input" placeholder="⭐" class="w-12 p-2 border-2 border-slate-200 rounded-lg text-center text-lg font-bold outline-none focus:border-blue-500" maxlength="3" oninput="selectStampEmoji(this.value)">
+                                            <span class="text-[10px] text-slate-400 leading-tight">원하는 이모지를 직접 쓰거나 아래 단축 버튼을 선택하세요.</span>
+                                        </div>
+                                        <div class="grid grid-cols-5 gap-1 text-center mt-2 border-t pt-2 border-slate-100">
+                                            <button onclick="clickPresetStamp('👹')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">👹</button>
+                                            <button onclick="clickPresetStamp('🏰')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">🏰</button>
+                                            <button onclick="clickPresetStamp('💎')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">💎</button>
+                                            <button onclick="clickPresetStamp('🔥')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">🔥</button>
+                                            <button onclick="clickPresetStamp('👑')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">👑</button>
+                                            <button onclick="clickPresetStamp('💖')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">💖</button>
+                                            <button onclick="clickPresetStamp('🐾')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">🐾</button>
+                                            <button onclick="clickPresetStamp('🌟')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">🌟</button>
+                                            <button onclick="clickPresetStamp('💀')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">💀</button>
+                                            <button onclick="clickPresetStamp('⚔️')" class="preset-stamp-btn p-1 border border-slate-100 rounded text-base hover:bg-slate-100">⚔️</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <label class="block text-base font-extrabold text-slate-800 flex justify-between items-center">
+                        <span><i class="fa-solid fa-quote-left text-blue-500 mr-2"></i> 시나리오 대사 / 상황 설명</span>
+                        <span id="char-counter" class="text-xs text-slate-400 font-semibold">0자</span>
+                    </label>
+                    <textarea id="edit-text" rows="4" class="w-full p-4 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none text-slate-700 text-base leading-relaxed shadow-inner transition-all" placeholder="플레이어에게 보여줄 대사를 적으세요." oninput="updateSceneData()"></textarea>
+                </div>
+
+                <!-- 분기 선택지 세팅 영역 -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <label class="block text-base font-extrabold text-slate-800"><i class="fa-solid fa-code-branch text-blue-500 mr-2"></i> 멀티 엔딩 선택지 구성</label>
+                        <button onclick="createNewChoice()" class="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl font-extrabold text-xs hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm">
+                            <i class="fa-solid fa-plus"></i> 새 선택지 추가
+                        </button>
+                    </div>
+                    <div id="choices-editor-container" class="space-y-3">
+                        <!-- 동적으로 바인딩되는 선택지 폼들 -->
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/60 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-sm">
+                            <i class="fa-solid fa-flag-checkered"></i>
+                        </div>
+                        <div>
+                            <span class="block font-bold text-slate-800 text-sm">해당 장면을 '엔딩(Ending)'으로 지정</span>
+                            <span class="text-xs text-slate-500">지정하면 하위 분기가 없어집니다.</span>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="edit-is-ending" class="sr-only peer" onchange="toggleEndingMode()">
+                        <div class="w-14 h-7 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 2. 스토리 플로우 뷰 -->
+            <div id="view-flow" class="view hidden p-8 lg:p-12 w-full max-w-4xl mx-auto space-y-6 animate-slide-up flex flex-col h-full">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-4 flex-shrink-0">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800"><i class="fa-solid fa-network-wired text-blue-500 mr-2"></i> 스토리 구조도</h2>
+                        <p class="text-slate-500 text-sm mt-1 font-medium">씬 카드를 선택하면 에디터로 연동되며 드래그하여 순서를 바꿀 수 있습니다.</p>
+                    </div>
+                    <button onclick="createNewSceneNode()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-extrabold text-sm shadow-md transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> 새로운 시나리오 장면 추가
+                    </button>
+                </div>
+                
+                <div id="scene-flow-list" class="space-y-3 pb-24 overflow-y-auto flex-grow pr-2">
+                    <!-- 드래그 가능한 카드 노드 목록 -->
+                </div>
+            </div>
+
+            <div id="view-arcade" class="view hidden p-8 lg:p-12 w-full max-w-3xl mx-auto space-y-8 animate-slide-up">
+                <div class="text-center space-y-2">
+                    <span class="bg-indigo-100 text-indigo-700 text-xs font-black px-3.5 py-1.5 rounded-full uppercase tracking-widest font-mono">Bonus Adventure Game</span>
+                    <h2 class="text-3xl font-black text-slate-900 tracking-tight">마법사의 던전 클리커 RPG</h2>
+                    <p class="text-slate-500 text-sm font-medium">몬스터를 클릭하여 무찌르고 전설 속 보물을 수집해 크레딧 점수를 획득해 보세요!</p>
+                </div>
+
+                <div class="bg-slate-900 rounded-3xl p-6 md:p-8 text-white border border-slate-800 shadow-2xl relative overflow-hidden">
+                    <div class="absolute -right-12 -bottom-12 opacity-5 text-9xl">🧙‍♂️</div>
+                    
+                    <!-- 플레이 정보 플레이트 -->
+                    <div class="grid grid-cols-3 gap-4 mb-6 text-center">
+                        <div class="bg-white/5 p-3 rounded-xl border border-white/10">
+                            <span class="block text-xs text-slate-400">골드 획득</span>
+                            <span id="rpg-gold" class="text-xl font-black text-amber-400">0</span> Gold
+                        </div>
+                        <div class="bg-white/5 p-3 rounded-xl border border-white/10">
+                            <span class="block text-xs text-slate-400">던전 레벨</span>
+                            <span id="rpg-level" class="text-xl font-black text-indigo-400">1</span> Stage
+                        </div>
+                        <div class="bg-white/5 p-3 rounded-xl border border-white/10">
+                            <span class="block text-xs text-slate-400">무찌른 적</span>
+                            <span id="rpg-kills" class="text-xl font-black text-rose-400">0</span> 마리
+                        </div>
+                    </div>
+
+                    <!-- 던전 본체 배틀 연출창 -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center min-h-[240px] relative">
+                        <div class="absolute top-4 left-4 text-xs font-bold text-slate-500" id="rpg-monster-name">심연의 고블린</div>
+                        <div class="absolute top-4 right-4 text-xs font-bold text-emerald-400" id="rpg-monster-hp">HP 100/100</div>
+
+                        <!-- 몬스터 형체 (이모지 기반 모션) -->
+                        <div id="rpg-monster-avatar" class="text-8xl my-6 cursor-pointer select-none transition-transform active:scale-95 duration-75 filter drop-shadow-[0_0_15px_rgba(239,68,68,0.2)]" onclick="attackRpgMonster()">👹</div>
+
+                        <!-- 몬스터 체력 바 -->
+                        <div class="w-full max-w-xs bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700 shadow-inner">
+                            <div class="bg-red-500 h-full rounded-full transition-all duration-100" id="rpg-hp-bar" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <!-- 강화 및 보강 패널 -->
+                    <div class="grid grid-cols-2 gap-4 mt-6">
+                        <button onclick="upgradeRpgWeapon()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-indigo-500/20 border border-indigo-500/30">
+                            <i class="fa-solid fa-sword"></i> 공격력 강화 (비용: <span id="rpg-weapon-cost">10</span>G)
+                        </button>
+                        <button onclick="resetRpgGame()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-700">
+                            <i class="fa-solid fa-arrows-rotate"></i> 던전 초기화
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 설정 / 클라우드 DB 연동 뷰 -->
+            <div id="view-settings" class="view hidden p-8 lg:p-12 w-full max-w-3xl mx-auto space-y-10 animate-slide-up">
+                
+                <div class="space-y-4">
+                    <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-blue-500"></i> 실시간 Firebase 데이터베이스 연동
+                    </h2>
+                    <p class="text-sm text-slate-500 font-medium">전용 클라우드 데이터베이스에 시나리오 프로젝트 전체를 동기화하여 언제든 원격 저장 및 영구 보존할 수 있습니다.</p>
+                    
+                    <div class="bg-blue-50/50 rounded-2xl border border-blue-100 p-6 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800 text-sm">연동 상태</span>
+                            <span id="db-conn-status" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs font-black">동기화 대기중</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="syncSaveToCloud()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> 현재 스토리 DB 백업 (저장)
+                            </button>
+                            <button onclick="syncLoadFromCloud()" class="flex-1 bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 font-extrabold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> DB 복원 (불러오기)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4 border-t border-slate-200 pt-8">
+                    <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-palette text-blue-500"></i> 프리미엄 테마 프리셋
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button onclick="applyAndSaveTheme('modern')" id="theme-btn-modern" class="p-5 border-2 rounded-2xl flex items-center gap-4 hover:border-blue-400 transition-all bg-white shadow-sm text-left group">
+                            <span class="text-4xl bg-blue-50 p-3 rounded-xl group-hover:scale-110 transition-transform">📱</span>
+                            <div>
+                                <span class="font-extrabold text-slate-800 block text-base">모던 인터페이스</span>
+                                <span class="text-xs text-slate-400 block mt-0.5">현대적인 앱 레이아웃</span>
+                            </div>
+                        </button>
+                        
+                        <button onclick="applyAndSaveTheme('stardew')" id="theme-btn-stardew" class="p-5 border-2 rounded-2xl flex items-center gap-4 hover:border-amber-600 transition-all bg-amber-50 text-amber-900 shadow-sm text-left group">
+                            <span class="text-4xl bg-amber-100 p-3 rounded-xl group-hover:scale-110 transition-transform">🌾</span>
+                            <div>
+                                <span class="font-extrabold block text-base text-amber-950 font-gowun">스타듀 밸리 (Cozy)</span>
+                                <span class="text-xs text-amber-800/60 block mt-0.5">양피지와 아늑한 목재</span>
+                            </div>
+                        </button>
+                        
+                        <button onclick="applyAndSaveTheme('retro')" id="theme-btn-retro" class="p-5 border-2 border-slate-900 rounded-2xl flex items-center gap-4 hover:bg-slate-950 transition-all bg-black text-white shadow-sm text-left group">
+                            <span class="text-4xl bg-slate-900 p-3 rounded-xl group-hover:scale-110 transition-transform">👾</span>
+                            <div>
+                                <span class="font-extrabold block text-base tracking-wider text-xs" style="font-family: 'Press Start 2P';">RETRO PIXEL</span>
+                                <span class="text-xs text-emerald-400 block mt-1">도트 아케이드 감성</span>
+                            </div>
+                        </button>
+
+                        <button onclick="applyAndSaveTheme('cyber')" id="theme-btn-cyber" class="p-5 border-2 border-pink-500 rounded-2xl flex items-center gap-4 hover:bg-slate-950 transition-all bg-[#0d0a1b] text-white shadow-sm text-left group">
+                            <span class="text-4xl bg-pink-950/40 p-3 rounded-xl group-hover:scale-110 transition-transform">⚡</span>
+                            <div>
+                                <span class="font-extrabold block text-base text-cyan-400" style="font-family: 'Share Tech Mono';">NEON CYBER</span>
+                                <span class="text-xs text-pink-400 block mt-0.5">형광 네온 컬러</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-8 space-y-4">
+                    <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-code text-blue-500"></i> JSON 로컬 데이터 수동 입출력
+                    </h2>
+                    <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                        <textarea id="data-raw-io" rows="4" class="w-full p-4 border border-slate-300 rounded-xl text-xs font-mono bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-y shadow-inner"></textarea>
+                        
+                        <div class="flex gap-3">
+                            <button onclick="exportJSONData()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-extrabold py-3 rounded-xl shadow-md transition-all">
+                                프로젝트 복사
+                            </button>
+                            <button onclick="importJSONData()" class="flex-1 bg-white hover:bg-blue-50 text-blue-700 font-extrabold py-3 rounded-xl border-2 border-blue-200 shadow-sm transition-all">
+                                로컬 주입
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="pt-6">
+                        <button onclick="triggerResetSystem()" class="w-full text-red-600 font-extrabold py-3.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 transition-all">
+                            시스템 공장 초기화
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- [오버레이] 토스트 및 알림창 -->
+    <div id="toast-wrapper" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 pointer-events-none"></div>
+
+    <div id="custom-modal-confirm" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 transform transition-all border border-slate-200 animate-slide-up">
+            <div class="flex items-center gap-3 mb-3">
+                <div id="modal-icon-container" class="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-blue-500">
+                    <i class="fa-solid fa-circle-question text-lg"></i>
+                </div>
+                <h3 id="modal-title" class="text-xl font-extrabold text-slate-800">확인 요청</h3>
+            </div>
+            <p id="modal-description" class="text-slate-600 mb-6 font-medium text-sm leading-relaxed">계속 진행하시겠습니까?</p>
+            <div class="flex justify-end gap-2.5">
+                <button id="modal-cancel-btn" class="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors text-sm">취소</button>
+                <button id="modal-ok-btn" class="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors text-sm">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 유기적인 Firebase Firestore 연동 시스템 (사용자 자격증명 자동 세팅) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+            authDomain: "meal-c8b86.firebaseapp.com",
+            projectId: "meal-c8b86",
+            storageBucket: "meal-c8b86.firebasestorage.app",
+            messagingSenderId: "476361866831",
+            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+        };
+        
+        // 전역 Firebase 초기화 선언
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // UI 알림 엔진
+        function toast(message, mode = 'success') {
+            const wrapper = document.getElementById('toast-wrapper');
+            const item = document.createElement('div');
+            let skin = mode === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
+            item.className = `${skin} text-white px-5 py-3.5 rounded-2xl shadow-xl font-extrabold text-sm flex items-center gap-2.5 pointer-events-auto transform translate-y-4 opacity-0 transition-all duration-300`;
+            item.innerHTML = `<span>${message}</span>`;
+            wrapper.appendChild(item);
+            setTimeout(() => { item.classList.remove('translate-y-4', 'opacity-0'); }, 10);
+            setTimeout(() => {
+                item.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => item.remove(), 300);
+            }, 3000);
+        }
+
+        let modalActionCallback = null;
+        function askConfirm(msg, title = '확인', onConfirm) {
+            const modal = document.getElementById('custom-modal-confirm');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-description').innerHTML = msg.replace(/\n/g, '<br>');
+            modalActionCallback = onConfirm;
+            modal.classList.remove('hidden');
+        }
+
+        document.getElementById('modal-cancel-btn').onclick = () => {
+            document.getElementById('custom-modal-confirm').classList.add('hidden');
+            modalActionCallback = null;
+        };
+
+        document.getElementById('modal-ok-btn').onclick = () => {
+            document.getElementById('custom-modal-confirm').classList.add('hidden');
+            if (modalActionCallback) modalActionCallback();
+            modalActionCallback = null;
+        };
+
+        // --- 2. 기본 데이터 템플릿 설계 ---
+        const STORY_TEMPLATE = {
+            theme: 'modern',
+            startScene: 'start',
+            sceneOrder: ['start', 'left_cabin', 'ending_paradise'],
+            scenes: {
+                'start': {
+                    id: 'start',
+                    text: '안개 낀 길목 초입에 도달했습니다.\n눈앞에 무수한 운명의 선택지들이 넘실거립니다.',
+                    mediaType: 'emoji',
+                    mediaContent: '🌫️',
+                    choices: [
+                        { text: '서쪽 오두막으로 향한다', targetId: 'left_cabin' }
+                    ]
+                },
+                'left_cabin': {
+                    id: 'left_cabin',
+                    text: '오두막 안에 타오르는 벽난로가 당신을 아늑하게 반겨줍니다.',
+                    mediaType: 'emoji',
+                    mediaContent: '🏡',
+                    choices: [
+                        { text: '벽난로를 마주하며 휴식한다', targetId: 'ending_paradise' }
+                    ]
+                },
+                'ending_paradise': {
+                    id: 'ending_paradise',
+                    text: '세상의 혼란에서 벗어나 영원한 안식처를 얻었습니다.\n(해피 엔딩)',
+                    mediaType: 'emoji',
+                    mediaContent: '🍵',
+                    isEnding: true,
+                    choices: []
+                }
+            }
+        };
+
+        let CURRENT_STATE = JSON.parse(JSON.stringify(STORY_TEMPLATE));
+        let activeSceneId = 'start';
+        let currentDragNode = null;
+        let activeMediaMode = 'emoji';
+
+        // 캔버스 드로잉 상태 변수 목록
+        let canvas, ctx;
+        let isDrawing = false;
+        let brushColor = '#000000';
+        let brushSize = 8;
+        let activeTool = 'draw';
+        let selectedStamp = '👹';
+
+        const PRESET_COLORS = [
+            '#000000', '#ffffff', '#ef4444', '#f97316', '#f59e0b',
+            '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7'
+        ];
+
+        function initApp() {
+            const savedData = localStorage.getItem('visual_novel_master_pro');
+            if (savedData) {
+                try {
+                    CURRENT_STATE = JSON.parse(savedData);
+                } catch(e) {
+                    CURRENT_STATE = JSON.parse(STORY_TEMPLATE);
+                }
+            }
+            initCanvasPaintBoard();
+            applyAndSaveTheme(CURRENT_STATE.theme || 'modern', false);
+            navigate('editor');
+            initRpgStats();
+            detectFirebaseConnection();
+        }
+
+        function commitLocalStorage() {
+            localStorage.setItem('visual_novel_master_pro', JSON.stringify(CURRENT_STATE));
+        }
+
+        // --- 3. 데이터베이스(Firestore) 동기화 기능 정의 ---
+        function detectFirebaseConnection() {
+            const indicator = document.getElementById('sync-status-indicator');
+            const settingsStatus = document.getElementById('db-conn-status');
+            
+            // 연결 확인용 신호
+            db.collection("sync_data").doc("settings").get()
+                .then(() => {
+                    indicator.innerText = "클라우드 DB 실시간 연동됨";
+                    indicator.className = "text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded";
+                    settingsStatus.innerText = "정상 연동 활성화";
+                    settingsStatus.className = "bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-black";
+                })
+                .catch((e) => {
+                    console.log("로컬 독립 모드로 동작중", e);
+                });
+        }
+
+        function syncSaveToCloud() {
+            db.collection("sync_data").doc("visual_novel_project").set(CURRENT_STATE)
+                .then(() => {
+                    toast("클라우드 데이터베이스에 프로젝트 전체를 동기화했습니다.");
+                    detectFirebaseConnection();
+                })
+                .catch((err) => {
+                    toast("데이터베이스 백업 실패. 인터넷 연결 상태를 확인하세요.", "error");
+                });
+        }
+
+        function syncLoadFromCloud() {
+            askConfirm("클라우드의 데이터를 불러와 현재 로컬 데이터를 덮어씌웁니다. 진행하시겠습니까?", "데이터 불러오기", () => {
+                db.collection("sync_data").doc("visual_novel_project").get()
+                    .then((doc) => {
+                        if (doc.exists) {
+                            CURRENT_STATE = doc.data();
+                            commitLocalStorage();
+                            applyAndSaveTheme(CURRENT_STATE.theme || 'modern', false);
+                            navigate('editor');
+                            toast("성공적으로 클라우드 프로젝트를 복원했습니다!");
+                        } else {
+                            toast("저장된 클라우드 프로젝트 파일이 발견되지 않았습니다.", "error");
+                        }
+                    })
+                    .catch((err) => {
+                        toast("클라우드 로딩 오류 발생", "error");
+                    });
+            });
+        }
+
+        function navigate(tabName) {
+            document.querySelectorAll('.nav-link').forEach(el => {
+                el.classList.remove('tab-active', 'text-blue-600');
+                el.classList.add('text-slate-500');
+            });
+            document.getElementById(`nav-${tabName}`).classList.add('tab-active', 'text-blue-600');
+            document.getElementById(`nav-${tabName}`).classList.remove('text-slate-500');
+
+            document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+
+            if (tabName === 'editor') {
+                bindSceneDataToEditor();
+                refreshPreviewCanvas(activeSceneId);
+            } else if (tabName === 'flow') {
+                renderFlowManagerBoard();
+            } else if (tabName === 'settings') {
+                document.getElementById('data-raw-io').value = JSON.stringify(CURRENT_STATE, null, 2);
+            }
+        }
+
+        // --- 4. 시나리오 라이브 프리뷰 시스템 ---
+        let typewritingTimer = null;
+        function refreshPreviewCanvas(sceneId = activeSceneId) {
+            const node = CURRENT_STATE.scenes[sceneId];
+            if (!node) return;
+
+            const frame = document.getElementById('game-container');
+            frame.className = `w-full max-w-md flex flex-col transition-all duration-300 transform scale-100 theme-${CURRENT_STATE.theme}`;
+            
+            const imgNode = document.getElementById('game-image');
+            const emojiNode = document.getElementById('game-emoji');
+            const loaderNode = document.getElementById('media-loader');
+
+            loaderNode.classList.remove('hidden');
+
+            if (node.mediaType && node.mediaType !== 'emoji' && node.mediaContent) {
+                imgNode.src = node.mediaContent;
+                imgNode.classList.remove('hidden');
+                emojiNode.classList.add('hidden');
+                imgNode.onload = () => loaderNode.classList.add('hidden');
+            } else {
+                imgNode.classList.add('hidden');
+                emojiNode.classList.remove('hidden');
+                emojiNode.innerText = node.mediaContent || '🌲';
+                loaderNode.classList.add('hidden');
+            }
+
+            const dialogNode = document.getElementById('game-dialogue');
+            if (typewritingTimer) clearInterval(typewritingTimer);
+            
+            const rawStory = node.text || '';
+            let cursor = 0;
+            dialogNode.innerHTML = '';
+            
+            typewritingTimer = setInterval(() => {
+                if (cursor < rawStory.length) {
+                    dialogNode.innerHTML = rawStory.substring(0, cursor + 1).replace(/\n/g, '<br>') + '<span class="animate-pulse ml-0.5">|</span>';
+                    cursor++;
+                } else {
+                    dialogNode.innerHTML = rawStory.replace(/\n/g, '<br>');
+                    clearInterval(typewritingTimer);
+                }
+            }, 25);
+
+            const choiceBox = document.getElementById('game-choices');
+            choiceBox.innerHTML = '';
+
+            if (node.isEnding) {
+                const restartBtn = document.createElement('button');
+                restartBtn.className = 'game-btn w-full p-4 text-center cursor-pointer flex items-center justify-center gap-2';
+                restartBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 처음 이야기부터 다시하기';
+                restartBtn.onclick = () => refreshPreviewCanvas(CURRENT_STATE.startScene);
+                choiceBox.appendChild(restartBtn);
+            } else if (node.choices && node.choices.length > 0) {
+                node.choices.forEach((choice, index) => {
+                    const actionBtn = document.createElement('button');
+                    actionBtn.className = 'game-btn w-full p-3.5 text-center cursor-pointer transition-all duration-200';
+                    actionBtn.innerText = choice.text || `선택지 ${index + 1}`;
+                    actionBtn.onclick = () => {
+                        if (choice.targetId && CURRENT_STATE.scenes[choice.targetId]) {
+                            refreshPreviewCanvas(choice.targetId);
+                        } else {
+                            toast("스토리 경로가 비어 있습니다.", "error");
+                        }
+                    };
+                    choiceBox.appendChild(actionBtn);
+                });
+            } else {
+                const endingIndicator = document.createElement('div');
+                endingIndicator.className = 'text-center p-3 text-slate-400 font-bold border-t border-dashed border-slate-300 mt-4 tracking-widest text-xs';
+                endingIndicator.innerText = '스토리 종단점';
+                choiceBox.appendChild(endingIndicator);
+            }
+        }
+
+        function refreshPreviewToCurrent() {
+            refreshPreviewCanvas(activeSceneId);
+            toast("미리보기를 현재 시나리오 씬으로 정렬 완료.");
+        }
+
+        function handleImageError() {
+            document.getElementById('game-image').classList.add('hidden');
+            const emojiNode = document.getElementById('game-emoji');
+            emojiNode.classList.remove('hidden');
+            emojiNode.innerText = '⚠️';
+            document.getElementById('media-loader').classList.add('hidden');
+        }
+
+        function bindSceneDataToEditor() {
+            const node = CURRENT_STATE.scenes[activeSceneId];
+            if (!node) return;
+
+            document.getElementById('current-scene-badge').innerText = node.id;
+            document.getElementById('edit-text').value = node.text || '';
+            document.getElementById('char-counter').innerText = `${(node.text || '').length}자`;
+
+            activeMediaMode = node.mediaType || 'emoji';
+            syncMediaUIPanel();
+
+            if (activeMediaMode === 'emoji') {
+                document.getElementById('edit-emoji').value = node.mediaContent || '🌲';
+            }
+
+            document.getElementById('edit-is-ending').checked = !!node.isEnding;
+            buildChoicesForm(node);
+        }
+
+        function setMediaSelection(mode) {
+            activeMediaMode = mode;
+            CURRENT_STATE.scenes[activeSceneId].mediaType = mode;
+            
+            if (mode === 'emoji') {
+                CURRENT_STATE.scenes[activeSceneId].mediaContent = document.getElementById('edit-emoji').value || '🌲';
+            } else if (mode === 'canvas') {
+                clearCanvasDrawBoard(false);
+            }
+            syncMediaUIPanel();
+            updateSceneData();
+        }
+
+        function syncMediaUIPanel() {
+            const tabs = ['emoji', 'upload', 'canvas'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`media-tab-${t}`);
+                if (t === activeMediaMode) {
+                    btn.className = "flex-1 py-2 px-3 text-xs font-extrabold rounded-lg transition-colors bg-white text-slate-800 shadow-sm border border-slate-200/50";
+                    document.getElementById(`media-${t}-section`).classList.remove('hidden');
+                } else {
+                    btn.className = "flex-1 py-2 px-3 text-xs font-extrabold rounded-lg transition-colors text-slate-500 hover:text-slate-800";
+                    document.getElementById(`media-${t}-section`).classList.add('hidden');
+                }
+            });
+        }
+
+        function processLocalImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                CURRENT_STATE.scenes[activeSceneId].mediaType = 'upload';
+                CURRENT_STATE.scenes[activeSceneId].mediaContent = e.target.result;
+                commitLocalStorage();
+                refreshPreviewCanvas();
+                toast("이미지가 성공적으로 적용되었습니다.");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetImageValue() {
+            CURRENT_STATE.scenes[activeSceneId].mediaContent = '🌲';
+            CURRENT_STATE.scenes[activeSceneId].mediaType = 'emoji';
+            activeMediaMode = 'emoji';
+            syncMediaUIPanel();
+            updateSceneData();
+            toast("이미지 초기화됨.");
+        }
+
+        function updateSceneData() {
+            const node = CURRENT_STATE.scenes[activeSceneId];
+            if (!node) return;
+
+            node.text = document.getElementById('edit-text').value;
+            document.getElementById('char-counter').innerText = `${node.text.length}자`;
+
+            if (activeMediaMode === 'emoji') {
+                node.mediaContent = document.getElementById('edit-emoji').value || '🌲';
+            }
+
+            commitLocalStorage();
+            refreshPreviewCanvas();
+        }
+
+        function toggleEndingMode() {
+            const node = CURRENT_STATE.scenes[activeSceneId];
+            if (!node) return;
+
+            node.isEnding = document.getElementById('edit-is-ending').checked;
+            if (node.isEnding) {
+                node.choices = [];
+            }
+            commitLocalStorage();
+            buildChoicesForm(node);
+            refreshPreviewCanvas();
+        }
+
+        function buildChoicesForm(node) {
+            const container = document.getElementById('choices-editor-container');
+            container.innerHTML = '';
+
+            if (node.isEnding) {
+                container.innerHTML = `<div class="p-4 text-center text-slate-400 font-extrabold text-xs">엔딩 시나리오 노드입니다.</div>`;
+                return;
+            }
+
+            if (!node.choices || node.choices.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-slate-400 font-extrabold text-xs">선택지가 없습니다. 우측의 추가 버튼을 눌러보세요!</div>`;
+                return;
+            }
+
+            const allSceneIds = CURRENT_STATE.sceneOrder;
+
+            node.choices.forEach((choice, index) => {
+                const choiceCard = document.createElement('div');
+                choiceCard.className = 'p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row gap-3 items-center';
+
+                const inputWrap = document.createElement('div');
+                inputWrap.className = 'w-full sm:flex-grow';
+                const textInput = document.createElement('input');
+                textInput.type = 'text';
+                textInput.value = choice.text || '';
+                textInput.className = 'w-full p-2 border border-slate-300 rounded-lg outline-none text-xs bg-white font-bold';
+                textInput.oninput = (e) => {
+                    CURRENT_STATE.scenes[activeSceneId].choices[index].text = e.target.value;
+                    commitLocalStorage();
+                    refreshPreviewCanvas();
+                };
+                inputWrap.appendChild(textInput);
+
+                const selectWrap = document.createElement('div');
+                selectWrap.className = 'w-full sm:w-48';
+                const selectNode = document.createElement('select');
+                selectNode.className = 'w-full p-2 border border-slate-300 rounded-lg outline-none text-xs bg-white font-bold text-slate-700 cursor-pointer';
+                
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.innerText = '⛔ 연결 안 함';
+                selectNode.appendChild(defaultOpt);
+
+                allSceneIds.forEach(id => {
+                    const optionItem = document.createElement('option');
+                    optionItem.value = id;
+                    optionItem.innerText = id;
+                    if (choice.targetId === id) optionItem.selected = true;
+                    selectNode.appendChild(optionItem);
+                });
+
+                selectNode.onchange = (e) => {
+                    CURRENT_STATE.scenes[activeSceneId].choices[index].targetId = e.target.value;
+                    commitLocalStorage();
+                };
+                selectWrap.appendChild(selectNode);
+
+                const trashBtn = document.createElement('button');
+                trashBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+                trashBtn.className = 'p-2.5 text-rose-500 hover:text-white hover:bg-rose-500 border border-slate-200 rounded-lg transition-all text-xs';
+                trashBtn.onclick = () => {
+                    CURRENT_STATE.scenes[activeSceneId].choices.splice(index, 1);
+                    commitLocalStorage();
+                    buildChoicesForm(CURRENT_STATE.scenes[activeSceneId]);
+                    refreshPreviewCanvas();
+                };
+
+                choiceCard.appendChild(inputWrap);
+                choiceCard.appendChild(selectWrap);
+                choiceCard.appendChild(trashBtn);
+
+                container.appendChild(choiceCard);
+            });
+        }
+
+        function createNewChoice() {
+            if (CURRENT_STATE.scenes[activeSceneId].isEnding) return;
+            if (!CURRENT_STATE.scenes[activeSceneId].choices) CURRENT_STATE.scenes[activeSceneId].choices = [];
+            CURRENT_STATE.scenes[activeSceneId].choices.push({ text: '새 선택지 경로', targetId: '' });
+            commitLocalStorage();
+            buildChoicesForm(CURRENT_STATE.scenes[activeSceneId]);
+            refreshPreviewCanvas();
+            toast("새로운 분기 선택지가 생성되었습니다.");
+        }
+
+        // --- 5. 드래그 가능한 스토리 플로우 노드 매니저 ---
+        function renderFlowManagerBoard() {
+            const container = document.getElementById('scene-flow-list');
+            container.innerHTML = '';
+
+            CURRENT_STATE.sceneOrder.forEach((sceneId) => {
+                const node = CURRENT_STATE.scenes[sceneId];
+                if (!node) return;
+
+                const card = document.createElement('div');
+                const isFocused = activeSceneId === sceneId;
+                const isMainStart = CURRENT_STATE.startScene === sceneId;
+
+                card.className = `draggable-item bg-white border-2 ${isFocused ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200'} p-4 rounded-xl flex items-center justify-between transition-all`;
+                card.draggable = true;
+                card.dataset.id = sceneId;
+
+                card.addEventListener('dragstart', dragStartAction);
+                card.addEventListener('dragover', dragOverAction);
+                card.addEventListener('dragleave', dragLeaveAction);
+                card.addEventListener('drop', dropAction);
+                card.addEventListener('dragend', dragEndAction);
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 flex-grow cursor-pointer" onclick="selectFlowScene('${sceneId}')">
+                        <div class="text-slate-300 p-1 flex items-center justify-center text-sm">
+                            <i class="fa-solid fa-grip-vertical"></i>
+                        </div>
+                        <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border text-xl flex-shrink-0">
+                            ${node.mediaType === 'emoji' ? node.mediaContent : '🖼️'}
+                        </div>
+                        <div>
+                            <span class="font-extrabold text-slate-800 text-xs">${sceneId}</span>
+                            ${isMainStart ? '<span class="ml-2 bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded font-black">START</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="setStartSceneNode('${sceneId}')" class="text-[10px] font-black px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 ${isMainStart ? 'hidden' : ''}">시작씬 지정</button>
+                        <button onclick="deleteSceneNode('${sceneId}')" class="text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 p-1.5 rounded-lg"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function dragStartAction(e) {
+            currentDragNode = this.dataset.id;
+            this.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function dragOverAction(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        }
+
+        function dragLeaveAction() {
+            this.classList.remove('drag-over');
+        }
+
+        function dropAction(e) {
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+            
+            const dropTargetId = this.dataset.id;
+            if (currentDragNode && currentDragNode !== dropTargetId) {
+                const arr = CURRENT_STATE.sceneOrder;
+                const srcIdx = arr.indexOf(currentDragNode);
+                const destIdx = arr.indexOf(dropTargetId);
+                
+                arr.splice(srcIdx, 1);
+                arr.splice(destIdx, 0, currentDragNode);
+                
+                commitLocalStorage();
+                renderFlowManagerBoard();
+                toast("장면 배치 순서가 수정되었습니다.");
+            }
+        }
+
+        function dragEndAction() {
+            this.style.opacity = '1';
+            document.querySelectorAll('.draggable-item').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function selectFlowScene(id) {
+            activeSceneId = id;
+            navigate('editor');
+            toast(`'${id}' 시나리오를 불러왔습니다.`);
+        }
+
+        function createNewSceneNode() {
+            const rawName = 'scene_' + Math.floor(Math.random() * 10000);
+            CURRENT_STATE.scenes[rawName] = {
+                id: rawName,
+                text: '이곳에 연출 대사를 입력하세요.',
+                mediaType: 'emoji',
+                mediaContent: '✨',
+                choices: []
+            };
+            CURRENT_STATE.sceneOrder.push(rawName);
+            commitLocalStorage();
+            activeSceneId = rawName;
+            navigate('editor');
+            toast("새로운 무대 연출 노드가 생성되었습니다.");
+        }
+
+        function deleteSceneNode(id) {
+            if (CURRENT_STATE.sceneOrder.length <= 1) return;
+
+            askConfirm(`정말 '${id}' 무대를 해체하겠습니까?\n이 무대를 타겟으로 하던 다른 선택지들도 안전하게 해제됩니다.`, '장면 삭제 경고', () => {
+                Object.values(CURRENT_STATE.scenes).forEach(scene => {
+                    if (scene.choices) {
+                        scene.choices.forEach(ch => { if (ch.targetId === id) ch.targetId = ''; });
+                    }
+                });
+
+                delete CURRENT_STATE.scenes[id];
+                CURRENT_STATE.sceneOrder = CURRENT_STATE.sceneOrder.filter(n => n !== id);
+
+                if (CURRENT_STATE.startScene === id) CURRENT_STATE.startScene = CURRENT_STATE.sceneOrder[0];
+                if (activeSceneId === id) activeSceneId = CURRENT_STATE.sceneOrder[0];
+
+                commitLocalStorage();
+                renderFlowManagerBoard();
+                toast("씬이 해체되었습니다.");
+            });
+        }
+
+        function setStartSceneNode(id) {
+            CURRENT_STATE.startScene = id;
+            commitLocalStorage();
+            renderFlowManagerBoard();
+            toast(`첫 비주얼 노벨 시작 지점이 [${id}]로 재설정되었습니다.`);
+        }
+
+        // --- 6. [NEW] 그리기 스케치북 드로잉 도판 & 자유 이모지 도장 가공 모듈 ---
+        function initCanvasPaintBoard() {
+            canvas = document.getElementById('canvas-paint');
+            if(!canvas) return;
+            ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const paletteGrid = document.getElementById('color-palette-grid');
+            paletteGrid.innerHTML = '';
+            PRESET_COLORS.forEach(col => {
+                const colBtn = document.createElement('button');
+                colBtn.className = 'w-6 h-6 rounded-full border shadow-sm transition-transform hover:scale-110';
+                colBtn.style.backgroundColor = col;
+                colBtn.onclick = () => selectBrushColor(col);
+                paletteGrid.appendChild(colBtn);
+            });
+
+            // 마우스 이벤트 마운트
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', drawLine);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseleave', stopDrawing);
+
+            // 반응형 터치 이벤트 마운트
+            canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); });
+            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); drawLine(e); });
+            canvas.addEventListener('touchend', (e) => { e.preventDefault(); stopDrawing(); });
+        }
+
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const coords = getCanvasCoordinates(e);
+
+            if (activeTool === 'stamp') {
+                stampEmojiOnCanvas(coords.x, coords.y);
+                isDrawing = false;
+                return;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(coords.x, coords.y);
+            ctx.lineTo(coords.x, coords.y);
+            ctx.strokeStyle = activeTool === 'eraser' ? '#ffffff' : brushColor;
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+
+        function drawLine(e) {
+            if (!isDrawing || activeTool === 'stamp') return;
+            const coords = getCanvasCoordinates(e);
+            ctx.lineTo(coords.x, coords.y);
+            ctx.strokeStyle = activeTool === 'eraser' ? '#ffffff' : brushColor;
+            ctx.lineWidth = brushSize;
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.closePath();
+        }
+
+        function setCanvasTool(tool) {
+            activeTool = tool;
+            
+            document.getElementById('tool-draw').className = "bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1";
+            document.getElementById('tool-eraser').className = "bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1";
+            document.getElementById('tool-stamp').className = "bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1";
+
+            document.getElementById('stamp-select-box').classList.add('hidden');
+
+            if (tool === 'draw') {
+                document.getElementById('tool-draw').className = "bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm flex items-center gap-1";
+            } else if (tool === 'eraser') {
+                document.getElementById('tool-eraser').className = "bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm flex items-center gap-1";
+            } else if (tool === 'stamp') {
+                document.getElementById('tool-stamp').className = "bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm flex items-center gap-1";
+                document.getElementById('stamp-select-box').classList.remove('hidden');
+            }
+        }
+
+        function selectBrushColor(col) {
+            brushColor = col;
+            setCanvasTool('draw');
+            toast(`펜 색상이 변경되었습니다: ${col}`);
+        }
+
+        function changeBrushSizeValue(val) {
+            brushSize = parseInt(val);
+            document.getElementById('brush-size-label').innerText = `${val}px`;
+        }
+
+        function clearCanvasDrawBoard(notify = true) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (notify) toast("캔버스를 지웠습니다.");
+        }
+
+        // 자유 스탬프 이모지 갱신 핸들러 (입력창 변경 시 구동)
+        function selectStampEmoji(emoji) {
+            if(!emoji.trim()) return;
+            selectedStamp = emoji;
+        }
+
+        // 프리셋 도장 선택 시 세팅 엔진
+        function clickPresetStamp(emoji) {
+            selectedStamp = emoji;
+            document.getElementById('custom-stamp-input').value = emoji;
+            toast(`'${emoji}' 도장이 세팅되었습니다. 캔버스를 터치해서 찍어보세요!`);
+        }
+
+        function stampEmojiOnCanvas(x, y) {
+            ctx.font = `${brushSize * 2.5 + 16}px Pretendard`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(selectedStamp, x, y);
+        }
+
+        function applyCanvasToScene() {
+            const dataUrl = canvas.toDataURL('image/png');
+            CURRENT_STATE.scenes[activeSceneId].mediaType = 'canvas';
+            CURRENT_STATE.scenes[activeSceneId].mediaContent = dataUrl;
+            commitLocalStorage();
+            refreshPreviewCanvas();
+            toast("그린 이미지가 장면에 실시간 적용되었습니다.", "success");
+        }
+
+        // --- 7. [NEW] 보너스 미니 아케이드 던전 RPG 로직 ---
+        let rpgState = {
+            gold: 0,
+            level: 1,
+            kills: 0,
+            monsterHp: 100,
+            monsterMaxHp: 100,
+            playerAtk: 10,
+            weaponUpgradeCost: 10
+        };
+
+        const MONSTER_LIST = [
+            { name: "심연의 도마뱀", emoji: "", hp: 60 },
+            { name: "타락한 오크 주술사", emoji: "👹", hp: 100 },
+            { name: "지하묘지의 망령", emoji: "👻", hp: 140 },
+            { name: "거대 독거미", emoji: "🕷️", hp: 180 },
+            { name: "파멸의 레드 드래곤", emoji: "🐉", hp: 300 }
+        ];
+
+        let activeMonster = MONSTER_LIST[0];
+
+        function initRpgStats() {
+            const savedRpg = localStorage.getItem('arcade_rpg_save_data');
+            if (savedRpg) {
+                try { rpgState = JSON.parse(savedRpg); } catch(e) {}
+            }
+            spawnMonster();
+            updateRpgDashboard();
+        }
+
+        function saveRpgToStorage() {
+            localStorage.setItem('arcade_rpg_save_data', JSON.stringify(rpgState));
+        }
+
+        function spawnMonster() {
+            const index = Math.min(Math.floor((rpgState.level - 1) / 2), MONSTER_LIST.length - 1);
+            const baseMonster = MONSTER_LIST[index];
+            activeMonster = {
+                name: baseMonster.name,
+                emoji: baseMonster.emoji,
+                hp: Math.round(baseMonster.hp * (1 + (rpgState.level - 1) * 0.35))
+            };
+            rpgState.monsterMaxHp = activeMonster.hp;
+            rpgState.monsterHp = activeMonster.hp;
+            updateRpgDashboard();
+        }
+
+        function attackRpgMonster() {
+            rpgState.monsterHp -= rpgState.playerAtk;
+            const monsterAvatar = document.getElementById('rpg-monster-avatar');
+            
+            // 크리티컬 이펙트 연출
+            monsterAvatar.classList.add('scale-75', 'rotate-6');
+            setTimeout(() => monsterAvatar.classList.remove('scale-75', 'rotate-6'), 100);
+
+            if (rpgState.monsterHp <= 0) {
+                // 골드 전리품 및 몬스터 처치 기록
+                const rewardGold = Math.round(rpgState.monsterMaxHp * 0.45 + Math.random() * 5);
+                rpgState.gold += rewardGold;
+                rpgState.kills += 1;
+                rpgState.level += 1;
+                toast(`몬스터 무찌름! +${rewardGold} 골드 획득!`);
+                spawnMonster();
+            }
+            updateRpgDashboard();
+            saveRpgToStorage();
+        }
+
+        function upgradeRpgWeapon() {
+            if (rpgState.gold >= rpgState.weaponUpgradeCost) {
+                rpgState.gold -= rpgState.weaponUpgradeCost;
+                rpgState.playerAtk += 8;
+                rpgState.weaponUpgradeCost = Math.round(rpgState.weaponUpgradeCost * 1.8 + 10);
+                toast(`공격력 업그레이드 완료! (공격력: ${rpgState.playerAtk})`, "success");
+                updateRpgDashboard();
+                saveRpgToStorage();
+            } else {
+                toast("골드가 부족하여 업그레이드할 수 없습니다.", "error");
+            }
+        }
+
+        function resetRpgGame() {
+            rpgState = {
+                gold: 0,
+                level: 1,
+                kills: 0,
+                monsterHp: 100,
+                monsterMaxHp: 100,
+                playerAtk: 10,
+                weaponUpgradeCost: 10
+            };
+            spawnMonster();
+            toast("던전 진행도가 초기화되었습니다.");
+            saveRpgToStorage();
+        }
+
+        function updateRpgDashboard() {
+            document.getElementById('rpg-gold').innerText = rpgState.gold;
+            document.getElementById('rpg-level').innerText = rpgState.level;
+            document.getElementById('rpg-kills').innerText = rpgState.kills;
+            document.getElementById('rpg-weapon-cost').innerText = rpgState.weaponUpgradeCost;
+
+            document.getElementById('rpg-monster-name').innerText = activeMonster.name;
+            document.getElementById('rpg-monster-hp').innerText = `HP ${rpgState.monsterHp} / ${rpgState.monsterMaxHp}`;
+            document.getElementById('rpg-monster-avatar').innerText = activeMonster.emoji;
+
+            const hpPercent = Math.max(0, (rpgState.monsterHp / rpgState.monsterMaxHp) * 100);
+            document.getElementById('rpg-hp-bar').style.width = `${hpPercent}%`;
+        }
+
+        // --- 8. 테마 적용 및 백업 관리 ---
+        function applyAndSaveTheme(themeName, alertNeeded = true) {
+            CURRENT_STATE.theme = themeName;
+            document.querySelectorAll('[id^="theme-btn-"]').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-blue-500', 'ring-offset-2');
+            });
+            const targetBtn = document.getElementById(`theme-btn-${themeName}`);
+            if (targetBtn) targetBtn.classList.add('ring-4', 'ring-blue-500', 'ring-offset-2');
+
+            commitLocalStorage();
+            refreshPreviewCanvas();
+            if (alertNeeded) toast(`스타일 테마가 [${themeName.toUpperCase()}] 타입으로 정렬되었습니다.`);
+        }
+
+        function exportJSONData() {
+            const rawStr = JSON.stringify(CURRENT_STATE, null, 2);
+            document.getElementById('data-raw-io').value = rawStr;
+            navigator.clipboard.writeText(rawStr).then(() => {
+                toast("데이터 코드가 클립보드에 무사히 복사되었습니다.");
+            });
+        }
+
+        function importJSONData() {
+            const rawStr = document.getElementById('data-raw-io').value;
+            if (!rawStr.trim()) return;
+
+            askConfirm("가져온 데이터로 시나리오 전체를 덮어씁니다. 진행할까요?", "로컬 백업 데이터 가져오기", () => {
+                try {
+                    const parsed = JSON.parse(rawStr);
+                    if (parsed && parsed.scenes && parsed.sceneOrder) {
+                        CURRENT_STATE = parsed;
+                        activeSceneId = CURRENT_STATE.startScene || CURRENT_STATE.sceneOrder[0];
+                        commitLocalStorage();
+                        applyAndSaveTheme(CURRENT_STATE.theme || 'modern', false);
+                        navigate('editor');
+                        toast("로컬 데이터 복원이 완료되었습니다!");
+                    }
+                } catch(e) {
+                    toast("구조 해석 실패. 코드 상태를 재검토하세요.", "error");
+                }
+            });
+        }
+
+        function triggerResetSystem() {
+            askConfirm("저장된 모든 로컬 및 시스템 상태가 초기 공장 세팅으로 파괴됩니다. 진행할까요?", "시스템 완전 리셋", () => {
+                localStorage.removeItem('visual_novel_master_pro');
+                CURRENT_STATE = JSON.parse(JSON.stringify(STORY_TEMPLATE));
+                activeSceneId = 'start';
+                applyAndSaveTheme('modern', false);
+                navigate('editor');
+                toast("시스템 전체가 공장 출하 규격으로 포맷되었습니다.");
+            });
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
