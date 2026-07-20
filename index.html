@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UNDERTALE - Blind Food Tarot (Live Sync v3)</title>
+    <title>UNDERTALE - Dragon Slayer Tarot (Live Sync)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -123,7 +123,7 @@
 
     <!-- 최상단 상태 표시줄 -->
     <div class="flex justify-between text-xs text-gray-600 mb-2 px-2 uppercase tracking-widest shrink-0">
-        <span>STEP <span id="ui-step">0/3</span> / STATUS: <span id="ui-status" class="text-red-500">BLIND MAPPED</span></span>
+        <span>STEP <span id="ui-step">0/3</span> / STATUS: <span id="ui-status" class="text-red-500">DRAGON SLAYER TAROT</span></span>
         <span id="sync-status" class="text-yellow-500 animate-pulse">CONNECTING TO CLOUD...</span>
     </div>
 
@@ -133,10 +133,10 @@
         <section class="w-full lg:w-[45%] flex flex-col gap-4 h-full shrink-0">
             <div id="game-container" class="w-full aspect-[4/3] ut-box flex flex-col bg-black p-2 relative shrink-0">
                 
-                <!-- 상단 비주얼 영역 (이미지, GIF, 그리기, 이모지 모두 지원) -->
+                <!-- 상단 비주얼 영역 -->
                 <div class="h-[45%] w-full flex justify-center items-center relative border-b-2 border-gray-900 overflow-hidden shrink-0 bg-black">
                     <img id="game-image" src="" class="absolute inset-0 m-auto max-w-full max-h-[95%] object-contain hidden pixelated" alt="Visual" onerror="handleImageError()">
-                    <div id="game-emoji" class="text-[5rem] md:text-[6.5rem] text-white hidden animate-pulse">🔮</div>
+                    <div id="game-emoji" class="text-[5rem] md:text-[6.5rem] text-white hidden animate-pulse">🐉</div>
                 </div>
                 
                 <!-- 하단 텍스트 및 선택지 영역 -->
@@ -185,32 +185,42 @@
             <!-- 2. 심리테스트 질문 관리 뷰 -->
             <div id="view-question" class="hidden h-full flex flex-col overflow-y-auto pr-2 pb-4">
                 <div class="text-xl md:text-2xl mb-4 border-b-2 border-dashed border-gray-700 pb-3 flex justify-between items-end shrink-0">
-                    <span class="text-[#4CAF50]*">* 심리테스트 질문 풀 (최대 6개 선택지)</span>
+                    <span class="text-[#4CAF50]">* 파멸의 드래곤 심리테스트 질문 풀</span>
                     <button onclick="addQuestionItem()" class="border border-[#4CAF50] text-[#4CAF50] px-3 py-1 text-xs hover:bg-[#4CAF50] hover:text-black">+ 질문 추가</button>
                 </div>
                 <p class="text-gray-500 text-xs mb-4 shrink-0">* 선택지마다 특정 음식을 지정하지 않습니다. 테스트 시작 시 1:1 비밀 매핑됩니다.</p>
                 <div id="question-list-container" class="space-y-5 flex-grow overflow-y-auto"></div>
             </div>
 
-            <!-- 3. 아케이드 뷰 (미니게임) -->
+            <!-- 3. 아케이드 뷰 (파멸의 드래곤 슬레이어 미니게임) -->
             <div id="view-arcade" class="hidden h-full flex flex-col">
                 <div class="text-xl md:text-2xl mb-6 border-b-2 border-dashed border-gray-700 pb-3 shrink-0">
-                    <span class="text-[#2196F3]*">* 야생의 조우 (미니 아케이드)</span>
+                    <span class="text-[#2196F3]">* 파멸의 드래곤 슬레이어 RPG</span>
                 </div>
                 <div class="flex-grow flex flex-col justify-center items-center">
-                    <div class="flex gap-8 text-lg mb-8 border-4 border-white p-4 w-[80%] justify-center bg-black">
+                    <div class="flex gap-8 text-lg mb-6 border-4 border-white p-4 w-[90%] justify-center bg-black">
                         <div>LV <span id="rpg-lv-disp">1</span></div>
-                        <div>HP <span class="text-green-500">20 / 20</span></div>
+                        <div>ATK <span class="text-orange-400" id="rpg-atk-disp">10</span></div>
                         <div>G <span id="rpg-gold" class="text-yellow-400">0</span></div>
                     </div>
-                    <div class="text-[5rem] mb-6 animate-bounce pixelated" id="rpg-monster">👻</div>
-                    <div class="text-base mb-8 h-8 text-center" id="rpg-msg">* 배고픈 몬스터가 길을 막아선다.</div>
-                    <div class="grid grid-cols-2 gap-4 w-[80%]">
-                        <button class="border-4 border-orange-500 text-orange-500 py-3 text-lg hover:bg-orange-900 transition-colors" onclick="rpgAct('fight')">
-                            ❤️ 공격
+                    
+                    <div class="w-[90%] bg-gray-900 border-2 border-gray-700 p-3 mb-4 text-center">
+                        <div class="text-xs text-gray-400 mb-1" id="rpg-monster-name">어둠의 서리 도마뱀</div>
+                        <div class="text-xs text-green-400 mb-2" id="rpg-monster-hp">HP 100/100</div>
+                        <div class="w-full bg-black border border-gray-700 h-2 mb-2">
+                            <div class="bg-red-500 h-full transition-all" id="rpg-hp-bar" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <div class="text-[5rem] mb-4 animate-bounce pixelated" id="rpg-monster">🦎</div>
+                    <div class="text-xs md:text-sm mb-6 h-8 text-center text-yellow-300" id="rpg-msg">* 파멸의 드래곤 수하가 길을 가로막는다!</div>
+                    
+                    <div class="grid grid-cols-2 gap-4 w-[90%]">
+                        <button class="border-4 border-orange-500 text-orange-500 py-3 text-base hover:bg-orange-900 transition-colors font-bold" onclick="rpgAct('fight')">
+                            ❤️ 드래곤 공격
                         </button>
-                        <button class="border-4 border-yellow-400 text-yellow-400 py-3 text-lg hover:bg-yellow-900 transition-colors" onclick="rpgAct('mercy')">
-                            ❤️ 자비 (식사대접)
+                        <button class="border-4 border-yellow-400 text-yellow-400 py-3 text-base hover:bg-yellow-900 transition-colors font-bold" onclick="rpgAct('upgrade')">
+                            ❤️ 무기 강화 (<span id="rpg-cost">10</span>G)
                         </button>
                     </div>
                 </div>
@@ -219,7 +229,7 @@
             <!-- 4. 설정 뷰 -->
             <div id="view-settings" class="hidden h-full flex flex-col">
                 <div class="text-xl md:text-2xl mb-6 border-b-2 border-dashed border-gray-700 pb-3 shrink-0">
-                    <span class="text-[#9C27B0]*">* 시스템 및 데이터 설정</span>
+                    <span class="text-[#9C27B0]">* 시스템 및 데이터 설정</span>
                 </div>
                 <div class="space-y-4 text-sm pl-2 overflow-y-auto flex-grow">
                     <div class="ut-box p-4 bg-gray-900">
@@ -273,43 +283,43 @@
 
     <script>
         /* =========================================================
-           1. 코어 데이터 및 초기화 (Firebase 실시간 연동)
+           1. 코어 데이터 및 초기화 (파멸의 드래곤 판타지 테마)
            ========================================================= */
         const DEFAULT_DATA = {
             foods: [
-                { id: "f1", name: "마라탕과 꿔바로우", desc: "얼얼하고 자극적인 맛의 끝판왕", mediaType: "emoji", mediaContent: "🍲" },
-                { id: "f2", name: "두툼한 로스 돈카츠", desc: "바삭한 튀김옷과 육즙 가득한 돼지고기", mediaType: "emoji", mediaContent: "🥩" },
-                { id: "f3", name: "불맛 직화 짬뽕", desc: "칼칼하고 얼큰한 해물 국물과 쫄깃한 면발", mediaType: "emoji", mediaContent: "🍜" },
-                { id: "f4", name: "페페로니 화덕 피자", desc: "고소한 치즈와 짭조름한 페페로니의 조화", mediaType: "emoji", mediaContent: "🍕" },
-                { id: "f5", name: "신선한 연어 초밥", desc: "부드럽게 녹아내리는 깔끔한 일식", mediaType: "emoji", mediaContent: "🍣" },
-                { id: "f6", name: "숯불 삼겹살과 비빔냉면", desc: "치명적인 기름짐과 매콤달콤한 냉면의 환상 조합", mediaType: "emoji", mediaContent: "🥓" }
+                { id: "f1", name: "마라탕과 꿔바로우", desc: "얼얼하고 자극적인 맛으로 용암 같은 매움을 중화시킨다.", mediaType: "emoji", mediaContent: "🍲" },
+                { id: "f2", name: "두툼한 로스 돈카츠", desc: "바삭한 튀김옷과 육즙 가득한 전사의 체력 회복식.", mediaType: "emoji", mediaContent: "🥩" },
+                { id: "f3", name: "불맛 직화 짬뽕", desc: "파멸의 드래곤 브레스처럼 얼큰한 해물 국물.", mediaType: "emoji", mediaContent: "🍜" },
+                { id: "f4", name: "페페로니 화덕 피자", desc: "고소한 치즈가 흘러넘치는 성기사의 축복받은 요리.", mediaType: "emoji", mediaContent: "🍕" },
+                { id: "f5", name: "신선한 연어 초밥", desc: "엘프들의 영지가 사랑하는 부드러운 일식 특식.", mediaType: "emoji", mediaContent: "🍣" },
+                { id: "f6", name: "숯불 삼겹살과 비빔냉면", desc: "드래곤 슬레이어들이 가장 선호하는 최고의 기력 보충식.", mediaType: "emoji", mediaContent: "🥓" }
             ],
             questions: [
                 {
                     id: "q1",
-                    title: "* 공허한 사막 한가운데에 의자가 놓여 있다.\n* 그 위에 놓인 물건은 무엇인가?",
+                    title: "* 공허한 사막 한가운데에 의자가 놓여 있다.\n* 그 위에 놓인 파멸의 유물은 무엇인가?",
                     mediaType: "emoji",
-                    mediaContent: "⏳",
+                    mediaContent: "🐉",
                     options: [
-                        "* 시간이 거꾸로 흐르는 모래시계",
-                        "* 심장처럼 고동치는 붉은 원석",
-                        "* 끝없이 얼음이 얼어붙는 은잔",
-                        "* 그림자가 생기지 않는 검은 구체",
-                        "* 달콤한 향기가 나는 톱니바퀴",
-                        "* 소리 없이 타오르는 푸른 깃털"
+                        "* 시간이 거꾸로 흐르는 용의 모래시계",
+                        "* 심장처럼 고동치는 붉은 드래곤 원석",
+                        "* 끝없이 얼음이 얼어붙는 서리 은잔",
+                        "* 그림자가 생기지 않는 공허한 검은 구체",
+                        "* 달콤한 향기가 나는 고대 마법 톱니바퀴",
+                        "* 소리 없이 타오르는 파멸의 푸른 깃털"
                     ]
                 },
                 {
                     id: "q2",
-                    title: "* 당신의 꿈속에 얼굴 없는 도서관 사서가 나타났다.\n* 그가 당신에게 건넨 책의 제목은?",
+                    title: "* 당신의 꿈속에 얼굴 없는 도서관 사서가 나타났다.\n* 그가 건넨 [파멸의 서] 첫 페이지의 내용은?",
                     mediaType: "emoji",
                     mediaContent: "📖",
                     options: [
-                        "* [ 태양을 빚는 법 ]",
-                        "* [ 기억을 지우는 계절 ]",
-                        "* [ 0번째 세계의 지도 ]",
-                        "* [ 심연에서 부르는 노래 ]",
-                        "* [ 끝나지 않는 식사의 축복 ]"
+                        "* [ 태양을 빚어 드래곤을 잠재우는 법 ]",
+                        "* [ 기억을 지우는 저주의 계절 ]",
+                        "* [ 0번째 파멸의 세계 지도 ]",
+                        "* [ 심연에서 부르는 드래곤의 노래 ]",
+                        "* [ 끝나지 않는 최후의 식사 축복 ]"
                     ]
                 },
                 {
@@ -318,12 +328,12 @@
                     mediaType: "emoji",
                     mediaContent: "📻",
                     options: [
-                        "* 규칙적으로 울리는 기계의 파열음",
-                        "* 누군가 조용히 스프를 끓이는 소리",
+                        "* 규칙적으로 울리는 고대 기계의 파열음",
+                        "* 누군가 조용히 스프를 끓이는 평화로운 소리",
                         "* 폭풍우가 몰아치는 심해의 파도 소리",
-                        "* 알 수 없는 언어로 읊조리는 축도",
-                        "* 유리가 산산조각 나는 맑은 소리",
-                        "* 조용한 숲속의 빗소리와 모닥불 소리"
+                        "* 알 수 없는 언어로 읊조리는 드래곤 축도",
+                        "* 유리가 산산조각 나는 맑고 차가운 소리",
+                        "* 조용한 숲속의 빗소리와 모닥불 타는 소리"
                     ]
                 }
             ]
@@ -339,11 +349,27 @@
         let sessionQuestions = [];
         let scoreBoard = {};
 
-        // 캔버스 타겟 추적 변수 ({ type: 'food'|'question', idx: number })
+        // 캔버스 타겟 추적 변수
         let canvasTarget = null;
         let canvas, ctx;
         let isDrawing = false;
         let drawMode = 'draw';
+
+        // 미니 RPG 상태 변수 (파멸의 드래곤 슬레이어)
+        let rpgGold = 0;
+        let rpgLv = 1;
+        let rpgAtk = 10;
+        let rpgCost = 10;
+        let monsterHp = 100;
+        let monsterMaxHp = 100;
+        const MONSTER_LIST = [
+            { name: "어둠의 서리 도마뱀", emoji: "🦎", hp: 60 },
+            { name: "타락한 오크 주술사", emoji: "👹", hp: 100 },
+            { name: "지하묘지의 저주받은 망령", emoji: "👻", hp: 140 },
+            { name: "심연의 거대 독거미", emoji: "🕷️", hp: 180 },
+            { name: "파멸의 레드 드래곤", emoji: "🐉", hp: 350 }
+        ];
+        let activeMonster = MONSTER_LIST[0];
 
         const firebaseConfig = {
             apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
@@ -355,10 +381,11 @@
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const docRef = db.collection("projects").doc("ut_blind_food_tarot_v3_media");
+        const docRef = db.collection("projects").doc("ut_dragon_tarot_v4");
 
         window.onload = () => {
             initCanvas();
+            initRpg();
 
             docRef.onSnapshot((doc) => {
                 const statusEl = document.getElementById('sync-status');
@@ -378,7 +405,7 @@
             }, () => {
                 document.getElementById('sync-status').innerText = 'OFFLINE (LOCAL MODE)';
                 document.getElementById('sync-status').className = 'text-red-500';
-                const saved = localStorage.getItem('ut_blind_tarot_save_v3');
+                const saved = localStorage.getItem('ut_dragon_tarot_save_v4');
                 if(saved) { try { APP_DATA = JSON.parse(saved); } catch(e){} }
                 renderFoodList();
                 renderQuestionList();
@@ -396,7 +423,7 @@
 
         function saveToCloud() {
             if(isRemoteUpdating) return;
-            localStorage.setItem('ut_blind_tarot_save_v3', JSON.stringify(APP_DATA));
+            localStorage.setItem('ut_dragon_tarot_save_v4', JSON.stringify(APP_DATA));
             docRef.set(APP_DATA).catch(e => console.warn("클라우드 저장 실패, 로컬 임시 저장됨", e));
         }
 
@@ -452,7 +479,7 @@
         }
 
         /* =========================================================
-           3. 블라인드 심리테스트 코어 로직 (시각 미디어 자동 파싱)
+           3. 블라인드 심리테스트 코어 로직
            ========================================================= */
         function startBlindTest() {
             if (APP_DATA.foods.length === 0 || APP_DATA.questions.length === 0) {
@@ -469,7 +496,7 @@
             sessionQuestions = pool.slice(0, TOTAL_STEPS);
 
             renderTestStep();
-            showMessage("새로운 블라인드 심리테스트가 생성되었습니다.");
+            showMessage("파멸의 드래곤 운명의 테스트가 시작되었습니다.");
         }
 
         function renderTestStep() {
@@ -481,9 +508,7 @@
             const q = sessionQuestions[currentStep];
             document.getElementById('ui-step').innerText = `${currentStep + 1}/${TOTAL_STEPS}`;
             
-            // 시각 미디어 바인딩 (이모지 vs 이미지/GIF vs 캔버스)
-            renderVisualMedia(q.mediaType || 'emoji', q.mediaContent || '🔮');
-            
+            renderVisualMedia(q.mediaType || 'emoji', q.mediaContent || '🐉');
             typeText(q.title || "* (질문 내용이 없습니다.)");
 
             const choiceBox = document.getElementById('game-choices');
@@ -519,7 +544,7 @@
             } else {
                 img.classList.add('hidden');
                 emoji.classList.remove('hidden');
-                emoji.innerText = content || '🔮';
+                emoji.innerText = content || '🐉';
             }
         }
 
@@ -574,7 +599,7 @@
 
             renderVisualMedia(resultFood.mediaType || 'emoji', resultFood.mediaContent || '🍽️');
             
-            const resultMsg = `* 당신의 무의식이 선택한 오늘 식사는...\n\n* [ ${resultFood.name} ] 입니다!\n* "${resultFood.desc}"`;
+            const resultMsg = `* 파멸의 계곡을 클리어한 당신을 위한 운명의 요리는...\n\n* [ ${resultFood.name} ] 입니다!\n* "${resultFood.desc}"`;
             typeText(resultMsg);
 
             const choiceBox = document.getElementById('game-choices');
@@ -582,13 +607,13 @@
 
             const retryBtn = document.createElement('div');
             retryBtn.className = 'ut-menu-item text-yellow-400 cursor-pointer text-sm md:text-base mt-1';
-            retryBtn.innerHTML = "* [ 심리테스트 다시 시작하기 ]";
+            retryBtn.innerHTML = "* [ 파멸의 테스트 다시 시작하기 ]";
             retryBtn.onclick = () => { playSound('select'); startBlindTest(); };
             choiceBox.appendChild(retryBtn);
         }
 
         /* =========================================================
-           4. 음식 리스트 관리자 (미디어 첨부 기능 통합)
+           4. 음식 리스트 관리자
            ========================================================= */
         function renderFoodList() {
             const container = document.getElementById('food-list-container');
@@ -642,7 +667,7 @@
         }
 
         /* =========================================================
-           5. 질문 풀 관리자 (미디어 첨부 및 6개 선택지 지원)
+           5. 질문 풀 관리자
            ========================================================= */
         function renderQuestionList() {
             const container = document.getElementById('question-list-container');
@@ -702,10 +727,10 @@
         function addQuestionItem() {
             APP_DATA.questions.push({
                 id: "q_" + Date.now(),
-                title: "* 새로운 심리테스트 상황 질문이다.\n* 당신은 어떤 행동을 취하겠는가?",
+                title: "* 새로운 파멸의 시련이다.\n* 어떤 선택을 하겠는가?",
                 mediaType: "emoji",
-                mediaContent: "❓",
-                options: ["* 첫 번째 무의식적 행동", "* 두 번째 무의식적 행동", "* 세 번째 무의식적 행동"]
+                mediaContent: "🐉",
+                options: ["* 첫 번째 의지의 행동", "* 두 번째 의지의 행동", "* 세 번째 의지의 행동"]
             });
             saveToCloud();
             renderQuestionList();
@@ -739,7 +764,7 @@
            6. 시각 미디어 공통 업로드 및 그리기 컨트롤러
            ========================================================= */
         function setMediaToEmoji(type, idx) {
-            const newEmoji = prompt("적용할 이모지를 1개 입력하십시오:", "🔮");
+            const newEmoji = prompt("적용할 이모지를 1개 입력하십시오:", "🐉");
             if (newEmoji && newEmoji.trim() !== '') {
                 const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
                 targetList[idx].mediaType = 'emoji';
@@ -766,7 +791,6 @@
             event.target.value = '';
         }
 
-        // 공유 캔버스 모달 핸들러
         function initCanvas() {
             canvas = document.getElementById('paint-canvas');
             if(!canvas) return;
@@ -829,7 +853,6 @@
             canvasTarget = { type: type, idx: idx };
             clearCanvas();
             
-            // 기존 캔버스 데이터가 있으면 복원
             const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
             if (targetList[idx].mediaType === 'canvas' && targetList[idx].mediaContent) {
                 const img = new Image();
@@ -861,32 +884,74 @@
         }
 
         /* =========================================================
-           7. 아케이드 배틀 미니게임
+           7. 파멸의 드래곤 슬레이어 미니게임
            ========================================================= */
-        let rpgGold = 0;
-        let rpgLv = 1;
+        function initRpg() {
+            spawnMonster();
+            updateRpgUI();
+        }
+
+        function spawnMonster() {
+            const index = Math.min(Math.floor((rpgLv - 1) / 2), MONSTER_LIST.length - 1);
+            const baseMonster = MONSTER_LIST[index];
+            activeMonster = {
+                name: baseMonster.name,
+                emoji: baseMonster.emoji,
+                hp: Math.round(baseMonster.hp * (1 + (rpgLv - 1) * 0.35))
+            };
+            monsterMaxHp = activeMonster.hp;
+            monsterHp = activeMonster.hp;
+            updateRpgUI();
+        }
+
         function rpgAct(action) {
             const msg = document.getElementById('rpg-msg');
             const monster = document.getElementById('rpg-monster');
             
             if(action === 'fight') {
                 playSound('damage');
-                msg.innerText = "* 당신은 무기를 휘둘렀다! 몬스터는 겁먹었다.";
+                monsterHp -= rpgAtk;
+                msg.innerText = `* 드래곤 슬레이어를 휘둘렀다! (${rpgAtk} 피해)`;
+                
                 monster.classList.remove('animate-bounce');
                 monster.style.transform = 'translate(15px, -15px)';
                 setTimeout(()=> monster.style.transform = 'translate(-10px, 10px)', 50);
                 setTimeout(()=> monster.style.transform = 'translate(0,0)', 100);
-            } else if (action === 'mercy') {
-                playSound('select');
-                rpgGold += Math.floor(Math.random()*15)+5;
-                if(rpgGold > 50 && rpgLv === 1) { rpgLv=2; msg.innerText="* 레벨 업! LV 2"; playSound('damage'); }
-                else { msg.innerText = "* 당신은 맛있는 식사를 대접했다. 승리!"; }
-                
-                document.getElementById('rpg-gold').innerText = rpgGold;
-                document.getElementById('rpg-lv-disp').innerText = rpgLv;
-                monster.innerText = ['🐶','🐸','👻','🦴','🌸'][Math.floor(Math.random()*5)];
-                monster.classList.add('animate-bounce');
+
+                if (monsterHp <= 0) {
+                    const reward = Math.round(monsterMaxHp * 0.45 + Math.random() * 10);
+                    rpgGold += reward;
+                    rpgLv += 1;
+                    msg.innerText = `* ${activeMonster.name} 처치 성공! (+${reward}G, LV UP)`;
+                    playSound('select');
+                    spawnMonster();
+                }
+            } else if (action === 'upgrade') {
+                if (rpgGold >= rpgCost) {
+                    rpgGold -= rpgCost;
+                    rpgAtk += 6;
+                    rpgCost = Math.round(rpgCost * 1.6 + 5);
+                    playSound('select');
+                    msg.innerText = `* 무기가 강화되었습니다! (ATK +6)`;
+                } else {
+                    playSound('damage');
+                    msg.innerText = `* 골드가 부족합니다! (필요: ${rpgCost}G)`;
+                }
             }
+            updateRpgUI();
+        }
+
+        function updateRpgUI() {
+            document.getElementById('rpg-gold').innerText = rpgGold;
+            document.getElementById('rpg-lv-disp').innerText = rpgLv;
+            document.getElementById('rpg-atk-disp').innerText = rpgAtk;
+            document.getElementById('rpg-cost').innerText = rpgCost;
+            document.getElementById('rpg-monster-name').innerText = activeMonster.name;
+            document.getElementById('rpg-monster-hp').innerText = `HP ${Math.max(0, monsterHp)} / ${monsterMaxHp}`;
+            document.getElementById('rpg-monster-avatar').innerText = activeMonster.emoji;
+
+            const hpPercent = Math.max(0, (monsterHp / monsterMaxHp) * 100);
+            document.getElementById('rpg-hp-bar').style.width = `${hpPercent}%`;
         }
 
         /* =========================================================
@@ -922,7 +987,7 @@
 
         function resetAll() {
             if(confirm("정말로 클라우드 서버의 모든 데이터를 기본값으로 초기화하시겠습니까?")) {
-                localStorage.removeItem('ut_blind_tarot_save_v3');
+                localStorage.removeItem('ut_dragon_tarot_save_v4');
                 APP_DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
                 saveToCloud();
                 renderFoodList();
