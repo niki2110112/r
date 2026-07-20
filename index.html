@@ -35,7 +35,6 @@
             user-select: none; 
             -webkit-font-smoothing: none; 
             font-smooth: never;
-            transition: background-color 0.3s;
         }
         
         ::-webkit-scrollbar { width: 8px; }
@@ -53,7 +52,6 @@
             background-color: var(--ut-black);
             border: 4px solid var(--ut-white);
             border-radius: 0 !important;
-            transition: background-color 0.3s;
         }
 
         .ut-input {
@@ -63,7 +61,7 @@
             padding: 8px;
             outline: none;
             border-radius: 0;
-            transition: border-color 0.2s, background-color 0.3s;
+            transition: border-color 0.2s;
         }
         .ut-input:focus { border-color: var(--ut-yellow); }
         .ut-input::placeholder { color: #666; }
@@ -121,7 +119,7 @@
         .typing-done::after { display: none !important; }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col p-4 md:p-6">
+<body class="h-screen w-screen flex flex-col p-4 md:p-6 bg-black">
 
     <!-- 최상단 상태 표시줄 -->
     <div class="flex justify-between text-xs text-gray-600 mb-2 px-2 uppercase tracking-widest shrink-0">
@@ -133,16 +131,16 @@
         
         <!-- [좌측] 게임 플레이 화면 (심리테스트 진행) -->
         <section class="w-full lg:w-[45%] flex flex-col gap-4 h-full shrink-0">
-            <div id="game-container" class="w-full aspect-[4/3] ut-box flex flex-col p-2 relative shrink-0">
+            <div id="game-container" class="w-full aspect-[4/3] ut-box flex flex-col bg-black p-2 relative shrink-0">
                 
                 <!-- 상단 비주얼 영역 -->
-                <div class="h-[45%] w-full flex justify-center items-center relative border-b-2 border-gray-900 overflow-hidden shrink-0" style="background-color: var(--ut-black);">
+                <div class="h-[45%] w-full flex justify-center items-center relative border-b-2 border-gray-900 overflow-hidden shrink-0 bg-black">
                     <img id="game-image" src="" class="absolute inset-0 m-auto max-w-full max-h-[95%] object-contain hidden pixelated" alt="Visual" onerror="handleImageError()">
                     <div id="game-emoji" class="text-[5rem] md:text-[6.5rem] text-white hidden animate-pulse">🐉</div>
                 </div>
                 
                 <!-- 하단 텍스트 및 선택지 영역 -->
-                <div class="h-[55%] w-full ut-box p-4 mt-2 flex flex-col relative overflow-hidden">
+                <div class="h-[55%] w-full ut-box p-4 mt-2 flex flex-col relative bg-black overflow-hidden">
                     <div id="game-dialogue" class="text-white text-sm md:text-base leading-[1.6] whitespace-pre-wrap shrink-0 max-h-[40%] overflow-y-auto typing-cursor mb-2">
                         * 서버에서 데이터를 불러오는 중...
                     </div>
@@ -200,7 +198,7 @@
                     <span class="text-[#2196F3]">* 파멸의 드래곤 슬레이어 RPG</span>
                 </div>
                 <div class="flex-grow flex flex-col justify-center items-center">
-                    <div class="flex gap-8 text-lg mb-6 border-4 border-white p-4 w-[90%] justify-center" style="background-color: var(--ut-black);">
+                    <div class="flex gap-8 text-lg mb-6 border-4 border-white p-4 w-[90%] justify-center bg-black">
                         <div>LV <span id="rpg-lv-disp">1</span></div>
                         <div>ATK <span class="text-orange-400" id="rpg-atk-disp">10</span></div>
                         <div>G <span id="rpg-gold" class="text-yellow-400">0</span></div>
@@ -209,7 +207,7 @@
                     <div class="w-[90%] bg-gray-900 border-2 border-gray-700 p-3 mb-4 text-center">
                         <div class="text-xs text-gray-400 mb-1" id="rpg-monster-name">어둠의 서리 도마뱀</div>
                         <div class="text-xs text-green-400 mb-2" id="rpg-monster-hp">HP 100/100</div>
-                        <div class="w-full border border-gray-700 h-2 mb-2" style="background-color: var(--ut-black);">
+                        <div class="w-full bg-black border border-gray-700 h-2 mb-2">
                             <div class="bg-red-500 h-full transition-all" id="rpg-hp-bar" style="width: 100%"></div>
                         </div>
                     </div>
@@ -234,16 +232,6 @@
                     <span class="text-[#9C27B0]">* 시스템 및 데이터 설정</span>
                 </div>
                 <div class="space-y-4 text-sm pl-2 overflow-y-auto flex-grow">
-                    
-                    <!-- 테마 변경 UI 추가 -->
-                    <div class="ut-box p-4 bg-gray-900">
-                        <div class="mb-2 font-bold text-yellow-400">* 테마 배경 색상 변경</div>
-                        <div class="flex items-center gap-3">
-                            <input type="color" id="theme-bg-color" onchange="changeThemeBg(this.value)" class="w-10 h-10 cursor-pointer border-2 border-white p-0" value="#000000">
-                            <span class="text-xs text-gray-400">* 현재 테마에 어울리는 배경색을 골라보세요.</span>
-                        </div>
-                    </div>
-
                     <div class="ut-box p-4 bg-gray-900">
                         <div class="text-green-400 mb-1 font-bold">* 클라우드 자동 동기화 활성화됨</div>
                         <p class="text-xs text-gray-400">* 웹사이트에 접속한 모든 사용자가 음식 리스트와 질문 풀을 공유하며 실시간으로 업데이트합니다.</p>
@@ -269,29 +257,40 @@
 
     <!-- [오버레이] 공유 스케치북 (캔버스 그리기 모달) -->
     <div id="canvas-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
-        <div class="ut-box p-6 w-full max-w-md flex flex-col items-center gap-4 border-yellow-400">
+        <div class="ut-box p-6 bg-black w-full max-w-md flex flex-col items-center gap-4 border-yellow-400">
             <div class="text-lg text-yellow-400 w-full flex justify-between border-b border-gray-700 pb-2">
                 <span>* 픽셀 스케치북</span>
                 <button onclick="closeCanvasModal()" class="text-red-500 hover:text-white">[닫기]</button>
             </div>
-            <div class="border-4 border-white p-1" style="background-color: var(--ut-black);">
+            <div class="bg-black border-4 border-white p-1">
                 <canvas id="paint-canvas" width="240" height="240" class="cursor-crosshair pixelated bg-white block"></canvas>
             </div>
+            
+            <!-- 컬러 피커 및 그리기 도구 인터페이스 -->
             <div class="flex gap-4 w-full justify-center items-center text-sm">
                 <button class="ut-menu-item active" id="tool-pen" onclick="setDrawMode('draw', this)">> 펜</button>
-                <!-- 펜 색상 컬러 피커 추가 -->
-                <input type="color" id="pen-color" value="#000000" title="펜 색상 선택" class="w-6 h-6 border border-gray-500 cursor-pointer p-0">
+                <input type="color" id="pen-color" value="#000000" class="w-7 h-7 bg-transparent border border-white cursor-pointer p-0" title="색상 스펙트럼 선택">
                 <button class="ut-menu-item" id="tool-eraser" onclick="setDrawMode('eraser', this)">> 지우개</button>
                 <button class="ut-menu-item text-red-400" onclick="clearCanvas()">> 비우기</button>
             </div>
-            <button onclick="saveCanvasToTarget()" class="w-full border-2 border-green-500 text-green-500 py-2 hover:bg-green-900 text-base font-bold mt-2">
+
+            <!-- 배경 테마 고르기 기능 -->
+            <div class="flex gap-1 w-full justify-center text-[11px] items-center border-t border-gray-800 pt-3">
+                <span class="text-gray-400 mr-1">> 배경 테마:</span>
+                <button onclick="changeCanvasBg('#ffffff')" class="border border-gray-600 px-2 py-0.5 bg-white text-black font-bold">순백</button>
+                <button onclick="changeCanvasBg('#000000')" class="border border-gray-600 px-2 py-0.5 bg-black text-white font-bold">블랙</button>
+                <button onclick="changeCanvasBg('#222222')" class="border border-gray-600 px-2 py-0.5 bg-gray-800 text-gray-300 font-bold">그레이</button>
+                <button onclick="changeCanvasBg('#4c0519')" class="border border-gray-600 px-2 py-0.5 bg-rose-950 text-rose-200 font-bold">파멸레드</button>
+            </div>
+
+            <button onclick="saveCanvasToTarget()" class="w-full border-2 border-green-500 text-green-500 py-2 hover:bg-green-900 text-base font-bold mt-1">
                 * 이 그림을 항목에 적용 및 저장
             </button>
         </div>
     </div>
 
     <!-- 게임 알림 메시지 (토스트) -->
-    <div id="toast" class="fixed top-10 left-1/2 transform -translate-x-1/2 border-4 border-white text-white px-6 py-3 text-sm md:text-base opacity-0 pointer-events-none transition-opacity duration-200 z-50 shadow-2xl" style="background-color: var(--ut-black);">
+    <div id="toast" class="fixed top-10 left-1/2 transform -translate-x-1/2 bg-black border-4 border-white text-white px-6 py-3 text-sm md:text-base opacity-0 pointer-events-none transition-opacity duration-200 z-50 shadow-2xl">
         * 메시지
     </div>
 
@@ -300,10 +299,9 @@
            1. 코어 데이터 및 초기화 (파멸의 드래곤 판타지 테마)
            ========================================================= */
         const DEFAULT_DATA = {
-            themeBg: "#000000", // 테마 배경색 데이터 추가
             foods: [
                 { id: "f1", name: "마라탕과 꿔바로우", desc: "얼얼하고 자극적인 맛으로 용암 같은 매움을 중화시킨다.", mediaType: "emoji", mediaContent: "🍲" },
-                { id: "f2", name: "두툼한 로스 돈카츠", desc: "바삭한 튀김옷과 육즙 가득한 전사의 체력 회복식.", mediaType: "emoji", mediaContent: "🥩" },
+                { id: "f2", name: "두툼한 로스 돈카츠", desc: "바삭한 튀김옷 and 육즙 가득한 전사의 체력 회복식.", mediaType: "emoji", mediaContent: "🥩" },
                 { id: "f3", name: "불맛 직화 짬뽕", desc: "파멸의 드래곤 브레스처럼 얼큰한 해물 국물.", mediaType: "emoji", mediaContent: "🍜" },
                 { id: "f4", name: "페페로니 화덕 피자", desc: "고소한 치즈가 흘러넘치는 성기사의 축복받은 요리.", mediaType: "emoji", mediaContent: "🍕" },
                 { id: "f5", name: "신선한 연어 초밥", desc: "엘프들의 영지가 사랑하는 부드러운 일식 특식.", mediaType: "emoji", mediaContent: "🍣" },
@@ -369,8 +367,9 @@
         let canvas, ctx;
         let isDrawing = false;
         let drawMode = 'draw';
+        let canvasBgColor = '#ffffff'; // 기본 흰색 배경값 유지
 
-        // 미니 RPG 상태 변수
+        // 미니 RPG 상태 변수 (파멸의 드래곤 슬레이어)
         let rpgGold = 0;
         let rpgLv = 1;
         let rpgAtk = 10;
@@ -409,7 +408,6 @@
                     APP_DATA = doc.data();
                     renderFoodList();
                     renderQuestionList();
-                    applyThemeBg(); // 테마 적용
                     statusEl.innerText = 'ONLINE (LIVE SYNCED)';
                     statusEl.className = 'text-green-400';
                     isRemoteUpdating = false;
@@ -425,7 +423,6 @@
                 if(saved) { try { APP_DATA = JSON.parse(saved); } catch(e){} }
                 renderFoodList();
                 renderQuestionList();
-                applyThemeBg(); // 테마 적용
             });
 
             startBlindTest();
@@ -437,21 +434,6 @@
                 }
             }, {once:true});
         };
-
-        // 테마 배경색 변경 함수
-        function changeThemeBg(color) {
-            document.documentElement.style.setProperty('--ut-black', color);
-            APP_DATA.themeBg = color;
-            saveToCloud();
-        }
-
-        // 데이터 불러올 때 테마 배경색 적용
-        function applyThemeBg() {
-            const color = APP_DATA.themeBg || '#000000';
-            document.documentElement.style.setProperty('--ut-black', color);
-            const picker = document.getElementById('theme-bg-color');
-            if (picker) picker.value = color;
-        }
 
         function saveToCloud() {
             if(isRemoteUpdating) return;
@@ -645,7 +627,7 @@
         }
 
         /* =========================================================
-           4. 음식 리스트 관리자
+           4. 음식 리스트 관리자 (oninput -> onchange 한글 패치)
            ========================================================= */
         function renderFoodList() {
             const container = document.getElementById('food-list-container');
@@ -656,10 +638,9 @@
                 div.className = "bg-gray-900 p-3 border-l-4 border-yellow-400 flex flex-col gap-2 shrink-0";
                 
                 const previewHtml = (food.mediaType === 'upload' || food.mediaType === 'canvas') 
-                    ? `<img src="${food.mediaContent}" class="w-10 h-10 object-contain border border-white pixelated shrink-0" style="background-color: var(--ut-black);">` 
-                    : `<div class="w-10 h-10 flex items-center justify-center border border-white text-xl shrink-0" style="background-color: var(--ut-black);">${food.mediaContent || '🍽️'}</div>`;
+                    ? `<img src="${food.mediaContent}" class="w-10 h-10 object-contain bg-black border border-white pixelated shrink-0">` 
+                    : `<div class="w-10 h-10 flex items-center justify-center bg-black border border-white text-xl shrink-0">${food.mediaContent || '🍽️'}</div>`;
 
-                // 수정됨: oninput -> onchange로 변경하여 한글 입력 끊김 방지
                 div.innerHTML = `
                     <div class="flex items-center gap-2">
                         ${previewHtml}
@@ -667,7 +648,7 @@
                         <button onclick="deleteFood(${index})" class="text-red-500 hover:text-red-300 font-bold px-2 text-lg">X</button>
                     </div>
                     <input type="text" value="${food.desc}" class="ut-input w-full text-xs text-gray-400 p-1.5" placeholder="음식에 대한 간단한 설명 또는 한줄평" onchange="updateFood(${index}, 'desc', this.value)">
-                    <div class="flex gap-2 text-xs p-1.5 border border-gray-800 justify-between items-center" style="background-color: var(--ut-black);">
+                    <div class="flex gap-2 text-xs bg-black p-1.5 border border-gray-800 justify-between items-center">
                         <span class="text-gray-500">* 미디어:</span>
                         <div class="flex gap-2">
                             <button onclick="setMediaToEmoji('food', ${index})" class="hover:text-yellow-400">[이모지]</button>
@@ -700,7 +681,7 @@
         }
 
         /* =========================================================
-           5. 질문 풀 관리자
+           5. 질문 풀 관리자 (oninput -> onchange 한글 패치)
            ========================================================= */
         function renderQuestionList() {
             const container = document.getElementById('question-list-container');
@@ -711,11 +692,10 @@
                 card.className = "bg-gray-900 p-4 border-2 border-gray-700 space-y-2.5 shrink-0";
                 
                 const previewHtml = (q.mediaType === 'upload' || q.mediaType === 'canvas') 
-                    ? `<img src="${q.mediaContent}" class="w-9 h-9 object-contain border border-white pixelated shrink-0" style="background-color: var(--ut-black);">` 
-                    : `<div class="w-9 h-9 flex items-center justify-center border border-white text-lg shrink-0" style="background-color: var(--ut-black);">${q.mediaContent || '❓'}</div>`;
+                    ? `<img src="${q.mediaContent}" class="w-9 h-9 object-contain bg-black border border-white pixelated shrink-0">` 
+                    : `<div class="w-9 h-9 flex items-center justify-center bg-black border border-white text-lg shrink-0">${q.mediaContent || '❓'}</div>`;
 
                 let optionsHtml = '';
-                // 수정됨: oninput -> onchange로 변경하여 한글 입력 끊김 방지
                 q.options.forEach((opt, oIdx) => {
                     optionsHtml += `
                         <div class="flex items-center gap-1.5">
@@ -736,7 +716,7 @@
                     </div>
                     <textarea rows="2" class="ut-input w-full text-xs p-1.5" placeholder="심리테스트 질문 대사 입력" onchange="updateQuestion(${qIdx}, 'title', this.value)">${q.title}</textarea>
                     
-                    <div class="flex gap-2 text-[11px] p-1.5 border border-gray-800 justify-between items-center" style="background-color: var(--ut-black);">
+                    <div class="flex gap-2 text-[11px] bg-black p-1.5 border border-gray-800 justify-between items-center">
                         <span class="text-gray-500">* 장면 그림/GIF:</span>
                         <div class="flex gap-2">
                             <button onclick="setMediaToEmoji('question', ${qIdx})" class="hover:text-yellow-400">[이모지]</button>
@@ -795,7 +775,7 @@
         }
 
         /* =========================================================
-           6. 시각 미디어 공통 업로드 및 그리기 컨트롤러
+           6. 시각 미디어 공통 업로드 및 그리기 컨트롤러 (스펙트럼 및 테마 배경 반영)
            ========================================================= */
         function setMediaToEmoji(type, idx) {
             const newEmoji = prompt("적용할 이모지를 1개 입력하십시오:", "🐉");
@@ -830,7 +810,8 @@
             if(!canvas) return;
             ctx = canvas.getContext('2d', { willReadFrequently: true });
             
-            ctx.fillStyle = '#ffffff'; 
+            canvas.style.backgroundColor = canvasBgColor;
+            ctx.fillStyle = canvasBgColor; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             const startDraw = (e) => { e.preventDefault(); isDrawing = true; draw(e); };
@@ -862,9 +843,8 @@
             ctx.lineWidth = 8;
             ctx.lineCap = 'square';
             
-            // 컬러 피커의 값을 펜 색상으로 지정하도록 변경됨
-            const selectedColor = document.getElementById('pen-color').value;
-            ctx.strokeStyle = drawMode === 'draw' ? selectedColor : '#ffffff'; 
+            // 지우개면 현재 설정된 배경색을 쓰고, 펜이면 컬러 피커에서 선택된 색상을 반영
+            ctx.strokeStyle = drawMode === 'draw' ? document.getElementById('pen-color').value : canvasBgColor; 
             
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
@@ -882,8 +862,30 @@
 
         function clearCanvas() {
             playSound('damage');
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = canvasBgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // 테마 배경색 실시간 교체 기능 (기존 드로잉 레이어 위에 보존 처리 가능)
+        function changeCanvasBg(color) {
+            playSound('select');
+            
+            // 기존 그림 스냅샷 추출
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(canvas, 0, 0);
+
+            // 신규 배경색 변형 후 덮어쓰기
+            canvasBgColor = color;
+            canvas.style.backgroundColor = color;
+            
+            ctx.fillStyle = canvasBgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 그림 복원 (투명도가 아닐 시 배경이 완전히 흰색 캔버스 형태였으므로 새 배경 적용을 위해서는 '비우기' 후 새 도트 권장)
+            ctx.drawImage(tempCanvas, 0, 0);
         }
 
         function openCanvasModal(type, idx) {
@@ -985,7 +987,10 @@
             document.getElementById('rpg-cost').innerText = rpgCost;
             document.getElementById('rpg-monster-name').innerText = activeMonster.name;
             document.getElementById('rpg-monster-hp').innerText = `HP ${Math.max(0, monsterHp)} / ${monsterMaxHp}`;
-            document.getElementById('rpg-monster-avatar').innerText = activeMonster.emoji;
+            
+            const monsterAvatar = document.getElementById('rpg-monster-avatar');
+            if (monsterAvatar) monsterAvatar.innerText = activeMonster.emoji;
+            else document.getElementById('rpg-monster').innerText = activeMonster.emoji;
 
             const hpPercent = Math.max(0, (monsterHp / monsterMaxHp) * 100);
             document.getElementById('rpg-hp-bar').style.width = `${hpPercent}%`;
@@ -1016,7 +1021,6 @@
                     saveToCloud(); 
                     renderFoodList(); 
                     renderQuestionList(); 
-                    applyThemeBg(); // 테마 복원
                     startBlindTest();
                     showMessage("서버 전체의 데이터가 덮어씌워졌습니다.");
                 } else throw new Error("Invalid structure");
@@ -1030,7 +1034,6 @@
                 saveToCloud();
                 renderFoodList();
                 renderQuestionList();
-                applyThemeBg(); // 테마 초기화
                 startBlindTest();
                 showMessage("모든 데이터가 TRUE RESET 되었습니다.");
             }
