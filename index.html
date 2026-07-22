@@ -361,7 +361,7 @@
         let isRemoteUpdating = false;
 
         let currentStep = 0;
-        const TOTAL_STEPS = 3;
+        let TOTAL_STEPS = 0;
         let sessionQuestions = [];
         let scoreBoard = {};
 
@@ -520,12 +520,14 @@
                 return;
             }
 
-            currentStep = 0;
-            scoreBoard = {};
-            APP_DATA.foods.forEach(f => scoreBoard[f.id] = 0);
+        currentStep = 0;
+        TOTAL_STEPS = APP_DATA.questions.length; 
+        
+        scoreBoard = {};
+        APP_DATA.foods.forEach(f => scoreBoard[f.id] = 0);
 
-            let pool = [...APP_DATA.questions].sort(() => Math.random() - 0.5);
-            sessionQuestions = pool.slice(0, TOTAL_STEPS);
+        let pool = [...APP_DATA.questions].sort(() => Math.random() - 0.5);
+        sessionQuestions = pool;
 
             renderTestStep();
             showMessage("파멸의 드래곤 운명의 테스트가 시작되었습니다.");
