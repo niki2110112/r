@@ -151,7 +151,7 @@
 
     <!-- 최상단 상태 표시줄 -->
     <div class="flex justify-between text-xs text-white bg-black/50 p-1 rounded mb-2 px-2 uppercase tracking-widest shrink-0">
-        <span>STEP <span id="ui-step">0/3</span> / STATUS: <span id="ui-status" class="text-red-500">DRAGON SLAYER TAROT</span></span>
+        <span>STEP <span id="ui-step">0/0</span> / STATUS: <span id="ui-status" class="text-red-500">DRAGON SLAYER TAROT</span></span>
         <span id="sync-status" class="text-yellow-500 animate-pulse">CONNECTING TO CLOUD... (안전 로딩중)</span>
     </div>
 
@@ -163,15 +163,16 @@
                 
                 <!-- 상단 비주얼 영역 -->
                 <div class="h-[45%] w-full flex justify-center items-center relative border-b-2 border-gray-900 overflow-hidden shrink-0 bg-black">
-                    <img id="game-image" src="" class="absolute inset-0 m-auto max-w-full max-h-[95%] object-contain hidden pixelated" alt="Visual" onerror="handleImageError()">
+                    <!-- 오류(엑박) 방지를 위해 투명 픽셀 기본값 설정 -->
+                    <img id="game-image" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" class="absolute inset-0 m-auto max-w-full max-h-[95%] object-contain hidden pixelated" alt="Visual" onerror="handleImageError()">
                     <div id="game-emoji" class="text-[5rem] md:text-[6.5rem] text-white hidden animate-pulse">🐉</div>
                 </div>
                 
                 <!-- 하단 텍스트 및 선택지 영역 -->
                 <div class="h-[55%] w-full ut-box p-4 mt-2 flex flex-col relative bg-black overflow-hidden">
                     <div id="game-dialogue" class="text-white text-sm md:text-base leading-[1.6] whitespace-pre-wrap shrink-0 max-h-[40%] overflow-y-auto typing-cursor mb-2">
-                        * 서버에서 운명의 데이터를 안전하게 동기화 중입니다...<br>
-                        * 잠시만 기다려주십시오.
+                        * 데이터를 불러오고 있습니다...<br>
+                        * 3초 이상 멈춰있다면 오프라인 모드로 자동 전환됩니다.
                     </div>
                     <div id="game-choices" class="flex flex-col gap-2 text-xs md:text-sm text-white flex-grow overflow-y-auto pr-1 border-t border-gray-900 pt-2"></div>
                 </div>
@@ -385,14 +386,14 @@
         let typingTimer = null;
         let isRemoteUpdating = false;
 
-        // [중요 버그 수정 변수] 데이터 덮어쓰기 방지 및 타이핑 보호
-        let isServerLoaded = false; // 서버 최초 연결 완료 여부
-        let isInitialLoad = true;   // 게임 최초 시작 체크용
-        let isTyping = false;       // 현재 사용자가 글씨를 입력 중인지 여부
-        let pendingRender = false;  // 입력이 끝나면 렌더링을 해야할지 예약 상태
+        // [핵심 해결] 데이터 덮어쓰기 방지 및 무한 로딩 방지 장치
+        let isServerLoaded = false;
+        let isInitialLoad = true;
+        let isTyping = false;
+        let pendingRender = false;
 
         let currentStep = 0;
-        let TOTAL_STEPS = 3;
+        let TOTAL_STEPS = 2; // 초기값, 시작 시 동적으로 설정됨
         let sessionQuestions = [];
         let scoreBoard = {};
 
@@ -421,6 +422,7 @@
         ];
         let activeMonster = MONSTER_LIST[0];
 
+        // Firebase 초기화
         const firebaseConfig = {
             apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
             authDomain: "meal-c8b86.firebaseapp.com",
@@ -432,30 +434,25 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // [오류 해결] 샌드박스/Iframe 환경에서 발생하는 웹소켓 연결 오류 및 10초 지연 방지 설정
-        db.settings({ 
-            experimentalForceLongPolling: true,
-            ignoreUndefinedProperties: true
-        });
+        try {
+            db.settings({ 
+                experimentalForceLongPolling: true,
+                ignoreUndefinedProperties: true
+            });
+        } catch(e) { console.warn("Firebase settings error:", e); }
         
         const docRef = db.collection("projects").doc("ut_dragon_tarot_v4");
 
-        // 입력 중 방어벽 이벤트 리스너 (한글 씹힘 현상 방지)
+        // 한글 씹힘/증발 방지를 위한 타이핑 감지
         document.addEventListener('focusin', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                isTyping = true;
-            }
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') isTyping = true;
         });
 
         document.addEventListener('focusout', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 isTyping = false;
-                // 포커스가 빠졌을 때 예약된 렌더링이 있다면 실행
                 if (pendingRender) {
-                    applyThemeColor();
-                    renderFoodList();
-                    renderQuestionList();
-                    pendingRender = false;
+                    applyThemeColor(); renderFoodList(); renderQuestionList(); pendingRender = false;
                 }
             }
         });
@@ -464,7 +461,7 @@
             initCanvas();
             initRpg();
 
-            // [오류 해결] 서버 응답이 지연될 경우를 대비해 로컬(캐시) 데이터로 화면을 즉시 세팅합니다.
+            // 1. 임시 로컬 캐시 로드
             const savedData = localStorage.getItem('ut_dragon_tarot_save_v4');
             if (savedData) {
                 try {
@@ -475,16 +472,30 @@
             renderFoodList();
             renderQuestionList();
 
-            // Firebase 실시간 동기화
+            // [오류 해결 1] 무한 로딩 방지 타임아웃 
+            // Firebase 응답이 1.5초 이상 없으면 강제로 게임 시작!
+            setTimeout(() => {
+                if (isInitialLoad) {
+                    console.log("서버 연결이 지연되어 로컬 모드로 즉시 시작합니다.");
+                    const statusEl = document.getElementById('sync-status');
+                    statusEl.innerText = 'OFFLINE (LOCAL MODE)';
+                    statusEl.className = 'text-red-500';
+                    isServerLoaded = true;
+                    startBlindTest();
+                    isInitialLoad = false;
+                }
+            }, 1500);
+
+            // 2. Firebase 실시간 동기화
             docRef.onSnapshot((doc) => {
                 const statusEl = document.getElementById('sync-status');
-                isServerLoaded = true; // 서버 로드 성공 마커 (이제 저장 가능)
+                isServerLoaded = true; // 서버 로드 성공 마커 (이제부터 저장 가능)
                 
                 if (doc.exists) {
                     isRemoteUpdating = true;
                     APP_DATA = doc.data();
                     
-                    // 핵심 수정: 사용자가 타이핑 중일 경우 리렌더링을 유보합니다!
+                    // 타이핑 중일 땐 렌더링을 멈춤
                     if (isTyping) {
                         pendingRender = true;
                     } else {
@@ -497,29 +508,21 @@
                     statusEl.className = 'text-green-400';
                     isRemoteUpdating = false;
                 } else {
-                    // 데이터가 없는 경우 새로 생성 후 덮어쓰기
-                    saveToCloud();
+                    saveToCloud(); // 빈 DB일 경우 초기값 덮어쓰기
                     statusEl.innerText = 'ONLINE (NEW DATABASE)';
                     statusEl.className = 'text-green-400';
                 }
 
-                // 최초 로딩이 끝나면 비로소 테스트를 시작합니다 (오작동 방지)
+                // 최초 로딩이 성공적으로 끝나면 테스트 시작
                 if (isInitialLoad) {
                     startBlindTest();
                     isInitialLoad = false;
                 }
             }, (error) => {
-                // 오프라인이거나 에러가 났을 때 방어 로직
                 console.warn("Firestore 연결 실패, 오프라인 모드로 전환됩니다.", error);
                 isServerLoaded = true;
                 document.getElementById('sync-status').innerText = 'OFFLINE (LOCAL MODE)';
                 document.getElementById('sync-status').className = 'text-red-500';
-                
-                const saved = localStorage.getItem('ut_dragon_tarot_save_v4');
-                if(saved) { try { APP_DATA = JSON.parse(saved); applyThemeColor(); } catch(e){} }
-                
-                renderFoodList();
-                renderQuestionList();
                 
                 if (isInitialLoad) {
                     startBlindTest();
@@ -527,7 +530,7 @@
                 }
             });
 
-            // 화면을 처음 클릭할 때 오디오 컨텍스트 활성화
+            // 화면 클릭 시 오디오 컨텍스트 활성화
             document.body.addEventListener('click', () => {
                 if(!audioCtx) {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -552,7 +555,7 @@
         }
 
         function saveToCloud() {
-            // 원인 차단: 서버 데이터를 완전히 받아오기 전에는 덮어쓰기를 원천 차단합니다.
+            // [오류 해결 2] 서버 데이터를 완전히 받지 못한 상태(초기화 직후)의 덮어쓰기 방지
             if(!isServerLoaded || isRemoteUpdating) return; 
             
             localStorage.setItem('ut_dragon_tarot_save_v4', JSON.stringify(APP_DATA));
@@ -610,7 +613,7 @@
         }
 
         /* =========================================================
-           3. 블라인드 심리테스트 코어 로직
+           3. 블라인드 심리테스트 코어 로직 (질문 개수 무제한 자동 연동)
            ========================================================= */
         function startBlindTest() {
             if (APP_DATA.foods.length === 0 || APP_DATA.questions.length === 0) {
@@ -623,14 +626,17 @@
             scoreBoard = {};
             APP_DATA.foods.forEach(f => scoreBoard[f.id] = 0);
 
-            // 질문 리스트의 개수에 맞춰서 모든 질문을 진행하도록 변경!
+            // [핵심 변경] 질문 리스트의 전체 개수만큼 반복하도록 수정!
             TOTAL_STEPS = APP_DATA.questions.length;
-
             let pool = [...APP_DATA.questions].sort(() => Math.random() - 0.5);
-            sessionQuestions = pool; // 전체 문항 모두 풀기
+            sessionQuestions = pool; 
 
             renderTestStep();
-            if(!isInitialLoad) showMessage(`총 ${TOTAL_STEPS}개의 시련이 시작되었습니다.`);
+            
+            // 처음 로딩 직후에는 알림 메시지 생략 (너무 번잡함 방지)
+            if (!isInitialLoad && document.getElementById('sync-status').innerText.includes('ONLINE')) {
+                showMessage(`총 ${TOTAL_STEPS}개의 시련이 시작되었습니다.`);
+            }
         }
 
         function renderTestStep() {
@@ -640,7 +646,7 @@
             }
 
             const q = sessionQuestions[currentStep];
-            document.getElementById('ui-step').innerText = `${currentStep + 1}/${Math.min(TOTAL_STEPS, sessionQuestions.length)}`;
+            document.getElementById('ui-step').innerText = `${currentStep + 1}/${TOTAL_STEPS}`;
             
             renderVisualMedia(q.mediaType || 'emoji', q.mediaContent || '🐉');
             typeText(q.title || "* (질문 내용이 없습니다.)");
@@ -667,12 +673,24 @@
             });
         }
 
+        // [오류 해결 3] 빈 이미지 경로로 인한 엑스박스 경고창(⚠️) 방지 방어코드
+        function handleImageError() {
+            const img = document.getElementById('game-image');
+            // src가 투명 픽셀이거나 빈 상태면 오류 처리 무시
+            if (!img.src || img.src.includes('data:image/png')) return;
+            
+            img.classList.add('hidden');
+            const emoji = document.getElementById('game-emoji');
+            emoji.classList.remove('hidden');
+            emoji.innerText = '⚠️';
+        }
+
         function renderVisualMedia(type, content) {
             const img = document.getElementById('game-image');
             const emoji = document.getElementById('game-emoji');
 
             if (type === 'upload' || type === 'canvas') {
-                img.src = content;
+                img.src = content || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
                 img.classList.remove('hidden');
                 emoji.classList.add('hidden');
             } else {
@@ -680,13 +698,6 @@
                 emoji.classList.remove('hidden');
                 emoji.innerText = content || '🐉';
             }
-        }
-
-        function handleImageError() {
-            document.getElementById('game-image').classList.add('hidden');
-            const emoji = document.getElementById('game-emoji');
-            emoji.classList.remove('hidden');
-            emoji.innerText = '⚠️';
         }
 
         function typeText(text) {
@@ -747,7 +758,8 @@
         }
 
         /* =========================================================
-           4. 음식 리스트 관리자
+           4. 음식 리스트 및 5. 질문 풀 관리자
+           (onchange 사용으로 타이핑 방해 해결 완료 상태)
            ========================================================= */
         function renderFoodList() {
             const container = document.getElementById('food-list-container');
@@ -761,7 +773,6 @@
                     ? `<img src="${food.mediaContent}" class="w-10 h-10 object-contain bg-black border border-white pixelated shrink-0">` 
                     : `<div class="w-10 h-10 flex items-center justify-center bg-black border border-white text-xl shrink-0">${food.mediaContent || '🍽️'}</div>`;
 
-                // onchange 속성으로 입력 완료(포커스 해제) 시에만 저장되게 하여 한글 씹힘 방지
                 div.innerHTML = `
                     <div class="flex items-center gap-2">
                         ${previewHtml}
@@ -792,11 +803,7 @@
             showMessage("새 음식이 등록되었습니다.");
         }
 
-        function updateFood(idx, key, val) { 
-            APP_DATA.foods[idx][key] = val; 
-            saveToCloud(); 
-            // 렌더링은 동기화 콜백이나 blur 이벤트에서 처리됨
-        }
+        function updateFood(idx, key, val) { APP_DATA.foods[idx][key] = val; saveToCloud(); }
         
         function deleteFood(idx) {
             if (APP_DATA.foods.length <= 2) { showMessage("최소 2개 이상의 음식은 유지해야 합니다."); return; }
@@ -806,9 +813,6 @@
             showMessage("음식이 삭제되었습니다.");
         }
 
-        /* =========================================================
-           5. 질문 풀 관리자
-           ========================================================= */
         function renderQuestionList() {
             const container = document.getElementById('question-list-container');
             container.innerHTML = '';
@@ -878,6 +882,7 @@
         }
 
         function updateQuestion(idx, key, val) { APP_DATA.questions[idx][key] = val; saveToCloud(); }
+        
         function deleteQuestion(idx) {
             if (APP_DATA.questions.length <= 1) { showMessage("최소 1개 이상의 질문은 유지해야 합니다."); return; }
             APP_DATA.questions.splice(idx, 1);
@@ -901,7 +906,7 @@
         }
 
         /* =========================================================
-           6. 시각 미디어 공통 컨트롤러
+           6. 시각 미디어 공통 컨트롤러 및 그리기 로직
            ========================================================= */
         function setMediaToEmoji(type, idx) {
             const newEmoji = prompt("적용할 이모지를 1개 입력하십시오:", "🐉");
@@ -1026,14 +1031,13 @@
         }
 
         /* =========================================================
-           7. 파멸의 드래곤 슬레이어 미니게임
+           7. 파멸의 드래곤 슬레이어 미니게임 (전투 시스템)
            ========================================================= */
         function initRpg() {
             spawnMonster();
             updateRpgUI();
         }
 
-        // 플로팅 데미지 텍스트 효과
         function spawnFloatingText(text, parentId, isCrit = false, isHeal = false) {
             const parent = document.getElementById(parentId);
             if (!parent) return;
@@ -1065,13 +1069,12 @@
         }
 
         function rpgAct(action) {
-            if (playerHp <= 0) return; // 사망 상태면 동작 차단
+            if (playerHp <= 0) return;
             
             const msg = document.getElementById('rpg-msg');
             const monsterAvatar = document.getElementById('rpg-monster-avatar');
             
             if(action === 'fight') {
-                // 1. 플레이어 공격 (크리티컬 확률 20%)
                 const isCrit = Math.random() < 0.2;
                 const damage = isCrit ? rpgAtk * 2 : rpgAtk;
                 
@@ -1081,7 +1084,6 @@
                 
                 spawnFloatingText(damage, 'rpg-monster-area', isCrit);
                 
-                // 타격 흔들림 애니메이션
                 monsterAvatar.classList.remove('animate-bounce');
                 monsterAvatar.classList.add('shake');
                 setTimeout(()=> {
@@ -1089,18 +1091,16 @@
                     if(monsterHp > 0) monsterAvatar.classList.add('animate-bounce');
                 }, 300);
 
-                // 몬스터 처치 시
                 if (monsterHp <= 0) {
                     const reward = Math.round(monsterMaxHp * 0.45 + Math.random() * 10);
                     rpgGold += reward;
                     rpgLv += 1;
                     if(rpgLv > maxLv) maxLv = rpgLv;
-                    playerHp = Math.min(playerMaxHp, playerHp + 20); // 처치 시 체력 소량 회복
+                    playerHp = Math.min(playerMaxHp, playerHp + 20);
                     msg.innerHTML = `* <span class="text-yellow-300">${activeMonster.name} 처치 성공!</span> (+${reward}G)`;
                     playSound('select');
                     setTimeout(spawnMonster, 600);
                 } else {
-                    // 2. 몬스터가 살아있으면 반격
                     setTimeout(() => {
                         if (monsterHp <= 0) return;
                         const monsterDmg = Math.round(activeMonster.hp * 0.15 + Math.random() * rpgLv * 2);
@@ -1109,7 +1109,6 @@
                         msg.innerText = `* ${activeMonster.name}의 반격! (${monsterDmg} 피해)`;
                         playSound('damage');
                         
-                        // 플레이어 피격 애니메이션
                         document.getElementById('rpg-player-hp-bar').parentElement.classList.add('shake');
                         setTimeout(() => document.getElementById('rpg-player-hp-bar').parentElement.classList.remove('shake'), 300);
 
@@ -1174,11 +1173,9 @@
             document.getElementById('rpg-cost').innerText = rpgCost;
             document.getElementById('rpg-monster-name').innerText = activeMonster.name;
             
-            // 몬스터 HP 바 업데이트
             const monsterHpPercent = Math.max(0, (monsterHp / monsterMaxHp) * 100);
             document.getElementById('rpg-hp-bar').style.width = `${monsterHpPercent}%`;
             
-            // 플레이어 HP 바 업데이트
             const playerHpEl = document.getElementById('rpg-player-hp-bar');
             if(playerHpEl) {
                 const playerHpPercent = Math.max(0, (playerHp / playerMaxHp) * 100);
