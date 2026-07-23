@@ -11,6 +11,8 @@
     <!-- Firebase SDK (v10.8.0 Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- [추가] Firebase Storage 사용을 위한 라이브러리 추가 -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     
     <!-- 언더테일 픽셀 폰트 (네오 둥근모) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/neodgm-web-font@1.530/neodgm/style.css">
@@ -386,14 +388,13 @@
         let typingTimer = null;
         let isRemoteUpdating = false;
 
-        // [핵심 해결] 데이터 덮어쓰기 방지 및 무한 로딩 방지 장치
         let isServerLoaded = false;
         let isInitialLoad = true;
         let isTyping = false;
         let pendingRender = false;
 
         let currentStep = 0;
-        let TOTAL_STEPS = 2; // 초기값, 시작 시 동적으로 설정됨
+        let TOTAL_STEPS = 2;
         let sessionQuestions = [];
         let scoreBoard = {};
 
@@ -403,7 +404,7 @@
         let isDrawing = false;
         let drawMode = 'draw';
 
-        // 미니 RPG 상태 변수 (파멸의 드래곤 슬레이어)
+        // 미니 RPG 상태 변수
         let rpgGold = 0;
         let rpgLv = 1;
         let rpgAtk = 10;
@@ -422,17 +423,18 @@
         ];
         let activeMonster = MONSTER_LIST[0];
 
-        // Firebase 초기화
+        // [중요 수정] Firebase Storage 초기화 추가
         const firebaseConfig = {
             apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
             authDomain: "meal-c8b86.firebaseapp.com",
             projectId: "meal-c8b86",
-            storageBucket: "meal-c8b86.firebasestorage.app",
+            storageBucket: "meal-c8b86.firebasestorage.app", // Storage 버킷 주소
             messagingSenderId: "476361866831",
             appId: "1:476361866831:web:d1f841697bcfb76dee743a"
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const storage = firebase.storage(); // 파일 업로드를 위한 객체 생성
 
         try {
             db.settings({ 
@@ -461,7 +463,6 @@
             initCanvas();
             initRpg();
 
-            // 1. 임시 로컬 캐시 로드
             const savedData = localStorage.getItem('ut_dragon_tarot_save_v4');
             if (savedData) {
                 try {
@@ -472,8 +473,6 @@
             renderFoodList();
             renderQuestionList();
 
-            // [오류 해결 1] 무한 로딩 방지 타임아웃 
-            // Firebase 응답이 1.5초 이상 없으면 강제로 게임 시작!
             setTimeout(() => {
                 if (isInitialLoad) {
                     console.log("서버 연결이 지연되어 로컬 모드로 즉시 시작합니다.");
@@ -486,16 +485,14 @@
                 }
             }, 1500);
 
-            // 2. Firebase 실시간 동기화
             docRef.onSnapshot((doc) => {
                 const statusEl = document.getElementById('sync-status');
-                isServerLoaded = true; // 서버 로드 성공 마커 (이제부터 저장 가능)
+                isServerLoaded = true; 
                 
                 if (doc.exists) {
                     isRemoteUpdating = true;
                     APP_DATA = doc.data();
                     
-                    // 타이핑 중일 땐 렌더링을 멈춤
                     if (isTyping) {
                         pendingRender = true;
                     } else {
@@ -508,12 +505,11 @@
                     statusEl.className = 'text-green-400';
                     isRemoteUpdating = false;
                 } else {
-                    saveToCloud(); // 빈 DB일 경우 초기값 덮어쓰기
+                    saveToCloud();
                     statusEl.innerText = 'ONLINE (NEW DATABASE)';
                     statusEl.className = 'text-green-400';
                 }
 
-                // 최초 로딩이 성공적으로 끝나면 테스트 시작
                 if (isInitialLoad) {
                     startBlindTest();
                     isInitialLoad = false;
@@ -530,7 +526,6 @@
                 }
             });
 
-            // 화면 클릭 시 오디오 컨텍스트 활성화
             document.body.addEventListener('click', () => {
                 if(!audioCtx) {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -539,7 +534,6 @@
             }, {once:true});
         };
 
-        // 테마 색상 적용 함수
         function applyThemeColor() {
             const color = APP_DATA.themeColor || "#000000";
             document.body.style.setProperty('background-color', color, 'important');
@@ -547,7 +541,6 @@
             if(picker) picker.value = color;
         }
 
-        // 테마 색상 변경 함수
         function changeThemeColor(color) {
             APP_DATA.themeColor = color;
             applyThemeColor();
@@ -555,7 +548,6 @@
         }
 
         function saveToCloud() {
-            // [오류 해결 2] 서버 데이터를 완전히 받지 못한 상태(초기화 직후)의 덮어쓰기 방지
             if(!isServerLoaded || isRemoteUpdating) return; 
             
             localStorage.setItem('ut_dragon_tarot_save_v4', JSON.stringify(APP_DATA));
@@ -613,7 +605,7 @@
         }
 
         /* =========================================================
-           3. 블라인드 심리테스트 코어 로직 (질문 개수 무제한 자동 연동)
+           3. 블라인드 심리테스트 코어 로직
            ========================================================= */
         function startBlindTest() {
             if (APP_DATA.foods.length === 0 || APP_DATA.questions.length === 0) {
@@ -626,14 +618,12 @@
             scoreBoard = {};
             APP_DATA.foods.forEach(f => scoreBoard[f.id] = 0);
 
-            // [핵심 변경] 질문 리스트의 전체 개수만큼 반복하도록 수정!
             TOTAL_STEPS = APP_DATA.questions.length;
             let pool = [...APP_DATA.questions].sort(() => Math.random() - 0.5);
             sessionQuestions = pool; 
 
             renderTestStep();
             
-            // 처음 로딩 직후에는 알림 메시지 생략 (너무 번잡함 방지)
             if (!isInitialLoad && document.getElementById('sync-status').innerText.includes('ONLINE')) {
                 showMessage(`총 ${TOTAL_STEPS}개의 시련이 시작되었습니다.`);
             }
@@ -673,10 +663,8 @@
             });
         }
 
-        // [오류 해결 3] 빈 이미지 경로로 인한 엑스박스 경고창(⚠️) 방지 방어코드
         function handleImageError() {
             const img = document.getElementById('game-image');
-            // src가 투명 픽셀이거나 빈 상태면 오류 처리 무시
             if (!img.src || img.src.includes('data:image/png')) return;
             
             img.classList.add('hidden');
@@ -759,7 +747,6 @@
 
         /* =========================================================
            4. 음식 리스트 및 5. 질문 풀 관리자
-           (onchange 사용으로 타이핑 방해 해결 완료 상태)
            ========================================================= */
         function renderFoodList() {
             const container = document.getElementById('food-list-container');
@@ -786,7 +773,7 @@
                             <button onclick="setMediaToEmoji('food', ${index})" class="hover:text-yellow-400">[이모지]</button>
                             <label class="hover:text-yellow-400 cursor-pointer">
                                 [이미지/GIF 업로드]
-                                <input type="file" accept="image/*" class="hidden" onchange="uploadMediaFile(event, 'food', ${index})">
+                                <input type="file" accept="image/*, image/gif" class="hidden" onchange="uploadMediaFile(event, 'food', ${index})">
                             </label>
                             <button onclick="openCanvasModal('food', ${index})" class="text-green-400 hover:text-white">[🎨 그리기]</button>
                         </div>
@@ -852,7 +839,7 @@
                             <button onclick="setMediaToEmoji('question', ${qIdx})" class="hover:text-yellow-400">[이모지]</button>
                             <label class="hover:text-yellow-400 cursor-pointer">
                                 [이미지/GIF 업로드]
-                                <input type="file" accept="image/*" class="hidden" onchange="uploadMediaFile(event, 'question', ${qIdx})">
+                                <input type="file" accept="image/*, image/gif" class="hidden" onchange="uploadMediaFile(event, 'question', ${qIdx})">
                             </label>
                             <button onclick="openCanvasModal('question', ${qIdx})" class="text-green-400 hover:text-white">[🎨 그리기]</button>
                         </div>
@@ -906,7 +893,7 @@
         }
 
         /* =========================================================
-           6. 시각 미디어 공통 컨트롤러 및 그리기 로직
+           6. 시각 미디어 공통 컨트롤러 및 그리기 로직 (스토리지 업로드 로직으로 변경됨)
            ========================================================= */
         function setMediaToEmoji(type, idx) {
             const newEmoji = prompt("적용할 이모지를 1개 입력하십시오:", "🐉");
@@ -920,19 +907,37 @@
             }
         }
 
-        function uploadMediaFile(event, type, idx) {
+        // [핵심 변경 1] 사진/GIF를 Firestore(글자) 대신 Storage(파일)로 업로드합니다.
+        async function uploadMediaFile(event, type, idx) {
             const file = event.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
+            
+            showMessage("파일 업로드 중... 잠시만 기다려주세요.");
+            
+            try {
+                // 고유한 파일 이름 생성
+                const fileExt = file.name.split('.').pop();
+                const fileName = `media_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const storageRef = storage.ref().child(`uploads/${fileName}`);
+                
+                // Storage에 파일 업로드
+                const snapshot = await storageRef.put(file);
+                // 업로드된 파일의 접속 가능한 URL 가져오기
+                const downloadURL = await snapshot.ref.getDownloadURL();
+                
+                // 데이터베이스에는 텍스트(URL)만 저장하여 1MB 제한 극복
                 const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
                 targetList[idx].mediaType = 'upload';
-                targetList[idx].mediaContent = e.target.result;
+                targetList[idx].mediaContent = downloadURL; 
+                
                 saveToCloud();
                 if (type === 'food') renderFoodList(); else renderQuestionList();
                 showMessage("이미지/GIF 파일이 적용되었습니다.");
-            };
-            reader.readAsDataURL(file);
+            } catch (error) {
+                console.error("Upload failed", error);
+                showMessage("업로드 실패: 용량이 너무 크거나 인터넷 오류입니다.");
+            }
+            
             event.target.value = '';
         }
 
@@ -1001,8 +1006,11 @@
             clearCanvas();
             
             const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
+            
+            // 기존 그림이 있으면 다시 그려주기
             if (targetList[idx].mediaType === 'canvas' && targetList[idx].mediaContent) {
                 const img = new Image();
+                img.crossOrigin = "Anonymous"; // CORS 문제 방지
                 img.onload = () => ctx.drawImage(img, 0, 0);
                 img.src = targetList[idx].mediaContent;
             }
@@ -1016,18 +1024,38 @@
             canvasTarget = null;
         }
 
-        function saveCanvasToTarget() {
+        // [핵심 변경 2] 직접 그린 캔버스 그림도 안전하게 파일로 변환하여 Storage에 올립니다.
+        async function saveCanvasToTarget() {
             if (!canvasTarget) return;
+            showMessage("그림 저장 중... 잠시만 기다려주세요.");
+            
             const dataUrl = canvas.toDataURL('image/png');
-            const targetList = (canvasTarget.type === 'food') ? APP_DATA.foods : APP_DATA.questions;
             
-            targetList[canvasTarget.idx].mediaType = 'canvas';
-            targetList[canvasTarget.idx].mediaContent = dataUrl;
-            
-            saveToCloud();
-            if (canvasTarget.type === 'food') renderFoodList(); else renderQuestionList();
-            closeCanvasModal();
-            showMessage("그림이 항목에 저장되었습니다.");
+            try {
+                // Base64 데이터를 Blob(파일 객체) 형태로 변환
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
+                
+                const fileName = `canvas_${Date.now()}_${Math.random().toString(36).substring(7)}.png`;
+                const storageRef = storage.ref().child(`canvas/${fileName}`);
+                
+                // 파일 업로드 진행
+                const snapshot = await storageRef.put(blob);
+                const downloadURL = await snapshot.ref.getDownloadURL();
+                
+                const targetList = (canvasTarget.type === 'food') ? APP_DATA.foods : APP_DATA.questions;
+                
+                targetList[canvasTarget.idx].mediaType = 'canvas';
+                targetList[canvasTarget.idx].mediaContent = downloadURL; // 안전한 URL 저장
+                
+                saveToCloud();
+                if (canvasTarget.type === 'food') renderFoodList(); else renderQuestionList();
+                closeCanvasModal();
+                showMessage("그림이 항목에 저장되었습니다.");
+            } catch (error) {
+                console.error("Canvas upload failed", error);
+                showMessage("그림 저장 실패: 인터넷 연결을 확인해주세요.");
+            }
         }
 
         /* =========================================================
@@ -1234,3 +1262,21 @@
     </script>
 </body>
 </html>
+```eof
+
+**※주의사항 (매우 중요)**
+위 코드가 정상적으로 작동하려면 Firebase 콘솔에서 **Storage 규칙(Rules)**을 허용해주어야 합니다.
+1. [Firebase Console] 접속 -> 해당 프로젝트 클릭
+2. 왼쪽 메뉴에서 **[Storage]** 클릭
+3. 상단 탭에서 **[Rules] (규칙)** 클릭
+4. 아래와 같이 규칙을 수정하고 **게시(Publish)** 버튼을 누르세요.
+
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
