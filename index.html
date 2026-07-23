@@ -880,66 +880,39 @@
         function uploadMediaFile(event, type, idx) {
             const file = event.target.files[0];
             if (!file) return;
-            
-            showMessage("이미지 최적화 중...");
-
-            const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
-
-            // 1. 작은 GIF(300KB 이하)는 애니메이션 유지를 위해 원본 그대로 저장
-            if (file.type === 'image/gif' && file.size <= 300000) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    targetList[idx].mediaType = 'upload';
-                    targetList[idx].mediaContent = e.target.result;
-                    saveToCloud();
-                    if (type === 'food') renderFoodList(); else renderQuestionList();
-                    showMessage("미디어가 성공적으로 업데이트 되었습니다!");
-                };
-                reader.readAsDataURL(file);
-                event.target.value = '';
-                return;
-            }
-
-            // 2. 그 외 모든 폰 사진 및 대형 이미지(큰 GIF 포함)는 무제한 추가를 위해 캔버스로 리사이징 후 10KB 급으로 압축
             const reader = new FileReader();
-            reader.onload = function(e) {
+            
+            // [최적화] 업로드된 이미지 강제 압축 (용량 90% 이상 절약)
+            reader.onload = (e) => {
                 const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
+                img.onload = () => {
+                    const tempCanvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const MAX_SIZE = 120; // 250 -> 120으로 대폭 축소하여 용량 폭탄 완전 방지
+                    const MAX_SIZE = 120; // 가로세로 최대 120px로 제한하여 데이터 다이어트
 
-                    // 비율 유지하며 리사이징
                     if (width > height) {
-                        if (width > MAX_SIZE) {
-                            height = Math.round(height * (MAX_SIZE / width));
-                            width = MAX_SIZE;
-                        }
+                        if (width > MAX_SIZE) { height = Math.round(height * (MAX_SIZE / width)); width = MAX_SIZE; }
                     } else {
-                        if (height > MAX_SIZE) {
-                            width = Math.round(width * (MAX_SIZE / height));
-                            height = MAX_SIZE;
-                        }
+                        if (height > MAX_SIZE) { width = Math.round(width * (MAX_SIZE / height)); height = MAX_SIZE; }
                     }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
+                    tempCanvas.width = width;
+                    tempCanvas.height = height;
+                    const tempCtx = tempCanvas.getContext('2d');
                     
-                    // 배경이 투명한 PNG 업로드 시 검정 배경을 깔아줘서 깨짐 방지
-                    ctx.fillStyle = '#000000';
-                    ctx.fillRect(0, 0, width, height);
-                    ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // 화질을 극한으로 낮춘 JPEG로 저장 (DB 용량 초과 완벽 방지)
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
-                    
+                    tempCtx.fillStyle = '#ffffff'; // 투명 배경을 흰색으로 채워 깨짐 방지
+                    tempCtx.fillRect(0, 0, width, height);
+                    tempCtx.drawImage(img, 0, 0, width, height);
+
+                    // 고용량 PNG 대신 압축률이 뛰어난 JPEG 0.5 품질로 변환
+                    const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.5);
+                    const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
                     targetList[idx].mediaType = 'upload';
                     targetList[idx].mediaContent = dataUrl;
-                    saveToCloud();
                     
+                    saveToCloud();
                     if (type === 'food') renderFoodList(); else renderQuestionList();
-                    showMessage("사진이 강력 압축되어 업데이트 되었습니다!");
+                    showMessage("사진이 초경량 압축되어 적용되었습니다.");
                 };
                 img.src = e.target.result;
             };
@@ -951,88 +924,126 @@
             canvas = document.getElementById('paint-canvas');
             if(!canvas) return;
             ctx = canvas.getContext('2d', { willReadFrequently: true });
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#ffffff'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             const startDraw = (e) => { e.preventDefault(); isDrawing = true; draw(e); };
             const moveDraw = (e) => { if(isDrawing) { e.preventDefault(); draw(e); } };
             const endDraw = () => { isDrawing = false; ctx.beginPath(); };
 
-            canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', moveDraw);
-            canvas.addEventListener('mouseup', endDraw); canvas.addEventListener('mouseleave', endDraw);
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', moveDraw);
+            canvas.addEventListener('mouseup', endDraw);
+            canvas.addEventListener('mouseleave', endDraw);
+
             canvas.addEventListener('touchstart', startDraw, {passive:false});
-            canvas.addEventListener('touchmove', moveDraw, {passive:false}); canvas.addEventListener('touchend', endDraw);
+            canvas.addEventListener('touchmove', moveDraw, {passive:false});
+            canvas.addEventListener('touchend', endDraw);
         }
 
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
         }
 
         function draw(e) {
             const pos = getPos(e);
-            ctx.lineWidth = 8; ctx.lineCap = 'square';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'square';
+            
             const selectedColor = document.getElementById('pen-color').value;
             ctx.strokeStyle = drawMode === 'draw' ? selectedColor : '#ffffff'; 
-            ctx.lineTo(pos.x, pos.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+            
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
         }
 
         function setDrawMode(mode, btn) {
-            drawMode = mode; playSound('select');
+            drawMode = mode;
+            playSound('select');
             const parent = btn.parentElement;
             parent.querySelectorAll('.ut-menu-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         }
 
-        function clearCanvas() { playSound('damage'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        function clearCanvas() {
+            playSound('damage');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
         function openCanvasModal(type, idx) {
-            canvasTarget = { type: type, idx: idx }; clearCanvas();
+            canvasTarget = { type: type, idx: idx };
+            clearCanvas();
+            
             const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
             if (targetList[idx].mediaType === 'canvas' && targetList[idx].mediaContent) {
-                const img = new Image(); 
+                const img = new Image();
                 img.onload = () => {
-                    ctx.imageSmoothingEnabled = false; // 확대 시 픽셀 안 깨지게 처리
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // 압축된 이미지를 원래 캔버스 크기로 다시 늘려줌
+                    // 저장된 미니 이미지를 불러올 때 픽셀이 깨지지 않도록 부드러움 끄기
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 };
                 img.src = targetList[idx].mediaContent;
             }
-            document.getElementById('canvas-modal').classList.remove('hidden'); playSound('select');
+            
+            document.getElementById('canvas-modal').classList.remove('hidden');
+            playSound('select');
         }
 
-        function closeCanvasModal() { document.getElementById('canvas-modal').classList.add('hidden'); canvasTarget = null; }
+        function closeCanvasModal() {
+            document.getElementById('canvas-modal').classList.add('hidden');
+            canvasTarget = null;
+        }
 
         function saveCanvasToTarget() {
             if (!canvasTarget) return;
             
-            // [용량 95% 감축 최적화] 캔버스를 100x100으로 줄이고 가벼운 JPEG로 압축
+            // [최적화] 캔버스 데이터 극한 압축 (100x100 JPEG 변환)
             const tempCanvas = document.createElement('canvas');
             const OPTIMIZE_SIZE = 100;
             tempCanvas.width = OPTIMIZE_SIZE;
             tempCanvas.height = OPTIMIZE_SIZE;
             const tempCtx = tempCanvas.getContext('2d');
             
-            tempCtx.imageSmoothingEnabled = false; 
+            tempCtx.fillStyle = '#ffffff';
+            tempCtx.fillRect(0, 0, OPTIMIZE_SIZE, OPTIMIZE_SIZE);
+            tempCtx.imageSmoothingEnabled = false;
             tempCtx.drawImage(canvas, 0, 0, OPTIMIZE_SIZE, OPTIMIZE_SIZE);
             
-            // 무거운 PNG(약 30KB) 대신 압축된 JPEG(약 2KB) 포맷 사용
-            const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.4);
+            // 용량이 매우 큰 PNG(기존) 대신 JPEG 포맷 사용 (용량 약 95% 절약)
+            const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.5);
             
             const targetList = (canvasTarget.type === 'food') ? APP_DATA.foods : APP_DATA.questions;
-            targetList[canvasTarget.idx].mediaType = 'canvas'; 
+            
+            targetList[canvasTarget.idx].mediaType = 'canvas';
             targetList[canvasTarget.idx].mediaContent = dataUrl;
             
             saveToCloud();
             if (canvasTarget.type === 'food') renderFoodList(); else renderQuestionList();
-            closeCanvasModal(); 
-            showMessage("그림이 초경량화(압축)되어 저장되었습니다.");
+            closeCanvasModal();
+            showMessage("그림이 최적화 압축되어 업데이트 되었습니다!");
         }
 
-        function initRpg() { spawnMonster(); updateRpgUI(); }
+        /* =========================================================
+           7. 파멸의 드래곤 슬레이어 미니게임 (전투 시스템)
+           ========================================================= */
+        function initRpg() {
+            spawnMonster();
+            updateRpgUI();
+        }
 
         function spawnFloatingText(text, parentId, isCrit = false, isHeal = false) {
-            const parent = document.getElementById(parentId); if (!parent) return;
+            const parent = document.getElementById(parentId);
+            if (!parent) return;
             const el = document.createElement('div');
             el.className = `dmg-text ${isCrit ? 'crit-text' : ''}`;
             if (isHeal) el.classList.add('text-green-400'); el.innerText = text;
