@@ -908,7 +908,7 @@
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const MAX_SIZE = 250; // 언더테일 픽셀 감성에 맞게 크기를 대폭 축소하여 용량 확보
+                    const MAX_SIZE = 120; // 250 -> 120으로 대폭 축소하여 용량 폭탄 완전 방지
 
                     // 비율 유지하며 리사이징
                     if (width > height) {
@@ -931,15 +931,15 @@
                     ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // 화질을 낮춘 JPEG로 저장 (DB 용량 초과 완벽 방지)
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    // 화질을 극한으로 낮춘 JPEG로 저장 (DB 용량 초과 완벽 방지)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
                     
                     targetList[idx].mediaType = 'upload';
                     targetList[idx].mediaContent = dataUrl;
                     saveToCloud();
                     
                     if (type === 'food') renderFoodList(); else renderQuestionList();
-                    showMessage("그림이 성공적으로 업데이트 되었습니다!");
+                    showMessage("사진이 강력 압축되어 업데이트 되었습니다!");
                 };
                 img.src = e.target.result;
             };
@@ -991,7 +991,12 @@
             canvasTarget = { type: type, idx: idx }; clearCanvas();
             const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
             if (targetList[idx].mediaType === 'canvas' && targetList[idx].mediaContent) {
-                const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = targetList[idx].mediaContent;
+                const img = new Image(); 
+                img.onload = () => {
+                    ctx.imageSmoothingEnabled = false; // 확대 시 픽셀 안 깨지게 처리
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // 압축된 이미지를 원래 캔버스 크기로 다시 늘려줌
+                };
+                img.src = targetList[idx].mediaContent;
             }
             document.getElementById('canvas-modal').classList.remove('hidden'); playSound('select');
         }
@@ -1000,14 +1005,28 @@
 
         function saveCanvasToTarget() {
             if (!canvasTarget) return;
-            const dataUrl = canvas.toDataURL('image/png');
-            // Canvas 데이터도 문자열이므로 너무 크면 위험할 수 있으나, 240x240 PNG는 약 20KB 수준이라 안전합니다.
+            
+            // [용량 95% 감축 최적화] 캔버스를 100x100으로 줄이고 가벼운 JPEG로 압축
+            const tempCanvas = document.createElement('canvas');
+            const OPTIMIZE_SIZE = 100;
+            tempCanvas.width = OPTIMIZE_SIZE;
+            tempCanvas.height = OPTIMIZE_SIZE;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCtx.imageSmoothingEnabled = false; 
+            tempCtx.drawImage(canvas, 0, 0, OPTIMIZE_SIZE, OPTIMIZE_SIZE);
+            
+            // 무거운 PNG(약 30KB) 대신 압축된 JPEG(약 2KB) 포맷 사용
+            const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.4);
+            
             const targetList = (canvasTarget.type === 'food') ? APP_DATA.foods : APP_DATA.questions;
-            targetList[canvasTarget.idx].mediaType = 'canvas'; targetList[canvasTarget.idx].mediaContent = dataUrl;
+            targetList[canvasTarget.idx].mediaType = 'canvas'; 
+            targetList[canvasTarget.idx].mediaContent = dataUrl;
             
             saveToCloud();
             if (canvasTarget.type === 'food') renderFoodList(); else renderQuestionList();
-            closeCanvasModal(); showMessage("그림이 항목에 저장되었습니다.");
+            closeCanvasModal(); 
+            showMessage("그림이 초경량화(압축)되어 저장되었습니다.");
         }
 
         function initRpg() { spawnMonster(); updateRpgUI(); }
