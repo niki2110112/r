@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>슈의 변신마법 (하드코어 에디션)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2000년대 감성 폰트 (Jua & Do Hyeon) -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Do+Hyeon&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (v10.8.0 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --wood-dark: #3e2723;
+            --wood-light: #5d4037;
+            --wood-border: #1b0000;
+            --sue-pink: #ff4081;
+            --sue-pink-dark: #c51162;
+        }
+
+        * {
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-drag: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background-image: radial-gradient(circle at center, #2c1a4d 0%, #0a0514 100%);
+        }
+
+        /* 플래시 게임 고정 비율 컨테이너 (800x600) */
+        #flash-container {
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 4/3;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.05"><path d="M0,0 L100,100 M100,0 L0,100" stroke="%23fff" stroke-width="2"/></svg>'), linear-gradient(135deg, #3a1c71, #d76d77, #ffaf7b);
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8), inset 0 0 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+            border: 12px solid #222;
+            border-radius: 8px;
+        }
+
+        /* 2000년대 입체 버튼 */
+        .btn-3d {
+            background: linear-gradient(to bottom, #ff80ab, #f50057);
+            border: 2px solid #fff;
+            border-radius: 20px;
+            color: white;
+            text-shadow: 1px 1px 2px #880e4f;
+            box-shadow: inset 0 3px 5px rgba(255,255,255,0.6), inset 0 -3px 5px rgba(0,0,0,0.3), 0 5px 0 #880e4f, 0 8px 10px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+            cursor: pointer;
+            padding: 10px 25px;
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+        }
+        .btn-3d:active {
+            transform: translateY(5px);
+            box-shadow: inset 0 3px 5px rgba(255,255,255,0.6), inset 0 -3px 5px rgba(0,0,0,0.3), 0 0 0 #880e4f, 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* 마법 실험실 나무 선반 */
+        .wooden-shelf-container {
+            background-color: rgba(0,0,0,0.4);
+            border-left: 6px solid var(--wood-border);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .wooden-shelf {
+            background: linear-gradient(to bottom, var(--wood-light), var(--wood-dark));
+            border: 3px solid var(--wood-border);
+            border-radius: 4px;
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.2), 0 5px 10px rgba(0,0,0,0.6);
+            padding: 8px;
+            position: relative;
+        }
+        .wooden-shelf::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: -3px;
+            right: -3px;
+            height: 8px;
+            background: var(--wood-border);
+            border-radius: 0 0 4px 4px;
+        }
+
+        .shelf-label {
+            position: absolute;
+            top: -12px;
+            left: 10px;
+            background: #fff3e0;
+            color: #4e342e;
+            padding: 2px 10px;
+            border: 2px solid #8d6e63;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+
+        /* 아이템 병/파우치 디자인 */
+        .item-bottle {
+            width: 50px;
+            height: 60px;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.6);
+            border-radius: 10px 10px 20px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            cursor: pointer;
+            position: relative;
+            box-shadow: inset 0 -10px 15px rgba(0,0,0,0.3), 0 4px 6px rgba(0,0,0,0.4);
+            transition: transform 0.1s;
+        }
+        .item-bottle::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 15px;
+            width: 16px;
+            height: 10px;
+            background: #8d6e63; /* 코르크 마개 */
+            border: 1px solid #4e342e;
+            border-radius: 3px 3px 0 0;
+        }
+        .item-bottle:hover { transform: translateY(-5px) scale(1.05); }
+        .item-bottle.selected {
+            border-color: #ffeb3b;
+            box-shadow: 0 0 15px #ffeb3b, inset 0 0 20px rgba(255,235,59,0.5);
+            animation: pulse-glow 1s infinite;
+        }
+
+        /* 가마솥 디자인 */
+        .cauldron-area {
+            position: relative;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="2" fill="rgba(255,255,255,0.1)"/></svg>');
+        }
+        .cauldron {
+            width: 260px;
+            height: 200px;
+            background: radial-gradient(circle at 35% 35%, #555, #111, #000);
+            border-radius: 30px 30px 100px 100px;
+            position: relative;
+            border: 8px solid #222;
+            box-shadow: inset -15px -15px 30px rgba(0,0,0,0.8), 0 20px 30px rgba(0,0,0,0.6);
+            z-index: 10;
+        }
+        .cauldron-lip {
+            position: absolute;
+            top: -20px;
+            left: -15px;
+            right: -15px;
+            height: 50px;
+            background: #2a2a2a;
+            border-radius: 50%;
+            border: 8px solid #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 10px 10px rgba(0,0,0,0.5);
+        }
+        .cauldron-liquid {
+            width: 95%;
+            height: 85%;
+            background: #00ffcc;
+            border-radius: 50%;
+            box-shadow: inset 0 0 30px rgba(255,255,255,0.6), 0 0 40px #00ffcc;
+            transition: background 0.5s, box-shadow 0.5s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 불꽃 애니메이션 */
+        .fire-container {
+            position: absolute;
+            bottom: -30px;
+            display: flex;
+            gap: 10px;
+            z-index: 5;
+        }
+        .fire {
+            width: 30px;
+            height: 40px;
+            background: radial-gradient(circle at bottom, #ff9800, #ffeb3b, transparent);
+            border-radius: 0 0 40% 40%;
+            animation: flicker 0.5s infinite alternate;
+            filter: blur(2px);
+        }
+
+        /* 마법봉 */
+        .magic-wand {
+            position: absolute;
+            top: -60px;
+            right: -80px;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, #fff, #ffeb3b 40%, transparent 70%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 5rem;
+            cursor: pointer;
+            filter: drop-shadow(0 0 10px #ffeb3b);
+            transform-origin: bottom left;
+            z-index: 30;
+        }
+        .magic-wand:hover { transform: scale(1.1) rotate(15deg); }
+        .magic-wand:active { transform: scale(0.9) rotate(-15deg); }
+
+        /* 타이밍 미니게임 UI (어렵게 만듦) */
+        #heat-minigame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            background: rgba(0,0,0,0.85);
+            border: 4px solid #ff9800;
+            border-radius: 15px;
+            padding: 20px;
+            z-index: 50;
+            text-align: center;
+            box-shadow: 0 0 50px #ff9800;
+        }
+        .gauge-bg {
+            width: 100%;
+            height: 30px;
+            background: #333;
+            border: 2px solid #fff;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .gauge-target {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 30%; /* 타겟 범위가 좁음 (어려움) */
+            left: 35%;
+            background: rgba(76, 175, 80, 0.5);
+            border-left: 2px solid #4CAF50;
+            border-right: 2px solid #4CAF50;
+        }
+        .gauge-cursor {
+            position: absolute;
+            top: -2px;
+            left: 0%;
+            width: 10px;
+            height: 34px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #fff;
+            transition: left 0.1s linear;
+        }
+
+        /* 애니메이션 */
+        @keyframes flicker {
+            0% { transform: scaleY(1) translateY(0); opacity: 0.8; }
+            100% { transform: scaleY(1.3) translateY(-10px); opacity: 1; }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 10px #ffeb3b; }
+            50% { box-shadow: 0 0 25px #ffeb3b, inset 0 0 10px #ffeb3b; }
+        }
+        @keyframes shake-hard {
+            0%, 100% { transform: translateX(0) translateY(0) rotate(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-15px) translateY(-5px) rotate(-5deg); }
+            20%, 40%, 60%, 80% { transform: translateX(15px) translateY(5px) rotate(5deg); }
+        }
+        @keyframes drop-in {
+            0% { transform: translateY(-200px) scale(0.5); opacity: 0; }
+            50% { transform: translateY(20px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .anim-drop { animation: drop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        /* 툴팁 */
+        .tooltip {
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+        .item-bottle:hover .tooltip { opacity: 1; }
+
+    </style>
+</head>
+<body>
+
+    <div id="flash-container">
+        
+        <!-- 실시간 클라우드 연동 상태 표시줄 -->
+        <div class="absolute top-0 left-0 w-full flex justify-between items-center text-[11px] text-white bg-black/60 px-3 py-1 z-[100] font-sans tracking-wider border-b border-gray-700">
+            <span>SUE'S MAGIC DB</span>
+            <span id="sync-status" class="text-yellow-400 animate-pulse">CONNECTING TO CLOUD...</span>
+            <span>글로벌 성공 횟수: <span id="global-success-count" class="text-pink-400 font-bold text-sm">0</span></span>
+        </div>
+        
+        <!-- [1] 시작 화면 -->
+        <div id="screen-start" class="absolute inset-0 bg-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\"><circle cx=\"10\" cy=\"10\" r=\"2\" fill=\"%23ffb6c1\"/></svg>')] z-50 flex flex-col items-center justify-center" style="background-color: #ffd1dc;">
+            <div class="text-7xl font-bold text-center mb-4 text-pink-500 drop-shadow-lg" style="font-family: 'Do Hyeon', sans-serif; text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff, 4px -4px 0 #fff, -4px 4px 0 #fff, 0 10px 0 #c51162;">
+                슈의 변신마법<br><span class="text-4xl text-red-600">~ 하드코어 에디션 ~</span>
+            </div>
+            
+            <div class="bg-white/90 p-4 rounded-xl border-4 border-pink-400 max-w-md text-center mb-8 shadow-xl">
+                <p class="text-lg text-gray-800 font-bold mb-2">🔥 이번엔 호락호락하지 않아!</p>
+                <ul class="text-sm text-gray-600 text-left space-y-1 ml-4 list-disc">
+                    <li>더욱 다양해진 <strong>20가지의 재료!</strong></li>
+                    <li>마법을 섞을 때 <strong>불조절 미니게임</strong> 성공 필수!</li>
+                    <li>실패하면 끔찍한(?) 혼종이 탄생합니다.</li>
+                    <li>전설의 <strong>'얼굴 없는 슈'</strong> 조합을 찾아보세요!</li>
+                </ul>
+            </div>
+
+            <button onclick="startGame()" class="btn-3d text-4xl px-16 py-4">게임 시작</button>
+        </div>
+
+        <!-- [2] 인게임 화면 -->
+        <div id="screen-game" class="absolute inset-0 hidden flex-col">
+            
+            <!-- 상단 바 -->
+            <div class="h-12 bg-[#880e4f] border-b-4 border-[#4a0024] flex items-center justify-between px-6 text-white text-xl shadow-md z-20">
+                <span class="font-bold tracking-widest text-[#ff80ab]">SUE'S MAGIC CAULDRON</span>
+                <span id="hint-text" class="text-sm bg-black/30 px-3 py-1 rounded-full text-yellow-300 animate-pulse">알맞은 재료 4가지를 골라주세요!</span>
+            </div>
+
+            <div class="flex-grow flex relative">
+                
+                <!-- 좌측: 가마솥 영역 -->
+                <div class="w-1/2 h-full cauldron-area flex flex-col items-center justify-end pb-12 relative border-r-4 border-[#3e2723]">
+                    
+                    <!-- 캐릭터 (마녀 대신 이모지 조합으로 귀엽게) -->
+                    <div class="absolute top-10 flex flex-col items-center z-10" style="animation: drop-in 1s ease-out;">
+                        <div class="text-[6rem] drop-shadow-xl -mb-4">🧙‍♀️</div>
+                        <div class="bg-white border-2 border-purple-500 rounded-xl p-2 text-sm text-purple-700 font-bold text-center shadow-lg relative">
+                            완벽한 슈를 만들어줘!<br>(불조절 주의해!)
+                            <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-b-2 border-r-2 border-purple-500 rotate-45"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 가마솥 & 불 -->
+                    <div class="relative z-20">
+                        <div id="cauldron" class="cauldron">
+                            <div class="cauldron-lip">
+                                <div id="cauldron-liquid" class="cauldron-liquid">
+                                    <!-- 액체 속 거품 애니메이션용 요소들이 동적으로 추가됨 -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="fire-container left-[40px]">
+                            <div class="fire" style="animation-delay: 0s;"></div>
+                            <div class="fire" style="animation-delay: 0.2s;"></div>
+                            <div class="fire" style="animation-delay: 0.4s;"></div>
+                            <div class="fire" style="animation-delay: 0.1s;"></div>
+                            <div class="fire" style="animation-delay: 0.3s;"></div>
+                        </div>
+
+                        <!-- 투하 이펙트 -->
+                        <div id="drop-effect" class="absolute -top-10 left-1/2 transform -translate-x-1/2 text-6xl opacity-0 z-30 pointer-events-none">✨</div>
+                        
+                        <!-- 마법봉 버튼 -->
+                        <div id="btn-stir" onclick="startStirMinigame()" class="magic-wand hidden">
+                            🪄
+                            <div class="absolute -bottom-8 text-sm bg-red-600 text-white px-2 py-1 rounded border-2 border-white animate-bounce whitespace-nowrap">클릭해서 젓기!</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 우측: 재료 선반 영역 -->
+                <div class="w-1/2 h-full wooden-shelf-container overflow-y-auto">
+                    
+                    <!-- 1. 물약 -->
+                    <div class="wooden-shelf mt-4">
+                        <div class="shelf-label">1. 기본 물약</div>
+                        <div class="flex justify-around gap-2 pt-2" id="shelf-color"></div>
+                    </div>
+                    
+                    <!-- 2. 나이 가루 -->
+                    <div class="wooden-shelf mt-2">
+                        <div class="shelf-label">2. 나이 가루</div>
+                        <div class="flex justify-around gap-2 pt-2" id="shelf-age"></div>
+                    </div>
+
+                    <!-- 3. 체형 가루 -->
+                    <div class="wooden-shelf mt-2">
+                        <div class="shelf-label">3. 체형 가루</div>
+                        <div class="flex justify-around gap-2 pt-2" id="shelf-body"></div>
+                    </div>
+
+                    <!-- 4. 얼굴 가루 -->
+                    <div class="wooden-shelf mt-2 mb-4">
+                        <div class="shelf-label">4. 얼굴 가루</div>
+                        <div class="flex justify-around gap-2 pt-2" id="shelf-face"></div>
+                    </div>
+
+                </div>
+            </div>
+            
+            <!-- 하단 바 (선택 현황) -->
+            <div class="h-16 bg-[#2a2a2a] border-t-4 border-[#111] flex items-center justify-center gap-6 z-20 shadow-[0_-5px_10px_rgba(0,0,0,0.5)]">
+                <div class="text-gray-400 text-lg font-bold">현재 레시피:</div>
+                <div class="flex gap-4 text-3xl bg-black px-4 py-1 rounded-lg border-2 border-gray-600">
+                    <span id="slot-color" class="opacity-20 grayscale filter">🧪</span>
+                    <span id="slot-age" class="opacity-20 grayscale filter">⏳</span>
+                    <span id="slot-body" class="opacity-20 grayscale filter">🦴</span>
+                    <span id="slot-face" class="opacity-20 grayscale filter">🎭</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- [3] 미니게임 (불조절) 오버레이 -->
+        <div id="screen-minigame" class="absolute inset-0 bg-black/60 z-40 hidden backdrop-blur-sm">
+            <div id="heat-minigame">
+                <h2 class="text-2xl text-yellow-400 font-bold mb-2">🔥 마법 온도 조절 🔥</h2>
+                <p class="text-sm text-white mb-4">버튼을 <span class="text-red-400 font-bold">광클</span>하여<br>게이지를 초록색 영역에 <span class="text-green-400">3초간</span> 유지하세요!</p>
+                
+                <div class="gauge-bg">
+                    <div class="gauge-target" id="mg-target"></div>
+                    <div class="gauge-cursor" id="mg-cursor"></div>
+                </div>
+
+                <div class="text-3xl font-bold text-white mb-4" id="mg-timer">3.00</div>
+
+                <button id="btn-heat" class="btn-3d w-full" style="padding: 15px; font-size: 1.5rem;">🔥 불 지피기 (Click!)</button>
+            </div>
+        </div>
+
+        <!-- [4] 결과 화면 -->
+        <div id="screen-result" class="absolute inset-0 bg-black/90 z-50 hidden flex-col items-center justify-center p-6 text-center">
+            
+            <div id="result-fx" class="absolute inset-0 pointer-events-none opacity-30"></div>
+            
+            <div id="result-title" class="text-5xl font-bold mb-6 z-10 px-8 py-3 rounded-2xl" style="font-family: 'Do Hyeon', sans-serif;">
+                결과
+            </div>
+            
+            <!-- 아바타 표시 컨테이너 -->
+            <div class="relative w-64 h-64 bg-white/10 rounded-full border-8 border-dashed border-white/30 flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
+                <div id="result-char" class="text-[8rem] z-10 drop-shadow-2xl anim-drop">❓</div>
+                <div id="result-char-bg" class="absolute inset-0 rounded-full -z-10 blur-2xl opacity-60"></div>
+            </div>
+            
+            <div id="result-msg" class="text-2xl text-white font-bold mb-10 z-10 max-w-[80%] leading-relaxed drop-shadow-md">
+                메시지
+            </div>
+            
+            <button onclick="resetGame()" class="btn-3d text-2xl px-12 py-3 z-10">다시 실험하기</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. 대폭 확장된 하드코어 데이터 ---
+        const INGREDIENTS = {
+            color: [
+                { id: 'pink', name: '슈의 정수', emoji: '🍓', color: '#ff69b4' },
+                { id: 'green', name: '늪지대 이끼', emoji: '🍏', color: '#7cfc00' },
+                { id: 'purple', name: '고양이 수염', emoji: '🍇', color: '#ba55d3' },
+                { id: 'blue', name: '소년의 눈물', emoji: '🫐', color: '#4169e1' },
+                { id: 'black', name: '어둠의 파편', emoji: '🦇', color: '#212121' }
+            ],
+            age: [
+                { id: 'baby', name: '응애 가루', emoji: '🍼' },
+                { id: 'teen', name: '소녀 가루', emoji: '🎒' },
+                { id: 'adult', name: '어른 가루', emoji: '💼' },
+                { id: 'old', name: '할매 가루', emoji: '👵' }
+            ],
+            body: [
+                { id: 'slim', name: '에스라인', emoji: '💃' },
+                { id: 'normal', name: '표준 체형', emoji: '🧍' },
+                { id: 'chubby', name: '통통 가루', emoji: '⛄' },
+                { id: 'muscle', name: '근육 가루', emoji: '💪' }
+            ],
+            face: [
+                { id: 'pretty', name: '예쁜 얼굴', emoji: '🥰' },
+                { id: 'fox', name: '여우 얼굴', emoji: '🦊' },
+                { id: 'fish', name: '생선 얼굴', emoji: '🐟' },
+                { id: 'angry', name: '화난 얼굴', emoji: '😡' }
+            ]
+        };
+
+        let selected = { color: null, age: null, body: null, face: null };
+        
+        // --- Firebase 실시간 클라우드 연동 시스템 ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+            authDomain: "meal-c8b86.firebaseapp.com",
+            projectId: "meal-c8b86",
+            storageBucket: "meal-c8b86.firebasestorage.app",
+            messagingSenderId: "476361866831",
+            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        // 이전 프로젝트와 겹치지 않게 새로운 문서(sue_magic_game) 사용
+        const docRef = db.collection("projects").doc("sue_magic_game");
+        
+        let globalData = { successCount: 0 };
+        
+        // 서버 데이터 실시간 수신 리스너
+        docRef.onSnapshot((doc) => {
+            const statusEl = document.getElementById('sync-status');
+            if (doc.exists) {
+                globalData = doc.data();
+                // 글로벌 성공 횟수 UI 업데이트
+                const countEl = document.getElementById('global-success-count');
+                countEl.innerText = globalData.successCount || 0;
+                
+                // 카운트가 올라갈 때 애니메이션 효과
+                countEl.style.animation = 'none';
+                void countEl.offsetWidth;
+                countEl.style.animation = 'drop-in 0.3s ease-out forwards';
+                
+                statusEl.innerText = 'ONLINE (LIVE SYNCED)';
+                statusEl.className = 'text-green-400';
+            } else {
+                // DB가 없으면 초기화
+                docRef.set(globalData);
+                statusEl.innerText = 'ONLINE (NEW DATABASE)';
+                statusEl.className = 'text-green-400';
+            }
+        }, (error) => {
+            document.getElementById('sync-status').innerText = 'OFFLINE (LOCAL MODE)';
+            document.getElementById('sync-status').className = 'text-red-500';
+            console.error("Firebase 연결 오류:", error);
+        });
+
+        // 글로벌 성공 카운터 증가 함수 (트랜잭션으로 안전하게 누적)
+        function addGlobalSuccess() {
+            db.runTransaction((transaction) => {
+                return transaction.get(docRef).then((sfDoc) => {
+                    if (!sfDoc.exists) {
+                        transaction.set(docRef, { successCount: 1 });
+                    } else {
+                        const newCount = (sfDoc.data().successCount || 0) + 1;
+                        transaction.update(docRef, { successCount: newCount });
+                    }
+                });
+            }).catch((err) => console.error("업데이트 실패:", err));
+        }
+
+        // --- 2. 오디오 시스템 (2000년대 감성) ---
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                if (type === 'click') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'drop') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'stir') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'success') {
+                    osc.type = 'sine';
+                    [523.25, 659.25, 783.99, 1046.50, 1567.98].forEach((freq, i) => {
+                        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.15));
+                    });
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+                    osc.start(); osc.stop(audioCtx.currentTime + 1.2);
+                } else if (type === 'fail') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.8);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+                }
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+            } catch (e) {}
+        }
+
+        document.body.addEventListener('click', initAudio, { once: true });
+
+        // --- 3. UI 렌더링 ---
+        function renderShelves() {
+            ['color', 'age', 'body', 'face'].forEach(category => {
+                const container = document.getElementById(`shelf-${category}`);
+                container.innerHTML = '';
+                
+                INGREDIENTS[category].forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'item-bottle group';
+                    div.id = `btn-${category}-${item.id}`;
+                    div.onclick = () => selectItem(category, item.id);
+                    
+                    // 배경색 약간 다르게
+                    if(category === 'color') div.style.backgroundColor = item.color + '40'; // 40 is hex alpha
+                    
+                    div.innerHTML = `
+                        ${item.emoji}
+                        <div class="tooltip">${item.name}</div>
+                    `;
+                    container.appendChild(div);
+                });
+            });
+        }
+
+        function startGame() {
+            playSound('click');
+            document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            document.getElementById('screen-game').classList.add('flex');
+            renderShelves();
+            resetGame();
+        }
+
+        function selectItem(category, itemId) {
+            playSound('drop');
+            selected[category] = itemId;
+            const itemObj = INGREDIENTS[category].find(i => i.id === itemId);
+
+            // 선택 UI 업데이트
+            const shelf = document.getElementById(`shelf-${category}`);
+            Array.from(shelf.children).forEach(el => el.classList.remove('selected'));
+            document.getElementById(`btn-${category}-${itemId}`).classList.add('selected');
+
+            // 하단 상태바
+            const slot = document.getElementById(`slot-${category}`);
+            slot.innerText = itemObj.emoji;
+            slot.classList.remove('opacity-20', 'grayscale', 'filter');
+            slot.style.animation = 'none';
+            void slot.offsetWidth;
+            slot.style.animation = 'drop-in 0.3s ease-out forwards';
+
+            // 물약 색상 반영
+            if (category === 'color') {
+                const liquid = document.getElementById('cauldron-liquid');
+                liquid.style.background = itemObj.color;
+                liquid.style.boxShadow = `inset 0 0 30px rgba(255,255,255,0.6), 0 0 50px ${itemObj.color}`;
+            }
+
+            // 가마솥 이펙트
+            const dropFx = document.getElementById('drop-effect');
+            dropFx.innerText = itemObj.emoji;
+            dropFx.style.animation = 'none';
+            void dropFx.offsetWidth;
+            dropFx.style.animation = 'drop-in 0.6s ease-in forwards';
+            
+            // 물결 이펙트 추가
+            const liquid = document.getElementById('cauldron-liquid');
+            const ripple = document.createElement('div');
+            ripple.style.position = 'absolute';
+            ripple.style.top = '50%'; ripple.style.left = '50%';
+            ripple.style.transform = 'translate(-50%, -50%)';
+            ripple.style.width = '10px'; ripple.style.height = '10px';
+            ripple.style.border = '2px solid white';
+            ripple.style.borderRadius = '50%';
+            ripple.style.animation = 'pulse-glow 0.5s ease-out forwards';
+            liquid.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 500);
+
+            checkReady();
+        }
+
+        function checkReady() {
+            const isReady = selected.color && selected.age && selected.body && selected.face;
+            const btnStir = document.getElementById('btn-stir');
+            if (isReady) {
+                btnStir.classList.remove('hidden');
+            } else {
+                btnStir.classList.add('hidden');
+            }
+        }
+
+        // --- 4. 미니게임 (불조절 타이밍 게임) ---
+        let mgState = { active: false, heat: 0, targetMin: 35, targetMax: 65, timer: 3.0, loop: null, gravity: 0.8 };
+        
+        function startStirMinigame() {
+            playSound('click');
+            document.getElementById('btn-stir').classList.add('hidden');
+            
+            // 미니게임 초기화
+            mgState.active = true;
+            mgState.heat = 10;
+            mgState.timer = 3.0;
+            
+            document.getElementById('screen-minigame').classList.remove('hidden');
+            document.getElementById('mg-timer').innerText = "3.00";
+            document.getElementById('mg-timer').className = "text-3xl font-bold text-white mb-4";
+            
+            // 60fps 루프
+            mgState.loop = setInterval(updateMinigame, 1000/60);
+        }
+
+        // 광클 이벤트 바인딩
+        document.getElementById('btn-heat').addEventListener('mousedown', heatUp);
+        document.getElementById('btn-heat').addEventListener('touchstart', heatUp, {passive:false});
+
+        function heatUp(e) {
+            if(!mgState.active) return;
+            e.preventDefault();
+            mgState.heat += 8; // 클릭당 상승량
+            if(mgState.heat > 100) mgState.heat = 100;
+            playSound('stir');
+            
+            // 가마솥 흔들림 효과
+            document.getElementById('cauldron').style.animation = 'none';
+            void document.getElementById('cauldron').offsetWidth;
+            document.getElementById('cauldron').style.animation = 'shake-hard 0.2s';
+        }
+
+        function updateMinigame() {
+            // 중력(식음) 작용
+            mgState.heat -= mgState.gravity;
+            if(mgState.heat < 0) mgState.heat = 0;
+            
+            // UI 업데이트
+            document.getElementById('mg-cursor').style.left = `${mgState.heat}%`;
+            
+            // 타겟 존 확인
+            const inZone = mgState.heat >= mgState.targetMin && mgState.heat <= mgState.targetMax;
+            const timerEl = document.getElementById('mg-timer');
+            
+            if (inZone) {
+                mgState.timer -= (1/60);
+                document.getElementById('mg-cursor').style.backgroundColor = '#4CAF50';
+                document.getElementById('mg-cursor').style.boxShadow = '0 0 15px #4CAF50';
+                timerEl.classList.add('text-green-400');
+                timerEl.classList.remove('text-red-500', 'text-white');
+            } else {
+                // 벗어나면 타이머 초기화 (하드코어)
+                mgState.timer = 3.0;
+                document.getElementById('mg-cursor').style.backgroundColor = '#f44336';
+                document.getElementById('mg-cursor').style.boxShadow = '0 0 15px #f44336';
+                timerEl.classList.add('text-red-500');
+                timerEl.classList.remove('text-green-400', 'text-white');
+            }
+            
+            timerEl.innerText = Math.max(0, mgState.timer).toFixed(2);
+
+            // 승리 조건
+            if (mgState.timer <= 0) {
+                endMinigame(true);
+            }
+            
+            // 끓어 넘침 (실패) 조건 - 10초 이상 끌면 걍 실패 (너무 어려우니 삭제, 대신 온도가 0이거나 100인 상태로 3초 지나면 실패 추가)
+            // 심플하게 진행을 위해 승리만 체크하고, 유저는 "취소"버튼이 없으니 무조건 깨야함.
+        }
+
+        function endMinigame(success) {
+            mgState.active = false;
+            clearInterval(mgState.loop);
+            document.getElementById('screen-minigame').classList.add('hidden');
+            
+            // 성공 시 결과창 띄우기 전 딜레이
+            setTimeout(() => {
+                calculateResult();
+            }, 500);
+        }
+
+        // --- 5. 원작 고증 + 하드코어 결과 판정 로직 ---
+        function calculateResult() {
+            let res = { char: '', emoji: '', msg: '', type: '' };
+
+            const c = selected.color;
+            const a = selected.age;
+            const b = selected.body;
+            const f = selected.face;
+
+            // 판정 트리
+            if (c === 'pink') {
+                if (a === 'teen' && b === 'slim' && f === 'pretty') {
+                    // 진엔딩
+                    res = { char: '슈', emoji: '👧✨', msg: '완벽해! 우리가 알던 아름다운 슈로 변신 성공!', type: 'success' };
+                    // 진엔딩 성공 시 파이어베이스 서버에 +1 업데이트
+                    addGlobalSuccess();
+                } else if (f === 'fox' || f === 'fish') {
+                    // 원작 고증: 동물 얼굴가루 넣고 조합 틀림 -> 얼굴 없는 슈 (동심파괴)
+                    res = { char: '얼굴 없는 슈', emoji: '😶', msg: '꺄아아악!! 거울을 봤는데 내 얼굴이 없어!!', type: 'scary' };
+                } else if (f === 'angry') {
+                    res = { char: '분노한 슈', emoji: '🤬', msg: '마법약이 잘못됐잖아!! 화가 난다!!', type: 'fail' };
+                } else {
+                    // 핑크 베이스 실패작들
+                    if (a === 'old') res = { char: '할머니 슈', emoji: '👵💦', msg: '콜록콜록... 관절이 쑤시는 할머니 슈가 되었어...', type: 'fail' };
+                    else if (a === 'baby') res = { char: '아기 슈', emoji: '👶🍼', msg: '응애~ 기저귀 찬 아기 슈가 되어버렸어!', type: 'fail' };
+                    else if (a === 'adult') res = { char: '아줌마 슈', emoji: '👩‍🦱', msg: '어머머, 동네 반상회 가야 할 아줌마 슈네~', type: 'fail' };
+                    else if (b === 'chubby') res = { char: '통통한 슈', emoji: '🐷💦', msg: '앗! 다이어트가 시급한 통통 슈가 되어버렸어 ㅠㅠ', type: 'fail' };
+                    else if (b === 'muscle') res = { char: '근육질 슈', emoji: '🏋️‍♀️', msg: '3대 500은 칠 것 같은 근육질 슈 탄생!', type: 'fail' };
+                    else res = { char: '평범한 소녀', emoji: '😐', msg: '음... 슈가 아니라 그냥 평범한 행인 1이 되었네.', type: 'fail' };
+                }
+            } else if (c === 'green') {
+                if (b === 'muscle') res = { char: '강력한 슈렉', emoji: '👹💪', msg: '슈렉이 근육까지 얻었다! 숲의 패왕 탄생!', type: 'fail' };
+                else res = { char: '슈렉', emoji: '👹', msg: '헉! 초록색 괴물 슈렉이 되어버렸잖아!', type: 'fail' };
+            } else if (c === 'purple') {
+                if (f === 'fox') res = { char: '여우 고양이', emoji: '🦊🐱', msg: '고양이도 아니고 여우도 아닌 이상한 생명체..', type: 'fail' };
+                else res = { char: '옹이', emoji: '🐱', msg: '야옹~ 슈의 반려묘 옹이로 변신해버렸네!', type: 'fail' };
+            } else if (c === 'blue') {
+                if (a === 'baby') res = { char: '아기 빈이', emoji: '👦🍼', msg: '남자친구 빈이의 어린 시절 모습이야!', type: 'fail' };
+                else res = { char: '빈이', emoji: '👦', msg: '앗, 남자친구 빈이로 변신했어!', type: 'fail' };
+            } else if (c === 'black') {
+                // 하드코어 추가 요소 (어둠의 물약)
+                res = { char: '흑마법사 슈', emoji: '🧛‍♀️🔮', msg: '어둠의 힘에 타락해버린 마계의 지배자...', type: 'scary' };
+            } else {
+                res = { char: '슬라임', emoji: '🦠', msg: '알 수 없는 조합으로 형태를 잃고 슬라임이 되었다.', type: 'fail' };
+            }
+
+            showResultModal(res);
+        }
+
+        function showResultModal(res) {
+            const titleEl = document.getElementById('result-title');
+            const bgEl = document.getElementById('result-char-bg');
+            const fxEl = document.getElementById('result-fx');
+
+            if (res.type === 'success') {
+                playSound('success');
+                titleEl.innerText = "✨ 변신 대성공! ✨";
+                titleEl.className = "text-4xl text-[#ff4081] font-bold mb-6 z-10 px-8 py-3 bg-white border-4 border-[#ff4081] rounded-full shadow-lg";
+                bgEl.className = "absolute inset-0 rounded-full -z-10 blur-2xl opacity-80 bg-yellow-300 animate-pulse";
+                fxEl.className = "absolute inset-0 pointer-events-none opacity-50 bg-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\"><text y=\"40\" font-size=\"40\">✨</text></svg>')]";
+            } else if (res.type === 'scary') {
+                playSound('fail'); 
+                titleEl.innerText = "💀 동심 파괴 💀";
+                titleEl.className = "text-4xl text-white font-bold mb-6 z-10 px-8 py-3 bg-black border-4 border-red-600 rounded-full shadow-[0_0_20px_red]";
+                bgEl.className = "absolute inset-0 rounded-full -z-10 blur-2xl opacity-80 bg-red-800";
+                fxEl.className = "absolute inset-0 pointer-events-none opacity-30 bg-red-900";
+            } else {
+                playSound('fail');
+                titleEl.innerText = "💦 변신 실패 💦";
+                titleEl.className = "text-4xl text-purple-800 font-bold mb-6 z-10 px-8 py-3 bg-gray-200 border-4 border-purple-500 rounded-full";
+                bgEl.className = "absolute inset-0 rounded-full -z-10 blur-2xl opacity-50 bg-gray-500";
+                fxEl.className = "absolute inset-0 pointer-events-none";
+            }
+
+            const charEl = document.getElementById('result-char');
+            charEl.innerText = res.emoji;
+            charEl.style.animation = 'none';
+            void charEl.offsetWidth;
+            charEl.style.animation = 'drop-in 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+
+            document.getElementById('result-msg').innerHTML = `<span class="text-yellow-400 text-3xl">[${res.char}]</span><br><br>${res.msg}`;
+            
+            document.getElementById('screen-result').classList.remove('hidden');
+            document.getElementById('screen-result').classList.add('flex');
+        }
+
+        function resetGame() {
+            playSound('click');
+            
+            selected = { color: null, age: null, body: null, face: null };
+            
+            ['color', 'age', 'body', 'face'].forEach(cat => {
+                const shelf = document.getElementById(`shelf-${cat}`);
+                if(shelf) Array.from(shelf.children).forEach(el => el.classList.remove('selected'));
+                
+                const slot = document.getElementById(`slot-${cat}`);
+                slot.classList.add('opacity-20', 'grayscale', 'filter');
+                if(cat === 'color') slot.innerText = '🧪';
+                if(cat === 'age') slot.innerText = '⏳';
+                if(cat === 'body') slot.innerText = '🦴';
+                if(cat === 'face') slot.innerText = '🎭';
+            });
+
+            const liquid = document.getElementById('cauldron-liquid');
+            liquid.style.background = '#00ffcc';
+            liquid.style.boxShadow = `inset 0 0 30px rgba(255,255,255,0.6), 0 0 40px #00ffcc`;
+
+            document.getElementById('btn-stir').classList.add('hidden');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-result').classList.remove('flex');
+        }
+    </script>
+</body>
+</html>
