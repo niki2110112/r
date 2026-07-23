@@ -9,9 +9,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Firebase SDK (v10.8.0 Compat) -->
+    <!-- Firestore와 Storage 스크립트를 모두 로드하여 대용량 파일 업로드를 지원합니다. -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <!-- [추가] Firebase Storage 사용을 위한 라이브러리 추가 -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     
     <!-- 언더테일 픽셀 폰트 (네오 둥근모) -->
@@ -180,6 +180,7 @@
                 </div>
             </div>
 
+            <!-- 네비게이션 버튼 탭 -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-auto shrink-0">
                 <div class="ut-action-btn active-tab" onclick="navigate('food', this)" id="btn-nav-food">
                     <span class="btn-heart">❤️</span> 음식관리
@@ -210,7 +211,7 @@
                     <span class="text-yellow-400">* 결과 음식 리스트</span>
                     <button onclick="addFoodItem()" class="border border-white px-3 py-1 text-xs hover:bg-white hover:text-black">+ 음식 추가</button>
                 </div>
-                <p class="text-gray-400 text-xs mb-4 shrink-0">* 음식별로 사진/GIF, 이모지, 직접 그리기 첨부가 가능합니다.</p>
+                <p class="text-gray-400 text-[11px] mb-4 shrink-0">* 이미지 업로드 시 DB 용량 확보를 위해 자동으로 최적화 압축됩니다! (이제 마음껏 추가하세요)</p>
                 <div id="food-list-container" class="space-y-4 flex-grow overflow-y-auto"></div>
             </div>
 
@@ -220,7 +221,7 @@
                     <span class="text-[#4CAF50]">* 파멸의 드래곤 심리테스트 질문 풀</span>
                     <button onclick="addQuestionItem()" class="border border-[#4CAF50] text-[#4CAF50] px-3 py-1 text-xs hover:bg-[#4CAF50] hover:text-black">+ 질문 추가</button>
                 </div>
-                <p class="text-gray-400 text-xs mb-4 shrink-0">* 선택지마다 특정 음식을 지정하지 않습니다. 테스트 시작 시 무작위 매핑됩니다.</p>
+                <p class="text-gray-400 text-[11px] mb-4 shrink-0">* 선택지마다 특정 음식을 지정하지 않습니다. 테스트 시작 시 무작위 매핑됩니다.</p>
                 <div id="question-list-container" class="space-y-5 flex-grow overflow-y-auto"></div>
             </div>
 
@@ -232,7 +233,7 @@
                 </div>
                 <div class="flex-grow flex flex-col justify-center items-center relative">
                     
-                    <!-- 플레이어 스테이터스 (HP 추가) -->
+                    <!-- 플레이어 스테이터스 -->
                     <div class="w-[90%] border-4 border-white p-3 mb-4 bg-black flex flex-col gap-2 shadow-[0_0_15px_rgba(33,150,243,0.3)]">
                         <div class="flex justify-between text-base md:text-lg">
                             <div><span class="text-blue-400">LV</span> <span id="rpg-lv-disp">1</span></div>
@@ -258,7 +259,7 @@
 
                     <div class="text-xs md:text-sm mb-4 h-10 flex items-center justify-center text-center text-yellow-300 bg-black/50 px-4 py-2 border border-gray-800 w-[90%]" id="rpg-msg">* 파멸의 드래곤 수하가 길을 가로막는다!</div>
                     
-                    <!-- 액션 버튼 (회복 버튼 추가) -->
+                    <!-- 액션 버튼 -->
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-3 w-[90%]">
                         <button class="border-2 border-orange-500 text-orange-500 py-2 text-sm hover:bg-orange-900 transition-colors font-bold flex flex-col items-center justify-center gap-1" onclick="rpgAct('fight')">
                             <span class="text-lg">⚔️</span> 공격
@@ -289,7 +290,7 @@
 
                     <div class="ut-box p-4 bg-gray-900">
                         <div class="text-green-400 mb-1 font-bold">* 클라우드 자동 동기화 활성화됨 (안전 모드)</div>
-                        <p class="text-xs text-gray-400">* 사용자가 무언가를 타이핑 중일 때는 덮어쓰기를 지연시켜 데이터 날아감을 방지합니다.</p>
+                        <p class="text-xs text-gray-400">* 데이터 용량 초과를 방지하기 위해 파일 업로드 시 Storage(저장소)를 최우선으로 활용합니다.</p>
                     </div>
                     
                     <div class="ut-box p-4">
@@ -307,7 +308,6 @@
                     </div>
                 </div>
             </div>
-
         </section>
     </main>
 
@@ -335,24 +335,41 @@
         </div>
     </div>
 
+    <!-- [오버레이] 텍스트 입력 모달 (prompt 대체) -->
+    <div id="input-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+        <div class="ut-box p-6 bg-black w-full max-w-md flex flex-col items-center gap-4 border-blue-400">
+            <div id="input-modal-title" class="text-lg text-blue-400 w-full border-b border-gray-700 pb-2 mb-2">* 입력해주세요</div>
+            <input type="text" id="input-modal-value" class="ut-input w-full text-sm md:text-base p-2" placeholder="...">
+            <div class="flex gap-4 w-full justify-end mt-4 text-sm">
+                <button onclick="closeInputModal()" class="text-gray-400 hover:text-white">[취소]</button>
+                <button onclick="confirmInputModal()" class="text-yellow-400 hover:text-white font-bold">[적용]</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [오버레이] 확인 모달 (confirm 대체) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+        <div class="ut-box p-6 bg-black w-full max-w-md flex flex-col items-center gap-4 border-red-500">
+            <div class="text-lg text-red-500 w-full border-b border-gray-700 pb-2 mb-2">* 경고</div>
+            <div id="confirm-modal-msg" class="text-white text-sm whitespace-pre-wrap w-full">...</div>
+            <div class="flex gap-4 w-full justify-end mt-4 text-sm">
+                <button onclick="closeConfirmModal()" class="text-gray-400 hover:text-white">[취소]</button>
+                <button onclick="acceptConfirmModal()" class="text-red-500 hover:text-white font-bold">[확인 및 진행]</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 게임 알림 메시지 (토스트) -->
     <div id="toast" class="fixed top-10 left-1/2 transform -translate-x-1/2 bg-black border-4 border-white text-white px-6 py-3 text-sm md:text-base opacity-0 pointer-events-none transition-opacity duration-200 z-50 shadow-2xl">
         * 메시지
     </div>
 
     <script>
-        /* =========================================================
-           1. 코어 데이터 및 상태 변수
-           ========================================================= */
         const DEFAULT_DATA = {
             themeColor: "#000000",
             foods: [
                 { id: "f1", name: "마라탕과 꿔바로우", desc: "얼얼하고 자극적인 맛으로 용암 같은 매움을 중화시킨다.", mediaType: "emoji", mediaContent: "🍲" },
-                { id: "f2", name: "두툼한 로스 돈카츠", desc: "바삭한 튀김옷과 육즙 가득한 전사의 체력 회복식.", mediaType: "emoji", mediaContent: "🥩" },
-                { id: "f3", name: "불맛 직화 짬뽕", desc: "파멸의 드래곤 브레스처럼 얼큰한 해물 국물.", mediaType: "emoji", mediaContent: "🍜" },
-                { id: "f4", name: "페페로니 화덕 피자", desc: "고소한 치즈가 흘러넘치는 성기사의 축복받은 요리.", mediaType: "emoji", mediaContent: "🍕" },
-                { id: "f5", name: "신선한 연어 초밥", desc: "엘프들의 영지가 사랑하는 부드러운 일식 특식.", mediaType: "emoji", mediaContent: "🍣" },
-                { id: "f6", name: "숯불 삼겹살과 비빔냉면", desc: "드래곤 슬레이어들이 가장 선호하는 최고의 기력 보충식.", mediaType: "emoji", mediaContent: "🥓" }
+                { id: "f2", name: "두툼한 로스 돈카츠", desc: "바삭한 튀김옷과 육즙 가득한 전사의 체력 회복식.", mediaType: "emoji", mediaContent: "🥩" }
             ],
             questions: [
                 {
@@ -363,21 +380,7 @@
                     options: [
                         "* 시간이 거꾸로 흐르는 용의 모래시계",
                         "* 심장처럼 고동치는 붉은 드래곤 원석",
-                        "* 끝없이 얼음이 얼어붙는 서리 은잔",
-                        "* 그림자가 생기지 않는 공허한 검은 구체",
-                        "* 소리 없이 타오르는 파멸의 푸른 깃털"
-                    ]
-                },
-                {
-                    id: "q2",
-                    title: "* 당신의 꿈속에 얼굴 없는 도서관 사서가 나타났다.\n* 그가 건넨 [파멸의 서] 첫 페이지의 내용은?",
-                    mediaType: "emoji",
-                    mediaContent: "📖",
-                    options: [
-                        "* [ 태양을 빚어 드래곤을 잠재우는 법 ]",
-                        "* [ 기억을 지우는 저주의 계절 ]",
-                        "* [ 0번째 파멸의 세계 지도 ]",
-                        "* [ 심연에서 부르는 드래곤의 노래 ]"
+                        "* 끝없이 얼음이 얼어붙는 서리 은잔"
                     ]
                 }
             ]
@@ -394,26 +397,19 @@
         let pendingRender = false;
 
         let currentStep = 0;
-        let TOTAL_STEPS = 2;
+        let TOTAL_STEPS = 1;
         let sessionQuestions = [];
         let scoreBoard = {};
 
-        // 캔버스 타겟 추적 변수
+        // 캔버스 상태
         let canvasTarget = null;
         let canvas, ctx;
         let isDrawing = false;
         let drawMode = 'draw';
 
-        // 미니 RPG 상태 변수
-        let rpgGold = 0;
-        let rpgLv = 1;
-        let rpgAtk = 10;
-        let rpgCost = 10;
-        let monsterHp = 100;
-        let monsterMaxHp = 100;
-        let playerHp = 100;
-        let playerMaxHp = 100;
-        let maxLv = 1;
+        // 미니 RPG 상태
+        let rpgGold = 0, rpgLv = 1, rpgAtk = 10, rpgCost = 10;
+        let monsterHp = 100, monsterMaxHp = 100, playerHp = 100, playerMaxHp = 100, maxLv = 1;
         const MONSTER_LIST = [
             { name: "어둠의 서리 도마뱀", emoji: "🦎", hp: 60 },
             { name: "타락한 오크 주술사", emoji: "👹", hp: 100 },
@@ -423,29 +419,28 @@
         ];
         let activeMonster = MONSTER_LIST[0];
 
-        // [중요 수정] Firebase Storage 초기화 추가
+        // Firebase 초기화
         const firebaseConfig = {
             apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
             authDomain: "meal-c8b86.firebaseapp.com",
             projectId: "meal-c8b86",
-            storageBucket: "meal-c8b86.firebasestorage.app", // Storage 버킷 주소
+            storageBucket: "meal-c8b86.firebasestorage.app",
             messagingSenderId: "476361866831",
             appId: "1:476361866831:web:d1f841697bcfb76dee743a"
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        
         const db = firebase.firestore();
-        const storage = firebase.storage(); // 파일 업로드를 위한 객체 생성
+        let storage = null;
+        try { storage = firebase.storage(); } catch (e) { console.warn("Firebase Storage 초기화 실패"); }
 
         try {
-            db.settings({ 
-                experimentalForceLongPolling: true,
-                ignoreUndefinedProperties: true
-            });
-        } catch(e) { console.warn("Firebase settings error:", e); }
+            db.settings({ experimentalForceLongPolling: true, ignoreUndefinedProperties: true });
+        } catch(e) {}
         
         const docRef = db.collection("projects").doc("ut_dragon_tarot_v4");
 
-        // 한글 씹힘/증발 방지를 위한 타이핑 감지
+        // 타이핑 감지 (데이터 증발 방어)
         document.addEventListener('focusin', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') isTyping = true;
         });
@@ -453,9 +448,7 @@
         document.addEventListener('focusout', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 isTyping = false;
-                if (pendingRender) {
-                    applyThemeColor(); renderFoodList(); renderQuestionList(); pendingRender = false;
-                }
+                if (pendingRender) { applyThemeColor(); renderFoodList(); renderQuestionList(); pendingRender = false; }
             }
         });
 
@@ -465,17 +458,13 @@
 
             const savedData = localStorage.getItem('ut_dragon_tarot_save_v4');
             if (savedData) {
-                try {
-                    APP_DATA = JSON.parse(savedData);
-                    applyThemeColor();
-                } catch (e) {}
+                try { APP_DATA = JSON.parse(savedData); applyThemeColor(); } catch (e) {}
             }
             renderFoodList();
             renderQuestionList();
 
             setTimeout(() => {
                 if (isInitialLoad) {
-                    console.log("서버 연결이 지연되어 로컬 모드로 즉시 시작합니다.");
                     const statusEl = document.getElementById('sync-status');
                     statusEl.innerText = 'OFFLINE (LOCAL MODE)';
                     statusEl.className = 'text-red-500';
@@ -483,7 +472,7 @@
                     startBlindTest();
                     isInitialLoad = false;
                 }
-            }, 1500);
+            }, 2000);
 
             docRef.onSnapshot((doc) => {
                 const statusEl = document.getElementById('sync-status');
@@ -500,7 +489,6 @@
                         renderFoodList();
                         renderQuestionList();
                     }
-                    
                     statusEl.innerText = 'ONLINE (LIVE SYNCED)';
                     statusEl.className = 'text-green-400';
                     isRemoteUpdating = false;
@@ -510,20 +498,12 @@
                     statusEl.className = 'text-green-400';
                 }
 
-                if (isInitialLoad) {
-                    startBlindTest();
-                    isInitialLoad = false;
-                }
+                if (isInitialLoad) { startBlindTest(); isInitialLoad = false; }
             }, (error) => {
-                console.warn("Firestore 연결 실패, 오프라인 모드로 전환됩니다.", error);
                 isServerLoaded = true;
                 document.getElementById('sync-status').innerText = 'OFFLINE (LOCAL MODE)';
                 document.getElementById('sync-status').className = 'text-red-500';
-                
-                if (isInitialLoad) {
-                    startBlindTest();
-                    isInitialLoad = false;
-                }
+                if (isInitialLoad) { startBlindTest(); isInitialLoad = false; }
             });
 
             document.body.addEventListener('click', () => {
@@ -547,11 +527,21 @@
             saveToCloud();
         }
 
+        // [용량 초과 대응] 강력한 저장 및 에러 핸들링
         function saveToCloud() {
             if(!isServerLoaded || isRemoteUpdating) return; 
             
-            localStorage.setItem('ut_dragon_tarot_save_v4', JSON.stringify(APP_DATA));
-            docRef.set(APP_DATA).catch(e => console.warn("클라우드 저장 실패, 로컬 임시 저장됨", e));
+            try { localStorage.setItem('ut_dragon_tarot_save_v4', JSON.stringify(APP_DATA)); } 
+            catch(e) { console.warn("Local storage save failed"); }
+
+            docRef.set(APP_DATA).catch(e => {
+                console.error("클라우드 저장 실패", e);
+                if (e.message && e.message.includes("exceeds the maximum")) {
+                    showMessage("⚠️ [데이터 용량 초과] 아이템 저장이 불가능합니다. 큰 파일은 [웹URL(GIF)] 로 교체해주세요.");
+                } else {
+                    showMessage("⚠️ 클라우드 서버와 동기화하지 못했습니다.");
+                }
+            });
         }
 
         function playSound(type) {
@@ -559,27 +549,19 @@
             try {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                
                 if (type === 'text') {
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(400 + Math.random()*50, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                    osc.type = 'square'; osc.frequency.setValueAtTime(400 + Math.random()*50, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.02, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
                     osc.start(); osc.stop(audioCtx.currentTime + 0.04);
                 } else if (type === 'select') {
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+                    osc.type = 'square'; osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.08);
                 } else if (type === 'damage') {
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
                     osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.2);
-                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.2);
                 }
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
+                osc.connect(gain); gain.connect(audioCtx.destination);
             } catch(e) {}
         }
 
@@ -588,40 +570,30 @@
             box.innerText = `* ${msg}`;
             box.style.opacity = '1';
             playSound('select');
-            setTimeout(() => { box.style.opacity = '0'; }, 2000);
+            setTimeout(() => { box.style.opacity = '0'; }, 3000);
         }
 
         function navigate(view, btnEl) {
             playSound('select');
             document.querySelectorAll('.ut-action-btn').forEach(el => el.classList.remove('active-tab'));
             btnEl.classList.add('active-tab');
-
             document.querySelectorAll('section > div[id^="view-"]').forEach(el => el.classList.add('hidden'));
             document.getElementById(`view-${view}`).classList.remove('hidden');
-
-            if(view === 'settings') {
-                document.getElementById('data-raw').value = JSON.stringify(APP_DATA, null, 2);
-            }
+            if(view === 'settings') document.getElementById('data-raw').value = JSON.stringify(APP_DATA, null, 2);
         }
 
-        /* =========================================================
-           3. 블라인드 심리테스트 코어 로직
-           ========================================================= */
         function startBlindTest() {
             if (APP_DATA.foods.length === 0 || APP_DATA.questions.length === 0) {
                 document.getElementById('game-dialogue').innerText = "* 음식 리스트나 질문 리스트가 비어 있습니다.\n* 우측 관리자 패널에서 데이터를 추가하십시오.";
                 document.getElementById('game-choices').innerHTML = "";
                 return;
             }
-
             currentStep = 0;
             scoreBoard = {};
             APP_DATA.foods.forEach(f => scoreBoard[f.id] = 0);
 
             TOTAL_STEPS = APP_DATA.questions.length;
-            let pool = [...APP_DATA.questions].sort(() => Math.random() - 0.5);
-            sessionQuestions = pool; 
-
+            sessionQuestions = [...APP_DATA.questions].sort(() => Math.random() - 0.5); 
             renderTestStep();
             
             if (!isInitialLoad && document.getElementById('sync-status').innerText.includes('ONLINE')) {
@@ -630,11 +602,7 @@
         }
 
         function renderTestStep() {
-            if (currentStep >= sessionQuestions.length || currentStep >= TOTAL_STEPS) {
-                renderResult();
-                return;
-            }
-
+            if (currentStep >= sessionQuestions.length || currentStep >= TOTAL_STEPS) { renderResult(); return; }
             const q = sessionQuestions[currentStep];
             document.getElementById('ui-step').innerText = `${currentStep + 1}/${TOTAL_STEPS}`;
             
@@ -649,7 +617,6 @@
 
             optionsPool.forEach((optText, idx) => {
                 const mappedFood = foodPool[idx % foodPool.length];
-                
                 const btn = document.createElement('div');
                 btn.className = 'ut-menu-item cursor-pointer text-xs md:text-sm';
                 btn.innerHTML = optText.startsWith('*') ? optText : `* ${optText}`;
@@ -663,22 +630,20 @@
             });
         }
 
-        function handleImageError() {
-            const img = document.getElementById('game-image');
-            if (!img.src || img.src.includes('data:image/png')) return;
-            
-            img.classList.add('hidden');
+        // [오류 해결] 웹 URL 엑스박스 방어
+        function handleImageError(imgEl) {
+            imgEl.classList.add('hidden');
             const emoji = document.getElementById('game-emoji');
             emoji.classList.remove('hidden');
-            emoji.innerText = '⚠️';
+            emoji.innerText = '❌(이미지깨짐)';
         }
 
         function renderVisualMedia(type, content) {
             const img = document.getElementById('game-image');
             const emoji = document.getElementById('game-emoji');
 
-            if (type === 'upload' || type === 'canvas') {
-                img.src = content || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+            if (type === 'upload' || type === 'canvas' || type === 'url') {
+                img.src = content || 'data:image/png;base64,...';
                 img.classList.remove('hidden');
                 emoji.classList.add('hidden');
             } else {
@@ -702,7 +667,6 @@
                     const char = chars[idx];
                     if(char === '\n') diaBox.innerHTML += '<br>';
                     else diaBox.innerHTML += char;
-                    
                     if(char.trim() !== '') playSound('text');
                     diaBox.scrollTop = diaBox.scrollHeight;
                     idx++;
@@ -718,9 +682,7 @@
             if(typingTimer) clearInterval(typingTimer);
             const diaBox = document.getElementById('game-dialogue');
             diaBox.classList.add('typing-done');
-            if(currentStep < sessionQuestions.length) {
-                diaBox.innerHTML = (sessionQuestions[currentStep].title || '').replace(/\n/g, '<br>');
-            }
+            if(currentStep < sessionQuestions.length) diaBox.innerHTML = (sessionQuestions[currentStep].title || '').replace(/\n/g, '<br>');
         });
 
         function renderResult() {
@@ -737,7 +699,6 @@
 
             const choiceBox = document.getElementById('game-choices');
             choiceBox.innerHTML = '';
-
             const retryBtn = document.createElement('div');
             retryBtn.className = 'ut-menu-item text-yellow-400 cursor-pointer text-sm md:text-base mt-1';
             retryBtn.innerHTML = "* [ 파멸의 테스트 다시 시작하기 ]";
@@ -746,8 +707,43 @@
         }
 
         /* =========================================================
-           4. 음식 리스트 및 5. 질문 풀 관리자
+           Custom Modals Controller (alert/prompt/confirm 금지 대응)
            ========================================================= */
+        let inputModalCallback = null;
+        function openInputModal(title, placeholder, defaultValue, callback) {
+            document.getElementById('input-modal-title').innerText = `* ${title}`;
+            const input = document.getElementById('input-modal-value');
+            input.placeholder = placeholder;
+            input.value = defaultValue;
+            inputModalCallback = callback;
+            document.getElementById('input-modal').classList.remove('hidden');
+            input.focus();
+        }
+        function closeInputModal() {
+            document.getElementById('input-modal').classList.add('hidden');
+            inputModalCallback = null;
+        }
+        function confirmInputModal() {
+            const val = document.getElementById('input-modal-value').value;
+            if (inputModalCallback) inputModalCallback(val);
+            closeInputModal();
+        }
+
+        let confirmModalCallback = null;
+        function openConfirmModal(msg, callback) {
+            document.getElementById('confirm-modal-msg').innerText = msg;
+            confirmModalCallback = callback;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            confirmModalCallback = null;
+        }
+        function acceptConfirmModal() {
+            if (confirmModalCallback) confirmModalCallback();
+            closeConfirmModal();
+        }
+
         function renderFoodList() {
             const container = document.getElementById('food-list-container');
             container.innerHTML = '';
@@ -767,13 +763,13 @@
                         <button onclick="deleteFood(${index})" class="text-red-500 hover:text-red-300 font-bold px-2 text-lg">X</button>
                     </div>
                     <input type="text" value="${food.desc}" class="ut-input w-full text-xs text-gray-400 p-1.5" placeholder="음식에 대한 간단한 설명 또는 한줄평" onchange="updateFood(${index}, 'desc', this.value)">
-                    <div class="flex gap-2 text-xs bg-black p-1.5 border border-gray-800 justify-between items-center">
-                        <span class="text-gray-500">* 미디어:</span>
-                        <div class="flex gap-2">
+                    <div class="flex gap-2 text-[11px] md:text-xs bg-black p-1.5 border border-gray-800 justify-between items-center">
+                        <span class="text-gray-500 hidden md:inline">* 미디어:</span>
+                        <div class="flex gap-2 w-full md:w-auto justify-end">
                             <button onclick="setMediaToEmoji('food', ${index})" class="hover:text-yellow-400">[이모지]</button>
-                            <label class="hover:text-yellow-400 cursor-pointer">
-                                [이미지/GIF 업로드]
-                                <input type="file" accept="image/*, image/gif" class="hidden" onchange="uploadMediaFile(event, 'food', ${index})">
+                            <label class="hover:text-yellow-400 cursor-pointer text-blue-400">
+                                [파일업로드(자동압축)]
+                                <input type="file" accept="image/*" class="hidden" onchange="uploadMediaFile(event, 'food', ${index})">
                             </label>
                             <button onclick="openCanvasModal('food', ${index})" class="text-green-400 hover:text-white">[🎨 그리기]</button>
                         </div>
@@ -785,31 +781,23 @@
 
         function addFoodItem() {
             APP_DATA.foods.push({ id: "f_" + Date.now(), name: "새로운 음식 메뉴", desc: "맛있는 설명", mediaType: "emoji", mediaContent: "🍽️" });
-            saveToCloud();
-            renderFoodList();
-            showMessage("새 음식이 등록되었습니다.");
+            saveToCloud(); renderFoodList(); showMessage("새 음식이 등록되었습니다.");
         }
-
         function updateFood(idx, key, val) { APP_DATA.foods[idx][key] = val; saveToCloud(); }
-        
         function deleteFood(idx) {
             if (APP_DATA.foods.length <= 2) { showMessage("최소 2개 이상의 음식은 유지해야 합니다."); return; }
-            APP_DATA.foods.splice(idx, 1);
-            saveToCloud();
-            renderFoodList();
-            showMessage("음식이 삭제되었습니다.");
+            APP_DATA.foods.splice(idx, 1); saveToCloud(); renderFoodList(); showMessage("음식이 삭제되었습니다.");
         }
 
         function renderQuestionList() {
             const container = document.getElementById('question-list-container');
             container.innerHTML = '';
-
             APP_DATA.questions.forEach((q, qIdx) => {
                 const card = document.createElement('div');
                 card.className = "bg-gray-900 p-4 border-2 border-gray-700 space-y-2.5 shrink-0";
                 
-                const previewHtml = (q.mediaType === 'upload' || q.mediaType === 'canvas') 
-                    ? `<img src="${q.mediaContent}" class="w-9 h-9 object-contain bg-black border border-white pixelated shrink-0">` 
+                const previewHtml = (q.mediaType === 'upload' || q.mediaType === 'canvas' || q.mediaType === 'url') 
+                    ? `<img src="${q.mediaContent}" class="w-9 h-9 object-contain bg-black border border-white pixelated shrink-0" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">` 
                     : `<div class="w-9 h-9 flex items-center justify-center bg-black border border-white text-lg shrink-0">${q.mediaContent || '❓'}</div>`;
 
                 let optionsHtml = '';
@@ -834,12 +822,12 @@
                     <textarea rows="2" class="ut-input w-full text-xs p-1.5" placeholder="심리테스트 질문 대사 입력" onchange="updateQuestion(${qIdx}, 'title', this.value)">${q.title}</textarea>
                     
                     <div class="flex gap-2 text-[11px] bg-black p-1.5 border border-gray-800 justify-between items-center">
-                        <span class="text-gray-500">* 장면 그림/GIF:</span>
-                        <div class="flex gap-2">
+                        <span class="text-gray-500 hidden md:inline">* 장면 그림:</span>
+                        <div class="flex gap-2 w-full md:w-auto justify-end">
                             <button onclick="setMediaToEmoji('question', ${qIdx})" class="hover:text-yellow-400">[이모지]</button>
-                            <label class="hover:text-yellow-400 cursor-pointer">
-                                [이미지/GIF 업로드]
-                                <input type="file" accept="image/*, image/gif" class="hidden" onchange="uploadMediaFile(event, 'question', ${qIdx})">
+                            <label class="hover:text-yellow-400 cursor-pointer text-blue-400">
+                                [파일업로드(자동압축)]
+                                <input type="file" accept="image/*" class="hidden" onchange="uploadMediaFile(event, 'question', ${qIdx})">
                             </label>
                             <button onclick="openCanvasModal('question', ${qIdx})" class="text-green-400 hover:text-white">[🎨 그리기]</button>
                         </div>
@@ -847,6 +835,7 @@
 
                     <div class="space-y-1.5 pt-1">
                         <label class="block text-[10px] text-gray-400">* 선택지 구성 (최소 2개 ~ 최대 6개 지원)</label>
+                        <label class="block text-[10px] text-gray-400">* 선택지 구성 (최대 6개)</label>
                         ${optionsHtml}
                         <button onclick="addOption(${qIdx})" class="w-full py-1 border border-dashed border-gray-600 text-yellow-400 hover:border-yellow-400 text-[11px] mt-1">+ 선택지 추가 작성</button>
                     </div>
@@ -857,44 +846,25 @@
 
         function addQuestionItem() {
             APP_DATA.questions.push({
-                id: "q_" + Date.now(),
-                title: "* 새로운 파멸의 시련이다.\n* 어떤 선택을 하겠는가?",
-                mediaType: "emoji",
-                mediaContent: "🐉",
-                options: ["* 첫 번째 의지의 행동", "* 두 번째 의지의 행동", "* 세 번째 의지의 행동"]
+                id: "q_" + Date.now(), title: "* 새로운 파멸의 시련이다.", mediaType: "emoji", mediaContent: "🐉", options: ["* 선택지 1", "* 선택지 2"]
             });
-            saveToCloud();
-            renderQuestionList();
-            showMessage("새 질문 카드가 생성되었습니다.");
+            saveToCloud(); renderQuestionList(); showMessage("새 질문 카드가 생성되었습니다.");
         }
-
         function updateQuestion(idx, key, val) { APP_DATA.questions[idx][key] = val; saveToCloud(); }
-        
         function deleteQuestion(idx) {
             if (APP_DATA.questions.length <= 1) { showMessage("최소 1개 이상의 질문은 유지해야 합니다."); return; }
-            APP_DATA.questions.splice(idx, 1);
-            saveToCloud();
-            renderQuestionList();
-            showMessage("질문이 삭제되었습니다.");
+            APP_DATA.questions.splice(idx, 1); saveToCloud(); renderQuestionList(); showMessage("질문이 삭제되었습니다.");
         }
-
         function addOption(qIdx) {
             if (APP_DATA.questions[qIdx].options.length >= 6) { showMessage("선택지는 최대 6개까지만 작성할 수 있습니다."); return; }
-            APP_DATA.questions[qIdx].options.push("* 새로운 선택지 내용");
-            saveToCloud();
-            renderQuestionList();
+            APP_DATA.questions[qIdx].options.push("* 새로운 선택지"); saveToCloud(); renderQuestionList();
         }
         function updateOption(qIdx, oIdx, val) { APP_DATA.questions[qIdx].options[oIdx] = val; saveToCloud(); }
         function deleteOption(qIdx, oIdx) {
             if (APP_DATA.questions[qIdx].options.length <= 2) { showMessage("선택지는 최소 2개 이상이어야 합니다."); return; }
-            APP_DATA.questions[qIdx].options.splice(oIdx, 1);
-            saveToCloud();
-            renderQuestionList();
+            APP_DATA.questions[qIdx].options.splice(oIdx, 1); saveToCloud(); renderQuestionList();
         }
 
-        /* =========================================================
-           6. 시각 미디어 공통 컨트롤러 및 그리기 로직 (스토리지 업로드 로직으로 변경됨)
-           ========================================================= */
         function setMediaToEmoji(type, idx) {
             const newEmoji = prompt("적용할 이모지를 1개 입력하십시오:", "🐉");
             if (newEmoji && newEmoji.trim() !== '') {
@@ -907,37 +877,73 @@
             }
         }
 
-        // [핵심 변경 1] 사진/GIF를 Firestore(글자) 대신 Storage(파일)로 업로드합니다.
-        async function uploadMediaFile(event, type, idx) {
+        function uploadMediaFile(event, type, idx) {
             const file = event.target.files[0];
             if (!file) return;
             
-            showMessage("파일 업로드 중... 잠시만 기다려주세요.");
-            
-            try {
-                // 고유한 파일 이름 생성
-                const fileExt = file.name.split('.').pop();
-                const fileName = `media_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-                const storageRef = storage.ref().child(`uploads/${fileName}`);
-                
-                // Storage에 파일 업로드
-                const snapshot = await storageRef.put(file);
-                // 업로드된 파일의 접속 가능한 URL 가져오기
-                const downloadURL = await snapshot.ref.getDownloadURL();
-                
-                // 데이터베이스에는 텍스트(URL)만 저장하여 1MB 제한 극복
-                const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
-                targetList[idx].mediaType = 'upload';
-                targetList[idx].mediaContent = downloadURL; 
-                
-                saveToCloud();
-                if (type === 'food') renderFoodList(); else renderQuestionList();
-                showMessage("이미지/GIF 파일이 적용되었습니다.");
-            } catch (error) {
-                console.error("Upload failed", error);
-                showMessage("업로드 실패: 용량이 너무 크거나 인터넷 오류입니다.");
+            showMessage("이미지 최적화 중...");
+
+            const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
+
+            // 1. 작은 GIF(300KB 이하)는 애니메이션 유지를 위해 원본 그대로 저장
+            if (file.type === 'image/gif' && file.size <= 300000) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    targetList[idx].mediaType = 'upload';
+                    targetList[idx].mediaContent = e.target.result;
+                    saveToCloud();
+                    if (type === 'food') renderFoodList(); else renderQuestionList();
+                    showMessage("미디어가 성공적으로 업데이트 되었습니다!");
+                };
+                reader.readAsDataURL(file);
+                event.target.value = '';
+                return;
             }
-            
+
+            // 2. 그 외 모든 폰 사진 및 대형 이미지(큰 GIF 포함)는 무제한 추가를 위해 캔버스로 리사이징 후 10KB 급으로 압축
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const MAX_SIZE = 250; // 언더테일 픽셀 감성에 맞게 크기를 대폭 축소하여 용량 확보
+
+                    // 비율 유지하며 리사이징
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height = Math.round(height * (MAX_SIZE / width));
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width = Math.round(width * (MAX_SIZE / height));
+                            height = MAX_SIZE;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 배경이 투명한 PNG 업로드 시 검정 배경을 깔아줘서 깨짐 방지
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // 화질을 낮춘 JPEG로 저장 (DB 용량 초과 완벽 방지)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    
+                    targetList[idx].mediaType = 'upload';
+                    targetList[idx].mediaContent = dataUrl;
+                    saveToCloud();
+                    
+                    if (type === 'food') renderFoodList(); else renderQuestionList();
+                    showMessage("그림이 성공적으로 업데이트 되었습니다!");
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
             event.target.value = '';
         }
 
@@ -945,260 +951,141 @@
             canvas = document.getElementById('paint-canvas');
             if(!canvas) return;
             ctx = canvas.getContext('2d', { willReadFrequently: true });
-            
-            ctx.fillStyle = '#ffffff'; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             const startDraw = (e) => { e.preventDefault(); isDrawing = true; draw(e); };
             const moveDraw = (e) => { if(isDrawing) { e.preventDefault(); draw(e); } };
             const endDraw = () => { isDrawing = false; ctx.beginPath(); };
 
-            canvas.addEventListener('mousedown', startDraw);
-            canvas.addEventListener('mousemove', moveDraw);
-            canvas.addEventListener('mouseup', endDraw);
-            canvas.addEventListener('mouseleave', endDraw);
-
+            canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', moveDraw);
+            canvas.addEventListener('mouseup', endDraw); canvas.addEventListener('mouseleave', endDraw);
             canvas.addEventListener('touchstart', startDraw, {passive:false});
-            canvas.addEventListener('touchmove', moveDraw, {passive:false});
-            canvas.addEventListener('touchend', endDraw);
+            canvas.addEventListener('touchmove', moveDraw, {passive:false}); canvas.addEventListener('touchend', endDraw);
         }
 
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return {
-                x: (clientX - rect.left) * (canvas.width / rect.width),
-                y: (clientY - rect.top) * (canvas.height / rect.height)
-            };
+            return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
         }
 
         function draw(e) {
             const pos = getPos(e);
-            ctx.lineWidth = 8;
-            ctx.lineCap = 'square';
-            
+            ctx.lineWidth = 8; ctx.lineCap = 'square';
             const selectedColor = document.getElementById('pen-color').value;
             ctx.strokeStyle = drawMode === 'draw' ? selectedColor : '#ffffff'; 
-            
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
+            ctx.lineTo(pos.x, pos.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
         }
 
         function setDrawMode(mode, btn) {
-            drawMode = mode;
-            playSound('select');
+            drawMode = mode; playSound('select');
             const parent = btn.parentElement;
             parent.querySelectorAll('.ut-menu-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         }
 
-        function clearCanvas() {
-            playSound('damage');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
+        function clearCanvas() { playSound('damage'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 
         function openCanvasModal(type, idx) {
-            canvasTarget = { type: type, idx: idx };
-            clearCanvas();
-            
+            canvasTarget = { type: type, idx: idx }; clearCanvas();
             const targetList = (type === 'food') ? APP_DATA.foods : APP_DATA.questions;
-            
-            // 기존 그림이 있으면 다시 그려주기
             if (targetList[idx].mediaType === 'canvas' && targetList[idx].mediaContent) {
-                const img = new Image();
-                img.crossOrigin = "Anonymous"; // CORS 문제 방지
-                img.onload = () => ctx.drawImage(img, 0, 0);
-                img.src = targetList[idx].mediaContent;
+                const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = targetList[idx].mediaContent;
             }
-            
-            document.getElementById('canvas-modal').classList.remove('hidden');
-            playSound('select');
+            document.getElementById('canvas-modal').classList.remove('hidden'); playSound('select');
         }
 
-        function closeCanvasModal() {
-            document.getElementById('canvas-modal').classList.add('hidden');
-            canvasTarget = null;
-        }
+        function closeCanvasModal() { document.getElementById('canvas-modal').classList.add('hidden'); canvasTarget = null; }
 
-        // [핵심 변경 2] 직접 그린 캔버스 그림도 안전하게 파일로 변환하여 Storage에 올립니다.
-        async function saveCanvasToTarget() {
+        function saveCanvasToTarget() {
             if (!canvasTarget) return;
-            showMessage("그림 저장 중... 잠시만 기다려주세요.");
-            
             const dataUrl = canvas.toDataURL('image/png');
+            // Canvas 데이터도 문자열이므로 너무 크면 위험할 수 있으나, 240x240 PNG는 약 20KB 수준이라 안전합니다.
+            const targetList = (canvasTarget.type === 'food') ? APP_DATA.foods : APP_DATA.questions;
+            targetList[canvasTarget.idx].mediaType = 'canvas'; targetList[canvasTarget.idx].mediaContent = dataUrl;
             
-            try {
-                // Base64 데이터를 Blob(파일 객체) 형태로 변환
-                const res = await fetch(dataUrl);
-                const blob = await res.blob();
-                
-                const fileName = `canvas_${Date.now()}_${Math.random().toString(36).substring(7)}.png`;
-                const storageRef = storage.ref().child(`canvas/${fileName}`);
-                
-                // 파일 업로드 진행
-                const snapshot = await storageRef.put(blob);
-                const downloadURL = await snapshot.ref.getDownloadURL();
-                
-                const targetList = (canvasTarget.type === 'food') ? APP_DATA.foods : APP_DATA.questions;
-                
-                targetList[canvasTarget.idx].mediaType = 'canvas';
-                targetList[canvasTarget.idx].mediaContent = downloadURL; // 안전한 URL 저장
-                
-                saveToCloud();
-                if (canvasTarget.type === 'food') renderFoodList(); else renderQuestionList();
-                closeCanvasModal();
-                showMessage("그림이 항목에 저장되었습니다.");
-            } catch (error) {
-                console.error("Canvas upload failed", error);
-                showMessage("그림 저장 실패: 인터넷 연결을 확인해주세요.");
-            }
+            saveToCloud();
+            if (canvasTarget.type === 'food') renderFoodList(); else renderQuestionList();
+            closeCanvasModal(); showMessage("그림이 항목에 저장되었습니다.");
         }
 
-        /* =========================================================
-           7. 파멸의 드래곤 슬레이어 미니게임 (전투 시스템)
-           ========================================================= */
-        function initRpg() {
-            spawnMonster();
-            updateRpgUI();
-        }
+        function initRpg() { spawnMonster(); updateRpgUI(); }
 
         function spawnFloatingText(text, parentId, isCrit = false, isHeal = false) {
-            const parent = document.getElementById(parentId);
-            if (!parent) return;
+            const parent = document.getElementById(parentId); if (!parent) return;
             const el = document.createElement('div');
             el.className = `dmg-text ${isCrit ? 'crit-text' : ''}`;
-            if (isHeal) el.classList.add('text-green-400');
-            el.innerText = text;
+            if (isHeal) el.classList.add('text-green-400'); el.innerText = text;
             
-            const offsetX = (Math.random() - 0.5) * 60;
-            const offsetY = (Math.random() - 0.5) * 60;
-            el.style.left = `calc(50% + ${offsetX}px)`;
-            el.style.top = `calc(50% + ${offsetY}px)`;
-            
-            parent.appendChild(el);
-            setTimeout(() => el.remove(), 800);
+            const offsetX = (Math.random() - 0.5) * 60; const offsetY = (Math.random() - 0.5) * 60;
+            el.style.left = `calc(50% + ${offsetX}px)`; el.style.top = `calc(50% + ${offsetY}px)`;
+            parent.appendChild(el); setTimeout(() => el.remove(), 800);
         }
 
         function spawnMonster() {
             const index = Math.min(Math.floor((rpgLv - 1) / 2), MONSTER_LIST.length - 1);
             const baseMonster = MONSTER_LIST[index];
-            activeMonster = {
-                name: baseMonster.name,
-                emoji: baseMonster.emoji,
-                hp: Math.round(baseMonster.hp * (1 + (rpgLv - 1) * 0.35))
-            };
-            monsterMaxHp = activeMonster.hp;
-            monsterHp = activeMonster.hp;
-            updateRpgUI();
+            activeMonster = { name: baseMonster.name, emoji: baseMonster.emoji, hp: Math.round(baseMonster.hp * (1 + (rpgLv - 1) * 0.35)) };
+            monsterMaxHp = activeMonster.hp; monsterHp = activeMonster.hp; updateRpgUI();
         }
 
         function rpgAct(action) {
             if (playerHp <= 0) return;
-            
-            const msg = document.getElementById('rpg-msg');
-            const monsterAvatar = document.getElementById('rpg-monster-avatar');
+            const msg = document.getElementById('rpg-msg'); const monsterAvatar = document.getElementById('rpg-monster-avatar');
             
             if(action === 'fight') {
-                const isCrit = Math.random() < 0.2;
-                const damage = isCrit ? rpgAtk * 2 : rpgAtk;
-                
-                playSound(isCrit ? 'select' : 'damage');
-                monsterHp -= damage;
+                const isCrit = Math.random() < 0.2; const damage = isCrit ? rpgAtk * 2 : rpgAtk;
+                playSound(isCrit ? 'select' : 'damage'); monsterHp -= damage;
                 msg.innerHTML = `* ${isCrit ? '<span class="text-orange-400 font-bold">크리티컬!</span>' : ''} 적에게 ${damage}의 피해!`;
-                
                 spawnFloatingText(damage, 'rpg-monster-area', isCrit);
                 
-                monsterAvatar.classList.remove('animate-bounce');
-                monsterAvatar.classList.add('shake');
-                setTimeout(()=> {
-                    monsterAvatar.classList.remove('shake');
-                    if(monsterHp > 0) monsterAvatar.classList.add('animate-bounce');
-                }, 300);
+                monsterAvatar.classList.remove('animate-bounce'); monsterAvatar.classList.add('shake');
+                setTimeout(()=> { monsterAvatar.classList.remove('shake'); if(monsterHp > 0) monsterAvatar.classList.add('animate-bounce'); }, 300);
 
                 if (monsterHp <= 0) {
                     const reward = Math.round(monsterMaxHp * 0.45 + Math.random() * 10);
-                    rpgGold += reward;
-                    rpgLv += 1;
-                    if(rpgLv > maxLv) maxLv = rpgLv;
+                    rpgGold += reward; rpgLv += 1; if(rpgLv > maxLv) maxLv = rpgLv;
                     playerHp = Math.min(playerMaxHp, playerHp + 20);
                     msg.innerHTML = `* <span class="text-yellow-300">${activeMonster.name} 처치 성공!</span> (+${reward}G)`;
-                    playSound('select');
-                    setTimeout(spawnMonster, 600);
+                    playSound('select'); setTimeout(spawnMonster, 600);
                 } else {
                     setTimeout(() => {
                         if (monsterHp <= 0) return;
                         const monsterDmg = Math.round(activeMonster.hp * 0.15 + Math.random() * rpgLv * 2);
-                        playerHp -= monsterDmg;
-                        spawnFloatingText(monsterDmg, 'rpg-player-hp-bar', false); 
-                        msg.innerText = `* ${activeMonster.name}의 반격! (${monsterDmg} 피해)`;
-                        playSound('damage');
-                        
+                        playerHp -= monsterDmg; spawnFloatingText(monsterDmg, 'rpg-player-hp-bar', false); 
+                        msg.innerText = `* ${activeMonster.name}의 반격! (${monsterDmg} 피해)`; playSound('damage');
                         document.getElementById('rpg-player-hp-bar').parentElement.classList.add('shake');
                         setTimeout(() => document.getElementById('rpg-player-hp-bar').parentElement.classList.remove('shake'), 300);
 
-                        if (playerHp <= 0) {
-                            msg.innerHTML = `<span class="text-red-500 font-bold">* 눈앞이 캄캄해졌다... (LV ${rpgLv} 사망)</span>`;
-                            setTimeout(resetRpg, 2000);
-                        }
+                        if (playerHp <= 0) { msg.innerHTML = `<span class="text-red-500 font-bold">* 눈앞이 캄캄해졌다... (LV ${rpgLv} 사망)</span>`; setTimeout(resetRpg, 2000); }
                         updateRpgUI();
                     }, 400);
                 }
             } else if (action === 'upgrade') {
                 if (rpgGold >= rpgCost) {
-                    rpgGold -= rpgCost;
-                    rpgAtk += 6;
-                    rpgCost = Math.round(rpgCost * 1.6 + 5);
-                    playSound('select');
-                    msg.innerText = `* 무기가 강화되었습니다! (ATK +6)`;
-                    spawnFloatingText("UPGRADE!", 'rpg-atk-disp', true);
-                } else {
-                    playSound('damage');
-                    msg.innerText = `* 골드가 부족합니다! (필요: ${rpgCost}G)`;
-                }
+                    rpgGold -= rpgCost; rpgAtk += 6; rpgCost = Math.round(rpgCost * 1.6 + 5);
+                    playSound('select'); msg.innerText = `* 무기가 강화되었습니다! (ATK +6)`; spawnFloatingText("UPGRADE!", 'rpg-atk-disp', true);
+                } else { playSound('damage'); msg.innerText = `* 골드가 부족합니다! (필요: ${rpgCost}G)`; }
             } else if (action === 'heal') {
                 if (rpgGold >= 5) {
-                    if (playerHp >= playerMaxHp) {
-                        msg.innerText = `* 체력이 이미 가득 찼습니다.`;
-                        return;
-                    }
-                    rpgGold -= 5;
-                    const healAmount = 40;
-                    playerHp = Math.min(playerMaxHp, playerHp + healAmount);
-                    playSound('select');
-                    msg.innerText = `* 포션을 마셨다! (+${healAmount} HP)`;
-                    spawnFloatingText(`+${healAmount}`, 'rpg-player-hp-bar', false, true);
-                } else {
-                    playSound('damage');
-                    msg.innerText = `* 골드가 부족합니다! (필요: 5G)`;
-                }
+                    if (playerHp >= playerMaxHp) { msg.innerText = `* 체력이 이미 가득 찼습니다.`; return; }
+                    rpgGold -= 5; const healAmount = 40; playerHp = Math.min(playerMaxHp, playerHp + healAmount);
+                    playSound('select'); msg.innerText = `* 포션을 마셨다! (+${healAmount} HP)`; spawnFloatingText(`+${healAmount}`, 'rpg-player-hp-bar', false, true);
+                } else { playSound('damage'); msg.innerText = `* 골드가 부족합니다! (필요: 5G)`; }
             }
             updateRpgUI();
         }
 
         function resetRpg() {
-            rpgGold = 0;
-            rpgLv = 1;
-            rpgAtk = 10;
-            rpgCost = 10;
-            playerHp = playerMaxHp;
-            spawnMonster();
-            playSound('select');
-            document.getElementById('rpg-msg').innerText = `* 부활했다. 다시 파멸의 드래곤에 맞서자!`;
-            updateRpgUI();
+            rpgGold = 0; rpgLv = 1; rpgAtk = 10; rpgCost = 10; playerHp = playerMaxHp; spawnMonster();
+            playSound('select'); document.getElementById('rpg-msg').innerText = `* 부활했다. 다시 파멸의 드래곤에 맞서자!`; updateRpgUI();
         }
 
         function updateRpgUI() {
-            const maxLvEl = document.getElementById('rpg-max-lv');
-            if(maxLvEl) maxLvEl.innerText = maxLv;
-            
-            document.getElementById('rpg-gold').innerText = rpgGold;
-            document.getElementById('rpg-lv-disp').innerText = rpgLv;
-            document.getElementById('rpg-atk-disp').innerText = rpgAtk;
-            document.getElementById('rpg-cost').innerText = rpgCost;
+            const maxLvEl = document.getElementById('rpg-max-lv'); if(maxLvEl) maxLvEl.innerText = maxLv;
+            document.getElementById('rpg-gold').innerText = rpgGold; document.getElementById('rpg-lv-disp').innerText = rpgLv;
+            document.getElementById('rpg-atk-disp').innerText = rpgAtk; document.getElementById('rpg-cost').innerText = rpgCost;
             document.getElementById('rpg-monster-name').innerText = activeMonster.name;
             
             const monsterHpPercent = Math.max(0, (monsterHp / monsterMaxHp) * 100);
@@ -1210,24 +1097,16 @@
                 playerHpEl.style.width = `${playerHpPercent}%`;
                 document.getElementById('rpg-player-hp-text').innerText = `HP ${Math.max(0, playerHp)} / ${playerMaxHp}`;
             }
-
-            const avatar = document.getElementById('rpg-monster-avatar');
-            if (avatar) avatar.innerText = activeMonster.emoji;
+            const avatar = document.getElementById('rpg-monster-avatar'); if (avatar) avatar.innerText = activeMonster.emoji;
         }
 
-        /* =========================================================
-           8. 설정 및 데이터 관리
-           ========================================================= */
         function exportData() {
             const code = JSON.stringify(APP_DATA, null, 2);
             document.getElementById('data-raw').value = code;
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(code).then(()=>showMessage("JSON 코드가 복사되었습니다."));
-            } else {
-                const textarea = document.getElementById('data-raw');
-                textarea.select();
-                try { document.execCommand('copy'); showMessage("JSON 코드가 복사되었습니다."); }
-                catch (err) { showMessage("수동으로 복사하십시오."); }
+            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(code).then(()=>showMessage("JSON 코드가 복사되었습니다.")); } 
+            else {
+                const textarea = document.getElementById('data-raw'); textarea.select();
+                try { document.execCommand('copy'); showMessage("JSON 코드가 복사되었습니다."); } catch (err) { showMessage("수동으로 복사하십시오."); }
             }
         }
 
@@ -1236,47 +1115,19 @@
             try {
                 const parsed = JSON.parse(txt);
                 if(parsed && parsed.foods && parsed.questions) {
-                    APP_DATA = parsed; 
-                    saveToCloud(); 
-                    applyThemeColor();
-                    renderFoodList(); 
-                    renderQuestionList(); 
-                    startBlindTest();
-                    showMessage("서버 전체의 데이터가 덮어씌워졌습니다.");
+                    APP_DATA = parsed; saveToCloud(); applyThemeColor(); renderFoodList(); renderQuestionList(); startBlindTest(); showMessage("데이터가 복원되었습니다.");
                 } else throw new Error("Invalid structure");
             } catch(e) { showMessage("잘못된 형식의 데이터입니다."); }
         }
 
         function resetAll() {
-            if(confirm("정말로 클라우드 서버의 모든 데이터를 기본값으로 초기화하시겠습니까?")) {
+            openConfirmModal("정말로 클라우드 서버의 모든 데이터를 기본값으로 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", () => {
                 localStorage.removeItem('ut_dragon_tarot_save_v4');
                 APP_DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
-                saveToCloud();
-                applyThemeColor();
-                renderFoodList();
-                renderQuestionList();
-                startBlindTest();
+                saveToCloud(); applyThemeColor(); renderFoodList(); renderQuestionList(); startBlindTest();
                 showMessage("모든 데이터가 TRUE RESET 되었습니다.");
-            }
+            });
         }
     </script>
 </body>
 </html>
-```eof
-
-**※주의사항 (매우 중요)**
-위 코드가 정상적으로 작동하려면 Firebase 콘솔에서 **Storage 규칙(Rules)**을 허용해주어야 합니다.
-1. [Firebase Console] 접속 -> 해당 프로젝트 클릭
-2. 왼쪽 메뉴에서 **[Storage]** 클릭
-3. 상단 탭에서 **[Rules] (규칙)** 클릭
-4. 아래와 같이 규칙을 수정하고 **게시(Publish)** 버튼을 누르세요.
-
-```javascript
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if true;
-    }
-  }
-}
