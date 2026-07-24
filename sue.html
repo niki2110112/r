@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>슈의 변신마법 - Flash Original Master Edition</title>
+    <title>슈의 변신마법 - Master & Mission Edition</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 레트로 귀여운 폰트 (Jua & Gaegu & Dongle) -->
+    <!-- 레트로 귀여운 폰트 -->
     <link href="https://fonts.googleapis.com/css2?family=Dongle:wght@700&family=Gaegu:wght@700&family=Jua&display=swap" rel="stylesheet">
     
     <!-- Firebase SDK (v10.8.0 Compat) -->
@@ -16,7 +16,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
-        :root {
+        :root {ㅁ
             --flash-pink: #ff6599;
             --flash-dark-pink: #d81b60;
             --shelf-wood: #8d5524;
@@ -47,7 +47,6 @@
             overflow: hidden;
         }
 
-        /* 2000년대 주니어네이버 플래시 플레이어 창 메인 프레임 */
         #flash-window {
             width: 100%;
             max-width: 920px;
@@ -62,7 +61,6 @@
             flex-direction: column;
         }
 
-        /* 플래시 플레이어 상단 타이틀 바 */
         .flash-header {
             background: linear-gradient(to bottom, #ff6090, #e91e63, #c2185b);
             height: 42px;
@@ -74,9 +72,9 @@
             color: white;
             text-shadow: 2px 2px 0px #880e4f;
             box-shadow: inset 0 2px 4px rgba(255,255,255,0.7);
+            z-index: 50;
         }
 
-        /* 입체감 있는 플래시 버튼 */
         .btn-flash {
             background: linear-gradient(to bottom, #ffee58, #fdd835, #f57f17);
             border: 3px solid #ffffff;
@@ -105,16 +103,6 @@
             position: relative;
             padding: 4px;
         }
-        .wood-shelf::after {
-            content: '';
-            position: absolute;
-            bottom: -6px;
-            left: -3px;
-            right: -3px;
-            height: 6px;
-            background: #180a01;
-            border-radius: 0 0 6px 6px;
-        }
 
         .shelf-tag {
             position: absolute;
@@ -128,9 +116,9 @@
             font-size: 0.75rem;
             font-weight: bold;
             box-shadow: 1px 2px 4px rgba(0,0,0,0.3);
+            z-index: 10;
         }
 
-        /* 드래그 가능 마법 물약/가루 병 */
         .ingredient-item {
             width: 44px;
             height: 52px;
@@ -150,6 +138,7 @@
         }
         .ingredient-item:active { cursor: grabbing; }
 
+        /* 가마솥 및 마법 이펙트 */
         .cauldron-container {
             position: relative;
             width: 240px;
@@ -166,6 +155,7 @@
             border: 7px solid #000;
             box-shadow: inset -12px -12px 25px rgba(0,0,0,0.9), 0 15px 30px rgba(0,0,0,0.7);
             position: relative;
+            transition: transform 0.1s;
         }
         .cauldron-rim {
             position: absolute;
@@ -206,12 +196,13 @@
             100% { transform: translateY(-35px) scale(1.2); opacity: 0; }
         }
 
+        /* 다이나믹 게이지 바 */
         .gauge-bar-outer {
             width: 100%;
-            height: 18px;
+            height: 22px;
             background: #222;
             border: 3px solid #fff;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
             position: relative;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
@@ -220,53 +211,83 @@
             height: 100%;
             width: 0%;
             background: linear-gradient(90deg, #ffeb3b, #ff9800, #f44336);
-            transition: width 0.1s linear;
+            transition: width 0.1s linear, background-color 0.2s;
+            position: relative;
+            z-index: 2;
         }
+        /* 동적으로 움직일 타겟 구간 */
         .gauge-target-zone {
             position: absolute;
             top: 0;
             bottom: 0;
-            left: 65%;
-            width: 15%;
-            background: rgba(76, 175, 80, 0.6);
-            border-left: 2px dashed #81c784;
-            border-right: 2px dashed #81c784;
+            width: 20%;
+            background: rgba(76, 175, 80, 0.7);
+            border-left: 3px solid #4CAF50;
+            border-right: 3px solid #4CAF50;
+            z-index: 1;
+            transition: left 0.1s linear;
         }
 
-        .magic-smoke-cloud {
+        /* 방해물: 마법 불티(Sparks) */
+        .magic-spark {
             position: absolute;
-            inset: -80px;
-            pointer-events: none;
-            opacity: 0;
-            z-index: 50;
-            background: radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(255,105,180,0.85) 45%, transparent 75%);
+            width: 28px;
+            height: 28px;
+            background: radial-gradient(circle, #fff, #f44336, transparent);
             border-radius: 50%;
+            box-shadow: 0 0 10px #ffeb3b, 0 0 20px #f44336;
+            cursor: pointer;
+            z-index: 40;
+            animation: sparkPulse 0.5s infinite alternate, floatUp 2s ease-in forwards;
         }
-        .smoke-poof { animation: poofAnim 1.4s ease-out forwards; }
-        @keyframes poofAnim {
-            0% { opacity: 0; transform: scale(0.1); }
-            35% { opacity: 1; transform: scale(1.4); }
-            100% { opacity: 0; transform: scale(2.0); }
+        .magic-spark::after {
+            content: '클릭!';
+            position: absolute;
+            bottom: -15px;
+            left: -10px;
+            width: 50px;
+            text-align: center;
+            color: #ffeb3b;
+            font-size: 10px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 #000;
+        }
+        @keyframes sparkPulse {
+            0% { transform: scale(0.8); }
+            100% { transform: scale(1.2); }
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
         }
 
-        .magic-wand-stir {
-            position: absolute;
-            top: -55px;
-            right: -25px;
-            width: 80px;
-            height: 160px;
-            cursor: pointer;
-            transform-origin: bottom center;
-            z-index: 35;
-            filter: drop-shadow(3px 5px 8px rgba(0,0,0,0.6));
+        .shake-anim { animation: shake 0.3s infinite; }
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-4px, 4px) rotate(-2deg); }
+            75% { transform: translate(4px, -4px) rotate(2deg); }
         }
-        .stirring-active { animation: stirRotate 0.7s infinite linear; }
-        @keyframes stirRotate {
-            0% { transform: rotate(0deg) translateY(0); }
-            25% { transform: rotate(20deg) translateY(12px); }
-            50% { transform: rotate(0deg) translateY(20px); }
-            75% { transform: rotate(-20deg) translateY(12px); }
-            100% { transform: rotate(0deg) translateY(0); }
+        
+        .screen-flash { animation: flashRed 0.3s ease-out; }
+        @keyframes flashRed {
+            0% { box-shadow: inset 0 0 100px rgba(255,0,0,0.8); }
+            100% { box-shadow: inset 0 0 0px rgba(255,0,0,0); }
+        }
+
+        /* 미션 카드 스타일 */
+        .mission-card {
+            background: linear-gradient(135deg, #fff9c4, #ffecb3);
+            border: 4px dashed #ff9800;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            text-align: center;
+            transform: rotate(-2deg);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+            100% { transform: scale(1) rotate(-2deg); opacity: 1; }
         }
 
         .tooltip {
@@ -287,13 +308,6 @@
             z-index: 60;
         }
         .ingredient-item:hover .tooltip { opacity: 1; }
-
-        .shake-anim { animation: shake 0.3s infinite; }
-        @keyframes shake {
-            0%, 100% { transform: translate(0, 0); }
-            25% { transform: translate(-3px, 3px); }
-            75% { transform: translate(3px, -3px); }
-        }
     </style>
 </head>
 <body>
@@ -304,265 +318,220 @@
         <div class="flash-header">
             <div class="flex items-center gap-2">
                 <span class="text-2xl animate-pulse">🪄</span>
-                <span class="font-bold text-lg tracking-wide">슈의 변신마법 (Avatar Star Sue)</span>
+                <span class="font-bold text-lg tracking-wide">슈의 변신마법 <span class="text-yellow-300 text-sm">MISSION Edition</span></span>
             </div>
             <div class="flex items-center gap-3 text-xs">
                 <span class="bg-black/40 px-3 py-1 rounded-full border border-pink-300 font-mono">
-                    ✨ 스타슈 탄생: <strong id="global-counter" class="text-yellow-300 text-sm">0</strong>회
+                    ✨ 누적 성공: <strong id="global-counter" class="text-yellow-300 text-sm">0</strong>
                 </span>
-                <button onclick="toggleSound()" id="btn-sound" class="bg-pink-800/80 hover:bg-pink-700 px-2.5 py-1 rounded-full border border-pink-300 text-xs">🔊 소리 ON</button>
+                <button onclick="toggleSound()" id="btn-sound" class="bg-pink-800/80 hover:bg-pink-700 px-2.5 py-1 rounded-full border border-pink-300 text-xs">🔊 ON</button>
             </div>
         </div>
 
-        <!-- 메인 게임 영역 -->
-        <div class="relative flex-grow overflow-hidden flex flex-col">
+        <!-- 메인 컨테이너 -->
+        <div id="game-container" class="relative flex-grow overflow-hidden flex flex-col">
 
+            <!-- 1. 시작 화면 -->
             <div id="screen-start" class="absolute inset-0 z-40 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-pink-200 via-pink-300 to-purple-400">
+                <div class="w-28 h-28 bg-white rounded-full border-4 border-pink-500 flex items-center justify-center shadow-2xl mb-4 relative overflow-hidden">
+                    <svg width="100" height="100" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" fill="#ff80ab" />
+                        <circle cx="50" cy="50" r="32" fill="#ffe0b2" />
+                        <circle cx="41" cy="46" r="4" fill="#3e2723" />
+                        <circle cx="59" cy="46" r="4" fill="#3e2723" />
+                        <circle cx="43" cy="44" r="1.5" fill="#fff" />
+                        <circle cx="61" cy="44" r="1.5" fill="#fff" />
+                        <path d="M43 58 Q50 65 57 58" stroke="#e91e63" stroke-width="3.5" fill="none" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <h1 class="text-5xl font-bold text-pink-600 drop-shadow-[0_4px_0_#ffffff]" style="font-family:'Gaegu', cursive;">슈의 주문 제작소</h1>
                 
-                <div class="relative mb-3 flex flex-col items-center">
-                    <div class="w-28 h-28 bg-white rounded-full border-4 border-pink-500 flex items-center justify-center shadow-2xl mb-2 relative overflow-hidden">
-                        <!-- 슈 캐릭터 아이콘 -->
-                        <svg width="100" height="100" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="42" fill="#ff80ab" />
-                            <circle cx="50" cy="50" r="32" fill="#ffe0b2" />
-                            <circle cx="41" cy="46" r="4" fill="#3e2723" />
-                            <circle cx="59" cy="46" r="4" fill="#3e2723" />
-                            <circle cx="43" cy="44" r="1.5" fill="#fff" />
-                            <circle cx="61" cy="44" r="1.5" fill="#fff" />
-                            <path d="M43 58 Q50 65 57 58" stroke="#e91e63" stroke-width="3.5" fill="none" stroke-linecap="round" />
-                            <circle cx="33" cy="53" r="5" fill="#ff4081" opacity="0.5" />
-                            <circle cx="67" cy="53" r="5" fill="#ff4081" opacity="0.5" />
-                            <path d="M28 22 Q38 18 42 26 Z" fill="#ffeb3b" />
-                            <path d="M52 22 Q42 18 38 26 Z" fill="#ffeb3b" />
-                        </svg>
+                <div class="bg-white/95 border-4 border-pink-400 rounded-2xl p-5 max-w-md w-full shadow-xl text-gray-800 text-sm mb-6 mt-4 space-y-3">
+                    <div class="text-pink-600 font-bold text-lg border-b-2 border-pink-200 pb-2 flex items-center gap-2">
+                        <span>📜 새로운 게임 규칙</span>
                     </div>
-                    <h1 class="text-5xl font-bold text-pink-600 drop-shadow-[0_4px_0_#ffffff]" style="font-family:'Gaegu', cursive;">
-                        슈의 변신마법
-                    </h1>
-                    <span class="text-xs text-purple-900 bg-yellow-200 px-3 py-0.5 rounded-full mt-1 border border-yellow-500 font-bold">
-                        원작 플래시 게임 난이도 & 18가지 변신 엔딩 완벽 수록!
-                    </span>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li><strong>의뢰 달성:</strong> 손님이 원하는 <span class="text-purple-600 font-bold">특정 캐릭터</span>를 만들어야 합니다!</li>
+                        <li><strong>무빙 게이지:</strong> 불조절 초록색 구간이 <strong>살아 움직입니다!</strong> 끝까지 따라가세요!</li>
+                        <li><strong>마법 불티:</strong> 끓이는 도중 나타나는 <span class="text-red-500 font-bold">불티 스파크</span>를 클릭해 끄지 않으면 온도가 급락합니다! (멀티태스킹 훈련)</li>
+                    </ul>
                 </div>
-
-                <!-- 게임 방식 안내 -->
-                <div class="bg-white/95 border-4 border-pink-400 rounded-2xl p-4 max-w-md w-full shadow-xl text-gray-800 text-xs mb-4 space-y-2">
-                    <div class="text-pink-600 font-bold text-sm border-b pb-1 flex justify-between items-center">
-                        <span>📖 마법 제작 규칙</span>
-                        <span class="text-[10px] text-purple-700">★ 제한시간을 지켜주세요!</span>
-                    </div>
-                    <p>1. 선반에서 <strong>물약 1개 + 마법가루 3개</strong>를 클릭/드래그하여 가마솥에 넣으세요.</p>
-                    <p>2. 재료를 모두 넣으면 <strong>불 펌프질 버튼을 클릭</strong>하여 온도를 초록색 유지 구역(65~80%)에 3초간 머물게 하세요!</p>
-                    <p>3. ⚠️ 온도가 98% 이상 올라가면 폭발하며, 클릭을 떼면 금방 차갑게 식어버립니다!</p>
-                    <p class="text-red-600 font-bold">⚠️ 히든 레시피 조합으로 옹이, 슈렉 등 비밀 모습을 수집해보세요!</p>
-                </div>
-
-                <!-- 난이도 설정 -->
-                <div class="flex gap-3 mb-4">
-                    <label class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-pink-400 text-xs font-bold cursor-pointer">
-                        <input type="radio" name="difficulty" value="easy" checked> 연습 모드 (60초, 느린 냉각)
-                    </label>
-                    <label class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-pink-400 text-xs font-bold cursor-pointer">
-                        <input type="radio" name="difficulty" value="hard"> 🔥 원작 매운맛 (40초, 빠른 냉각 & 폭발위험)
-                    </label>
-                </div>
-
-                <button onclick="startGame()" class="btn-flash px-10 py-3 text-2xl">
-                    게임 시작 🪄
-                </button>
-            </div>
-
-            <div id="screen-game" class="hidden flex-grow flex relative bg-gradient-to-b from-purple-950 via-purple-900 to-pink-950">
-                
-                <!-- 좌측: 마법 가마솥 스테이지 -->
-                <div class="w-1/2 h-full flex flex-col items-center justify-between p-3 relative border-r-4 border-purple-950/80">
-                    
-                    <!-- 상단 정보 바 -->
-                    <div class="w-full flex justify-between items-center z-10">
-                        <button onclick="openRecipeModal()" class="btn-flash text-xs px-3 py-1.5 flex items-center gap-1">
-                            📜 마법 족보책
-                        </button>
-                        
-                        <div class="bg-black/60 border-2 border-yellow-400 text-yellow-300 text-sm px-3 py-1 rounded-full font-mono font-bold flex items-center gap-1">
-                            ⏱️ <span id="timer-display">60</span>s
-                        </div>
-                    </div>
-
-                    <div id="hint-bubble" class="bg-yellow-100 text-purple-900 text-xs px-3 py-1 rounded-full border-2 border-yellow-400 font-bold shadow animate-bounce z-10 my-1 text-center">
-                        재료 4가지를 솥에 넣어주세요!
-                    </div>
-
-                    <!-- 불조절 미니게임 게이지 -->
-                    <div id="heat-control-panel" class="w-full px-4 hidden flex-col items-center gap-1 z-20 my-1">
-                        <div class="text-[11px] text-yellow-300 font-bold flex justify-between w-full">
-                            <span>🔥 가마솥 온도 유지 (목표: 3.0초)</span>
-                            <span id="heat-status-text" class="text-yellow-300">온도 급강하 중! 클릭하세요!</span>
-                        </div>
-                        <div class="gauge-bar-outer relative">
-                            <div class="gauge-target-zone"></div>
-                            <div class="absolute right-0 top-0 bottom-0 w-[10%] bg-red-600/40 border-l border-red-500"></div>
-                            <div id="heat-gauge-fill" class="gauge-bar-inner"></div>
-                        </div>
-                        <div class="w-full flex justify-between items-center px-1">
-                            <span class="text-[10px] text-pink-200">안정 유지 시간: <strong id="hold-timer-text" class="text-yellow-300 text-xs">0.0</strong>s / 3.0s</span>
-                            <button onclick="pumpHeatControl()" class="btn-flash text-xs py-1.5 px-6 font-bold text-sm bg-gradient-to-b from-yellow-300 via-orange-400 to-red-500 text-white">
-                                🔥 불 펌프질! (클릭/연타)
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 가마솥 메인 -->
-                    <div class="cauldron-container cauldron-drop-zone my-auto" id="cauldron-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-                        
-                        <div id="cauldron-body-el" class="cauldron-body">
-                            <div class="cauldron-rim">
-                                <div id="cauldron-liquid" class="cauldron-liquid">
-                                    <div class="bubble" style="width:12px; height:12px; left:20%; animation-delay:0s;"></div>
-                                    <div class="bubble" style="width:16px; height:16px; left:50%; animation-delay:0.5s;"></div>
-                                    <div class="bubble" style="width:10px; height:10px; left:75%; animation-delay:1.1s;"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="smoke-effect" class="magic-smoke-cloud"></div>
-
-                        <div id="stir-ladle" onclick="stirCauldron()" class="magic-wand-stir hidden" title="클릭해서 마법 저어주기!">
-                            <svg width="80" height="160" viewBox="0 0 80 160">
-                                <path d="M35 15 L45 15 L42 125 L38 125 Z" fill="#8d5524" stroke="#2d1502" stroke-width="2.5"/>
-                                <path d="M22 110 Q40 155 58 110 Z" fill="#b1723a" stroke="#2d1502" stroke-width="2.5"/>
-                                <polygon points="40,3 46,15 58,16 48,24 52,36 40,29 28,36 32,24 22,16 34,15" fill="#ffeb3b" stroke="#f57f17" stroke-width="2"/>
-                                <circle cx="40" cy="20" r="5" fill="#ff4081" />
-                            </svg>
-                        </div>
-                    </div>
-
-                    <!-- 슬롯 현황 표시 -->
-                    <div class="w-full bg-black/60 backdrop-blur-sm border-2 border-pink-400/60 rounded-xl p-1.5 flex justify-around items-center text-white text-xs">
-                        <div class="text-center">
-                            <span class="block text-[9px] text-pink-300">1. 물약</span>
-                            <span id="slot-1" class="text-lg">🧪</span>
-                        </div>
-                        <div class="text-center">
-                            <span class="block text-[9px] text-pink-300">2. 나이가루</span>
-                            <span id="slot-2" class="text-lg">👵</span>
-                        </div>
-                        <div class="text-center">
-                            <span class="block text-[9px] text-pink-300">3. 체형가루</span>
-                            <span id="slot-3" class="text-lg">💃</span>
-                        </div>
-                        <div class="text-center">
-                            <span class="block text-[9px] text-pink-300">4. 얼굴가루</span>
-                            <span id="slot-4" class="text-lg">🥰</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="w-1/2 h-full p-2.5 flex flex-col justify-between overflow-y-auto bg-black/40">
-                    
-                    <div class="wood-shelf mb-1.5">
-                        <div class="shelf-tag">1. 마법 물약 (Potion)</div>
-                        <div class="flex justify-around items-center pt-2.5 pb-1" id="shelf-potions"></div>
-                    </div>
-
-                    <div class="wood-shelf mb-1.5">
-                        <div class="shelf-tag">2. 나이 & 타입 가루</div>
-                        <div class="flex justify-around items-center pt-2.5 pb-1" id="shelf-age"></div>
-                    </div>
-
-                    <div class="wood-shelf mb-1.5">
-                        <div class="shelf-tag">3. 체형 & 의상 가루</div>
-                        <div class="flex justify-around items-center pt-2.5 pb-1" id="shelf-body"></div>
-                    </div>
-
-                    <div class="wood-shelf">
-                        <div class="shelf-tag">4. 얼굴 & 표정 가루</div>
-                        <div class="flex justify-around items-center pt-2.5 pb-1" id="shelf-face"></div>
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div id="screen-result" class="hidden absolute inset-0 z-50 bg-gradient-to-b from-purple-950 via-pink-950 to-purple-900 flex-col items-center justify-center p-6 text-center">
-                
-                <h2 id="result-title" class="text-4xl font-bold text-yellow-300 drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)] mb-1">
-                    ✨ 변신 성공! ✨
-                </h2>
-
-                <div class="relative w-60 h-60 bg-white/10 rounded-full border-8 border-pink-400/90 flex items-center justify-center shadow-[0_0_50px_rgba(255,105,180,0.6)] my-3 overflow-hidden">
-                    <div id="result-avatar" class="transform transition-transform duration-500 hover:scale-110 flex items-center justify-center"></div>
-                </div>
-
-                <div id="result-name" class="text-2xl font-bold text-pink-200 mb-1">
-                    [ 예쁜 스타 슈 ]
-                </div>
-                
-                <p id="result-desc" class="text-xs text-gray-100 max-w-sm mb-5 leading-relaxed bg-black/60 p-3 rounded-xl border border-white/20">
-                    우와! 완벽한 스타 슈로 변신했어요!
-                </p>
 
                 <div class="flex gap-4">
-                    <button onclick="resetGame()" class="btn-flash px-8 py-2.5 text-xl">
-                        다시 하기 🔄
+                    <button onclick="startMission('easy')" class="btn-flash px-8 py-3 text-xl bg-gradient-to-b from-green-300 to-green-500">
+                        초보 마법사 (쉬움) 🌿
+                    </button>
+                    <button onclick="startMission('hard')" class="btn-flash px-8 py-3 text-xl bg-gradient-to-b from-red-400 to-red-600 text-white border-red-200">
+                        수석 마법사 (어려움) 🔥
                     </button>
                 </div>
             </div>
 
+            <!-- 2. 미션 브리핑 화면 -->
+            <div id="screen-mission" class="hidden absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center p-6">
+                <div class="mission-card max-w-sm w-full">
+                    <h2 class="text-3xl font-bold text-amber-900 mb-2 border-b-2 border-amber-300 pb-2">새로운 의뢰 도착!</h2>
+                    <div class="text-6xl my-4" id="mission-icon">✨</div>
+                    <p class="text-amber-800 font-bold text-lg mb-1">손님의 요구사항:</p>
+                    <h3 class="text-2xl font-bold text-red-600 bg-amber-100 py-2 rounded-lg border border-amber-400 mb-3" id="mission-target-name">스타 슈</h3>
+                    <p class="text-sm text-gray-700 bg-white/50 p-3 rounded-lg text-left leading-relaxed" id="mission-hint">
+                        힌트: 분홍빛 머릿결에 날씬한 몸매, 그리고 아주 예쁜 얼굴을 원해요!
+                    </p>
+                    <button onclick="enterGamePhase()" class="btn-flash mt-5 px-6 py-2 text-xl w-full">
+                        제작 시작! 🏃
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. 메인 게임 화면 -->
+            <div id="screen-game" class="hidden flex-grow flex relative bg-gradient-to-b from-purple-950 via-purple-900 to-pink-950">
+                
+                <!-- 미션 리마인더 바 -->
+                <div class="absolute top-0 left-0 right-0 h-8 bg-black/60 border-b border-yellow-500/50 z-30 flex items-center justify-between px-4">
+                    <span class="text-yellow-300 text-sm font-bold flex items-center gap-2">
+                        <span>🎯 목표: <span id="ingame-mission-name" class="text-white">스타 슈</span></span>
+                    </span>
+                    <div class="flex gap-2">
+                        <button onclick="openRecipeModal()" class="bg-amber-700 hover:bg-amber-600 text-white text-xs px-2 py-0.5 rounded border border-amber-400">족보 보기📜</button>
+                        <span class="text-red-400 font-mono font-bold text-sm bg-black/50 px-2 rounded border border-red-900">⏱️ <span id="timer-display">40</span>s</span>
+                    </div>
+                </div>
+
+                <!-- 좌측: 가마솥 영역 -->
+                <div class="w-[55%] h-full flex flex-col items-center justify-end pb-8 p-3 relative border-r-4 border-purple-950/80 pt-10">
+                    
+                    <div id="hint-bubble" class="bg-yellow-100 text-purple-900 text-sm px-4 py-2 rounded-2xl border-2 border-yellow-400 font-bold shadow-lg animate-bounce z-10 mb-4 text-center">
+                        재료 4가지를 솥에 정확히 넣으세요!
+                    </div>
+
+                    <!-- 다이나믹 불조절 패널 -->
+                    <div id="heat-control-panel" class="w-full px-4 hidden flex-col items-center gap-2 z-20 mb-4 bg-black/40 p-3 rounded-xl border border-yellow-500/30">
+                        <div class="text-[12px] text-yellow-300 font-bold flex justify-between w-full">
+                            <span>🔥 온도를 초록색 칸에 유지! (목표: <span id="target-time-display">3</span>초)</span>
+                            <span id="heat-status-text" class="text-yellow-300">온도 급강하 중!</span>
+                        </div>
+                        
+                        <div class="gauge-bar-outer relative">
+                            <!-- 움직이는 타겟존 -->
+                            <div id="dynamic-target-zone" class="gauge-target-zone" style="left: 40%;"></div>
+                            <div class="absolute right-0 top-0 bottom-0 w-[10%] bg-red-600/60 border-l-2 border-red-500 z-10"></div>
+                            <div id="heat-gauge-fill" class="gauge-bar-inner"></div>
+                        </div>
+
+                        <div class="w-full flex justify-between items-center mt-1">
+                            <span class="text-xs text-pink-200">성공률: <strong id="hold-timer-text" class="text-green-400 text-sm">0.0%</strong></span>
+                            <button onclick="pumpHeatControl()" class="btn-flash text-sm py-2 px-8 font-bold bg-gradient-to-b from-yellow-300 via-orange-400 to-red-500 text-white">
+                                🔥 불 펌프질! (연타)
+                            </button>
+                        </div>
+                        <div class="text-[10px] text-red-300 animate-pulse text-center w-full mt-1">
+                            ⚠️ 끓는 도중 튀어오르는 불티(스파크)를 클릭해 끄세요!
+                        </div>
+                    </div>
+
+                    <!-- 가마솥 -->
+                    <div class="cauldron-container cauldron-drop-zone relative" id="cauldron-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+                        <div id="cauldron-body-el" class="cauldron-body">
+                            <div class="cauldron-rim">
+                                <div id="cauldron-liquid" class="cauldron-liquid">
+                                    <div class="bubble" style="width:12px; height:12px; left:20%; animation-delay:0s;"></div>
+                                    <div class="bubble" style="width:18px; height:18px; left:50%; animation-delay:0.5s;"></div>
+                                    <div class="bubble" style="width:14px; height:14px; left:75%; animation-delay:1.1s;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 스파크(방해물) 컨테이너 -->
+                        <div id="sparks-container" class="absolute inset-0 z-40 pointer-events-none"></div>
+
+                        <div id="stir-ladle" class="absolute -top-10 -right-5 w-20 h-40 hidden z-30 transition-transform" style="transform-origin: bottom center;">
+                            <svg width="80" height="160" viewBox="0 0 80 160">
+                                <path d="M35 15 L45 15 L42 125 L38 125 Z" fill="#8d5524" stroke="#2d1502" stroke-width="2.5"/>
+                                <path d="M22 110 Q40 155 58 110 Z" fill="#b1723a" stroke="#2d1502" stroke-width="2.5"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- 슬롯 현황 -->
+                    <div class="w-full bg-black/60 backdrop-blur-sm border-2 border-pink-400/60 rounded-xl p-2 flex justify-around items-center text-white mt-4">
+                        <div class="text-center"><span class="block text-[10px] text-pink-300 mb-1">1.물약</span><span id="slot-1" class="text-xl">🫙</span></div>
+                        <div class="text-center"><span class="block text-[10px] text-pink-300 mb-1">2.나이</span><span id="slot-2" class="text-xl">🫙</span></div>
+                        <div class="text-center"><span class="block text-[10px] text-pink-300 mb-1">3.체형</span><span id="slot-3" class="text-xl">🫙</span></div>
+                        <div class="text-center"><span class="block text-[10px] text-pink-300 mb-1">4.얼굴</span><span id="slot-4" class="text-xl">🫙</span></div>
+                    </div>
+                </div>
+
+                <!-- 우측: 재료 선반 -->
+                <div class="w-[45%] h-full p-2.5 pt-10 flex flex-col justify-between overflow-y-auto bg-black/50 shadow-[-5px_0_15px_rgba(0,0,0,0.5)]">
+                    <div class="wood-shelf mb-2">
+                        <div class="shelf-tag">1. 물약 (색상)</div>
+                        <div class="flex justify-around items-center pt-3 pb-1" id="shelf-potions"></div>
+                    </div>
+                    <div class="wood-shelf mb-2">
+                        <div class="shelf-tag">2. 나이 가루</div>
+                        <div class="flex justify-around items-center pt-3 pb-1" id="shelf-age"></div>
+                    </div>
+                    <div class="wood-shelf mb-2">
+                        <div class="shelf-tag">3. 체형 가루</div>
+                        <div class="flex justify-around items-center pt-3 pb-1" id="shelf-body"></div>
+                    </div>
+                    <div class="wood-shelf">
+                        <div class="shelf-tag">4. 얼굴 가루</div>
+                        <div class="flex justify-around items-center pt-3 pb-1" id="shelf-face"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 결과 화면 -->
+            <div id="screen-result" class="hidden absolute inset-0 z-50 bg-gradient-to-b from-purple-950 via-pink-950 to-purple-900 flex-col items-center justify-center p-6 text-center">
+                
+                <div id="result-grade" class="text-6xl font-bold italic drop-shadow-xl mb-2 transform -rotate-6">S Rank</div>
+                <h2 id="result-title" class="text-3xl font-bold text-yellow-300 drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)] mb-1">
+                    의뢰 달성 성공!
+                </h2>
+
+                <div class="relative w-56 h-56 bg-white/10 rounded-full border-8 border-pink-400/90 flex items-center justify-center shadow-[0_0_50px_rgba(255,105,180,0.6)] my-4 overflow-hidden">
+                    <div id="result-avatar" class="transform transition-transform duration-500 hover:scale-110 flex items-center justify-center"></div>
+                </div>
+
+                <div id="result-name" class="text-2xl font-bold text-white mb-2 bg-black/50 px-4 py-1 rounded-full">
+                    [ 예쁜 스타 슈 ]
+                </div>
+                
+                <p id="result-desc" class="text-sm text-gray-100 max-w-sm mb-6 leading-relaxed bg-black/60 p-4 rounded-xl border border-white/20">
+                    완벽해요! 손님이 정확히 원하던 모습입니다!
+                </p>
+
+                <button onclick="resetToHome()" class="btn-flash px-10 py-3 text-xl">
+                    다음 의뢰 받기 📋
+                </button>
+            </div>
         </div>
 
+        <!-- 족보 모달 (어려움 모드에선 페널티 있음) -->
         <div id="modal-recipe" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-amber-50 border-4 border-amber-800 rounded-2xl p-5 max-w-md w-full text-amber-950 shadow-2xl relative">
                 <button onclick="closeRecipeModal()" class="absolute top-2 right-3 text-amber-900 font-bold text-2xl hover:text-red-600">✕</button>
                 <h3 class="text-xl font-bold text-amber-900 border-b-2 border-amber-800 pb-2 mb-3 flex items-center gap-2">
-                    📜 비밀 마법 조합 족보책
+                    📜 비밀 마법 족보책
                 </h3>
-                <div class="text-xs space-y-2 max-h-72 overflow-y-auto pr-1">
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-pink-700 block text-sm">🌟 스타 슈 (진엔딩)</strong>
-                        <span>분홍 물약 + 숙녀 가루 + S라인 가루 + 예쁜 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-purple-700 block text-sm">🎃 꼬마 마녀 슈</strong>
-                        <span>보라 물약 + 숙녀 가루 + S라인 가루 + 여우 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-blue-700 block text-sm">🧚‍♀️ 숲속 요정 슈</strong>
-                        <span>파란 물약 + 어린이 가루 + 표준 가루 + 예쁜 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-emerald-800 block text-sm">👹 슈렉 (초록 괴물)</strong>
-                        <span>초록 물약 + 악마 가루 + 근육 가루 + 화난 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-red-700 block text-sm">🥚 옹이 (얼굴 없는 슈)</strong>
-                        <span>얼굴 재료로 '달걀/옹이'를 넣으면 무조건 눈코입이 지워집니다!</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-yellow-700 block text-sm">🐷 분홍 돼지 슈</strong>
-                        <span>노랑 물약 + 통통 가루 + 고양이 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-indigo-800 block text-sm">🕺 훈남 남학생 슈</strong>
-                        <span>파란 물약 + 근육 가루 + 화난 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-purple-900 block text-sm">🧛‍♀️ 뱀파이어 슈</strong>
-                        <span>보라 물약 + 악마 가루 + S라인 + 예쁜 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-teal-800 block text-sm">🧜‍♀️ 인어공주 슈</strong>
-                        <span>파란 물약 + 숙녀 가루 + S라인 + 예쁜 얼굴</span>
-                    </div>
-                    <div class="bg-amber-100 p-2 rounded border border-amber-300">
-                        <strong class="text-pink-600 block text-sm">🐱 냥냥이 슈</strong>
-                        <span>분홍 물약 + 어린이/응애 + 미니 가루 + 고양이 얼굴</span>
-                    </div>
+                <p class="text-xs text-red-600 font-bold mb-2" id="recipe-penalty-warning"></p>
+                <div class="text-xs space-y-2 max-h-64 overflow-y-auto pr-1 font-sans">
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-pink-700">🌟 스타 슈:</strong> 분홍 물약 + 숙녀 + S라인 + 예쁜얼굴</div>
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-purple-700">🎃 마녀 슈:</strong> 보라 물약 + 어린이/숙녀 + S라인 + 여우얼굴</div>
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-blue-700">🧜‍♀️ 인어공주 슈:</strong> 파란 물약 + 숙녀 + S라인 + 예쁜얼굴</div>
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-red-700">🧛‍♀️ 뱀파이어 슈:</strong> 보라 물약 + 악마 + S라인 + 예쁜얼굴</div>
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-indigo-800">🕺 훈남 슈:</strong> 파란 물약 + 아무나이 + 근육 + 화난얼굴</div>
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-pink-600">🐱 고양이 슈:</strong> 분홍 물약 + 응애/어린이 + 미니 + 고양이얼굴</div>
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-emerald-800">👹 슈렉 (괴물):</strong> 초록 물약 + 악마 + 근육 + 화난얼굴</div>
+                    <div class="bg-amber-100 p-2 rounded"><strong class="text-yellow-700">🐷 돼지 슈:</strong> 노랑 물약 + 아무나이 + 통통 + 고양이얼굴</div>
                 </div>
             </div>
         </div>
-
     </div>
 
     <script>
+        // 데이터 정의
         const INGREDIENTS = {
             potions: [
                 { id: 'p_pink', name: '분홍 물약', color: '#ff4081', icon: '🧪' },
@@ -594,21 +563,38 @@
             ]
         };
 
+        const MISSIONS = [
+            { id: 'star', name: '스타 슈', icon: '🌟', hint: '분홍색 아이돌! 성숙한 숙녀, 날씬한 S라인, 예쁜 얼굴이 정석이죠!', target: {p:'p_pink', a:'a_lady', b:'b_slim', f:'f_pretty'} },
+            { id: 'vampire', name: '뱀파이어 슈', icon: '🧛‍♀️', hint: '보랏빛 어둠 속 악마의 기운... S라인과 예쁜 얼굴로 유혹해요.', target: {p:'p_purple', a:'a_demon', b:'b_slim', f:'f_pretty'} },
+            { id: 'mermaid', name: '인어공주 슈', icon: '🧜‍♀️', hint: '푸른 바다의 숙녀. 아름다운 S라인 몸매와 예쁜 얼굴을 가졌어요.', target: {p:'p_blue', a:'a_lady', b:'b_slim', f:'f_pretty'} },
+            { id: 'witch', name: '마녀 슈', icon: '🎃', hint: '보라색 마법약! 어린 숙녀의 S라인과 뾰족한 여우 얼굴이 특징!', target: {p:'p_purple', a:'a_girl', b:'b_slim', f:'f_fox'} }, // a_girl로 고정
+            { id: 'cat', name: '고양이 소녀 슈', icon: '🐱', hint: '분홍빛 귀여움! 응애 아기의 미니 사이즈, 그리고 고양이 얼굴!', target: {p:'p_pink', a:'a_baby', b:'b_mini', f:'f_cat'} },
+            { id: 'boy', name: '훈남 학생 슈', icon: '🕺', hint: '파란 하늘 같은 씩씩함! 튼튼한 근육과 강인한(화난) 얼굴이 멋져요. 나이는 상관없음!', target: {p:'p_blue', a:'any', b:'b_muscle', f:'f_angry'} }
+        ];
+
+        // 전역 상태 변수
+        let currentMission = null;
+        let selectedMode = 'easy';
         let selected = { potion: null, age: null, body: null, face: null };
+        
+        let isGameRunning = false;
+        let timeLeft = 0;
+        let timerInterval = null;
+        
+        // 미니게임 변수
+        let heatVal = 30;
+        let heatLoop = null;
+        let holdTime = 0;
+        let targetHoldGoal = 3.0; // 쉬움 3초, 어려움 4초
+        let targetZoneCenter = 50; // 동적 구간 중심점
+        let targetZoneDir = 1; // 이동 방향
+        let sparkInterval = null;
+        let activeSparks = 0;
+
         let soundOn = true;
         let audioCtx = null;
-        let timerInterval = null;
-        let timeLeft = 60;
-        let isGameRunning = false;
 
-        let heatVal = 30;
-        let heatCoolRate = 1.2;
-        let heatPumpPower = 8.5;
-        let targetHoldTime = 0;
-        let heatLoop = null;
-        let isHeatReady = false;
-        let selectedMode = 'easy';
-
+        // Firebase 세팅 (기존 코드 유지)
         const firebaseConfig = {
             apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
             authDomain: "meal-c8b86.firebaseapp.com",
@@ -617,19 +603,14 @@
             messagingSenderId: "476361866831",
             appId: "1:476361866831:web:d1f841697bcfb76dee743a"
         };
-
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const docRef = db.collection("projects").doc("sue_magic_game_v2");
+        const docRef = db.collection("projects").doc("sue_mission_v1");
 
         docRef.onSnapshot((doc) => {
-            if (doc.exists) {
-                const count = doc.data().successCount || 0;
-                document.getElementById('global-counter').innerText = count;
-            } else {
-                docRef.set({ successCount: 0 });
-            }
-        }, (err) => console.log("Offline mode"));
+            if (doc.exists) document.getElementById('global-counter').innerText = doc.data().successCount || 0;
+            else docRef.set({ successCount: 0 });
+        }, () => console.log("Offline mode"));
 
         function incrementGlobalSuccess() {
             db.runTransaction((transaction) => {
@@ -640,460 +621,112 @@
             }).catch(e => console.log(e));
         }
 
+        // 사운드 시스템
         function initAudio() {
-            if (!audioCtx) {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioCtx = new AudioContext();
-            }
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
-
         function playSound(type) {
             if (!soundOn || !audioCtx) return;
             try {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 
-                if (type === 'drop') {
+                if (type === 'drop' || type === 'spark') {
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.12);
+                    osc.frequency.setValueAtTime(type==='spark'? 800:600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(type==='spark'? 1200:180, audioCtx.currentTime + 0.1);
                     gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
                 } else if (type === 'heat') {
                     osc.type = 'triangle';
                     osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-                    osc.frequency.linearRampToValueAtTime(500, audioCtx.currentTime + 0.15);
-                    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
-                } else if (type === 'stir') {
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(250, audioCtx.currentTime);
-                    osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.4);
+                    osc.frequency.linearRampToValueAtTime(500, audioCtx.currentTime + 0.1);
                     gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.4);
-                } else if (type === 'success') {
-                    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
-                    notes.forEach((freq, idx) => {
-                        const o = audioCtx.createOscillator();
-                        const g = audioCtx.createGain();
-                        o.type = 'sine';
-                        o.frequency.value = freq;
-                        g.gain.setValueAtTime(0.2, audioCtx.currentTime + idx * 0.1);
-                        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.1 + 0.35);
-                        o.connect(g); g.connect(audioCtx.destination);
-                        o.start(audioCtx.currentTime + idx * 0.1);
-                        o.stop(audioCtx.currentTime + idx * 0.1 + 0.35);
-                    });
-                    return;
-                } else if (type === 'fail' || type === 'boom') {
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'damage') {
                     osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(180, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
                     gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'success') {
+                    [523, 659, 783, 1046].forEach((f, i) => {
+                        const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                        o.type = 'sine'; o.frequency.value = f;
+                        g.gain.setValueAtTime(0.2, audioCtx.currentTime + i*0.1);
+                        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i*0.1 + 0.3);
+                        o.connect(g); g.connect(audioCtx.destination);
+                        o.start(audioCtx.currentTime + i*0.1); o.stop(audioCtx.currentTime + i*0.1 + 0.3);
+                    }); return;
                 }
-
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-            } catch (e) {}
+                osc.connect(gain); gain.connect(audioCtx.destination);
+            } catch(e) {}
         }
-
         function toggleSound() {
             soundOn = !soundOn;
-            document.getElementById('btn-sound').innerText = soundOn ? "🔊 소리 ON" : "🔇 소리 OFF";
+            document.getElementById('btn-sound').innerText = soundOn ? "🔊 ON" : "🔇 OFF";
         }
 
+        // 렌더링 및 UI 조작
         function renderShelves() {
-            const categories = ['potions', 'age', 'body', 'face'];
-            categories.forEach(cat => {
+            ['potions', 'age', 'body', 'face'].forEach(cat => {
                 const box = document.getElementById(`shelf-${cat}`);
                 box.innerHTML = '';
                 INGREDIENTS[cat].forEach(item => {
-                    box.appendChild(createIngredientElement(item, cat));
+                    const div = document.createElement('div');
+                    div.className = 'ingredient-item';
+                    div.draggable = true;
+                    div.onclick = () => selectIngredient(cat, item);
+                    div.ondragstart = (e) => e.dataTransfer.setData('text/plain', JSON.stringify({ cat, item }));
+                    
+                    let inner = cat === 'potions' ? 
+                        `<svg width="38" height="46" viewBox="0 0 40 50"><path d="M15 5 L25 5 L25 15 L35 38 A 10 10 0 0 1 25 48 L15 48 A 10 10 0 0 1 5 38 L15 15 Z" fill="${item.color}" opacity="0.9" stroke="#ffffff" stroke-width="2"/><rect x="14" y="2" width="12" height="5" fill="#5d4037" rx="1"/></svg>` : 
+                        `<span class="text-3xl drop-shadow">${item.icon}</span>`;
+                    
+                    div.innerHTML = `${inner}<span class="text-[9px] text-amber-100 font-bold mt-1 leading-none text-center">${item.name}</span><div class="tooltip">${item.name}</div>`;
+                    box.appendChild(div);
                 });
             });
         }
 
-        function createIngredientElement(item, category) {
-            const div = document.createElement('div');
-            div.className = 'ingredient-item';
-            div.draggable = true;
-            div.onclick = () => selectIngredient(category, item);
-
-            div.ondragstart = (e) => {
-                e.dataTransfer.setData('text/plain', JSON.stringify({ category, item }));
-            };
-
-            let innerGraphic = '';
-            if (category === 'potions') {
-                innerGraphic = `
-                    <svg width="38" height="46" viewBox="0 0 40 50">
-                        <path d="M15 5 L25 5 L25 15 L35 38 A 10 10 0 0 1 25 48 L15 48 A 10 10 0 0 1 5 38 L15 15 Z" fill="${item.color}" opacity="0.9" stroke="#ffffff" stroke-width="2"/>
-                        <rect x="14" y="2" width="12" height="5" fill="#5d4037" rx="1"/>
-                    </svg>
-                `;
-            } else {
-                innerGraphic = `<span class="text-2xl drop-shadow">${item.icon}</span>`;
-            }
-
-            div.innerHTML = `
-                ${innerGraphic}
-                <span class="text-[9px] text-amber-100 font-bold drop-shadow mt-0.5 leading-none">${item.name}</span>
-                <div class="tooltip">${item.name}</div>
-            `;
-
-            return div;
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            document.getElementById('cauldron-zone').classList.add('scale-105');
-        }
-
-        function handleDragLeave(e) {
-            document.getElementById('cauldron-zone').classList.remove('scale-105');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            document.getElementById('cauldron-zone').classList.remove('scale-105');
-            const dataStr = e.dataTransfer.getData('text/plain');
-            if (dataStr) {
-                try {
-                    const { category, item } = JSON.parse(dataStr);
-                    selectIngredient(category, item);
-                } catch(e) {}
-            }
-        }
-
-        function selectIngredient(category, item) {
-            if (!isGameRunning) return;
+        // 미션 시작 흐름
+        function startMission(mode) {
             initAudio();
-            playSound('drop');
-
-            if (category === 'potions') {
-                selected.potion = item;
-                document.getElementById('slot-1').innerText = item.icon;
-                const liquid = document.getElementById('cauldron-liquid');
-                liquid.style.background = item.color;
-                liquid.style.boxShadow = `inset 0 0 20px rgba(255,255,255,0.9), 0 0 30px ${item.color}`;
-            } else if (category === 'age') {
-                selected.age = item;
-                document.getElementById('slot-2').innerText = item.icon;
-            } else if (category === 'body') {
-                selected.body = item;
-                document.getElementById('slot-3').innerText = item.icon;
-            } else if (category === 'face') {
-                selected.face = item;
-                document.getElementById('slot-4').innerText = item.icon;
-            }
-
-            checkIngredientsComplete();
-        }
-
-        function checkIngredientsComplete() {
-            if (selected.potion && selected.age && selected.body && selected.face) {
-                document.getElementById('hint-bubble').innerText = "🔥 불조절 버튼을 연타하여 적정 온도를 맞추세요!";
-                document.getElementById('heat-control-panel').classList.remove('hidden');
-                document.getElementById('heat-control-panel').classList.add('flex');
-                startHeatMiniGame();
-            }
-        }
-
-        function startHeatMiniGame() {
-            heatVal = 20;
-            targetHoldTime = 0;
-            isHeatReady = false;
+            selectedMode = mode;
             
-            if (heatLoop) clearInterval(heatLoop);
-
-            heatCoolRate = (selectedMode === 'easy') ? 0.9 : 1.6;
-            heatPumpPower = (selectedMode === 'easy') ? 9.5 : 7.8;
-
-            heatLoop = setInterval(() => {
-                if (!isGameRunning) return;
-
-                heatVal = Math.max(0, heatVal - heatCoolRate);
-                document.getElementById('heat-gauge-fill').style.width = `${heatVal}%`;
-
-                const cauldronEl = document.getElementById('cauldron-body-el');
-
-                if (heatVal >= 90) {
-                    cauldronEl.classList.add('shake-anim');
-                    document.getElementById('heat-status-text').innerText = "⚠️ 위험! 폭발 직전 과열!";
-                    document.getElementById('heat-status-text').className = "text-red-500 font-bold animate-pulse";
-                    
-                    if (heatVal >= 98.5) {
-                        clearInterval(heatLoop);
-                        triggerExplosionFail();
-                        return;
-                    }
-                } else {
-                    cauldronEl.classList.remove('shake-anim');
-                }
-
-                if (heatVal >= 65 && heatVal <= 80) {
-                    targetHoldTime += 0.05;
-                    document.getElementById('heat-status-text').innerText = "✨ 적정 온도 유지 중!";
-                    document.getElementById('heat-status-text').className = "text-green-400 font-bold";
-                } else if (heatVal < 65) {
-                    document.getElementById('heat-status-text').innerText = "온도 부족! 불 펌프질을 누르세요!";
-                    document.getElementById('heat-status-text').className = "text-yellow-300 font-bold";
-                }
-
-                document.getElementById('hold-timer-text').innerText = Math.min(3.0, targetHoldTime).toFixed(1);
-
-                if (targetHoldTime >= 3.0) {
-                    clearInterval(heatLoop);
-                    cauldronEl.classList.remove('shake-anim');
-                    isHeatReady = true;
-
-                    document.getElementById('heat-control-panel').classList.add('hidden');
-                    document.getElementById('heat-control-panel').classList.remove('flex');
-
-                    const ladle = document.getElementById('stir-ladle');
-                    ladle.classList.remove('hidden');
-
-                    document.getElementById('hint-bubble').innerText = "🪄 성공! 마법 주걱을 눌러 저어주세요!";
-                    document.getElementById('hint-bubble').className = "bg-pink-500 text-white text-xs px-3 py-1 rounded-full border-2 border-pink-300 font-bold shadow animate-bounce";
-                    playSound('success');
-                }
-            }, 50);
-        }
-
-        function pumpHeatControl() {
-            if (!isGameRunning || isHeatReady) return;
-            initAudio();
-            playSound('heat');
+            // 미션 무작위 배정
+            currentMission = MISSIONS[Math.floor(Math.random() * MISSIONS.length)];
             
-            heatVal = Math.min(100, heatVal + heatPumpPower);
-            document.getElementById('heat-gauge-fill').style.width = `${heatVal}%`;
-        }
-
-        function stirCauldron() {
-            if (!isHeatReady) return;
-            playSound('stir');
-            const ladle = document.getElementById('stir-ladle');
-            const smoke = document.getElementById('smoke-effect');
+            document.getElementById('mission-icon').innerText = currentMission.icon;
+            document.getElementById('mission-target-name').innerText = currentMission.name;
+            document.getElementById('mission-hint').innerText = `힌트: ${currentMission.hint}`;
             
-            ladle.classList.add('stirring-active');
+            document.getElementById('recipe-penalty-warning').innerText = mode === 'hard' ? "⚠️ 어려움 모드: 족보 열람 시 시간 5초 차감!" : "";
             
-            setTimeout(() => {
-                smoke.classList.add('smoke-poof');
-            }, 400);
-
-            setTimeout(() => {
-                ladle.classList.remove('stirring-active');
-                smoke.classList.remove('smoke-poof');
-                showTransformationResult();
-            }, 1600);
-        }
-
-        function showTransformationResult() {
-            if (timerInterval) clearInterval(timerInterval);
-            if (heatLoop) clearInterval(heatLoop);
-            isGameRunning = false;
-
-            const p = selected.potion?.id;
-            const a = selected.age?.id;
-            const b = selected.body?.id;
-            const f = selected.face?.id;
-
-            let result = {
-                title: "✨ 변신 성공! ✨",
-                name: "스타 슈",
-                desc: "우와! 완벽한 아이돌 스타 슈로 변신 성공했어요!",
-                type: "success",
-                avatarHtml: `
-                    <svg width="140" height="140" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="42" fill="#ffe0b2"/>
-                        <path d="M12 45 Q8 8 50 8 Q92 8 88 45 Q92 88 50 90 Q8 88 12 45" fill="#ff4081"/>
-                        <circle cx="50" cy="48" r="28" fill="#ffe0b2"/>
-                        <circle cx="41" cy="46" r="4" fill="#3e2723"/>
-                        <circle cx="59" cy="46" r="4" fill="#3e2723"/>
-                        <circle cx="43" cy="44" r="1.5" fill="#fff"/>
-                        <circle cx="61" cy="44" r="1.5" fill="#fff"/>
-                        <path d="M43 58 Q50 64 57 58" stroke="#d81b60" stroke-width="3" fill="none"/>
-                        <polygon points="35,15 42,25 50,12 58,25 65,15 62,30 38,30" fill="#ffd54f" stroke="#ffa000" stroke-width="1.5"/>
-                    </svg>
-                `
-            };
-
-            if (p === 'p_pink' && a === 'a_lady' && b === 'b_slim' && f === 'f_pretty') {
-                incrementGlobalSuccess();
-            } 
-            else if (f === 'f_egg') {
-                result = {
-                    title: "😱 으악! 얼굴이 지워졌다! 😱",
-                    name: "달걀/옹이 슈",
-                    desc: "이럴수가! 눈, 코, 입이 싹 지워져버린 무서운 옹이 슈가 되었어요!",
-                    type: "fail",
-                    avatarHtml: `
-                        <svg width="130" height="130" viewBox="0 0 100 100">
-                            <path d="M15 45 Q10 10 50 10 Q90 10 85 45 Q90 85 50 88 Q10 85 15 45" fill="#ff80ab"/>
-                            <circle cx="50" cy="50" r="30" fill="#ffe0b2"/>
-                        </svg>
-                    `
-                };
-            }
-            else if (p === 'p_purple' && f === 'f_fox') {
-                result = {
-                    title: "🎃 꼬마 마녀 슈 변신! 🎃",
-                    name: "꼬마 마녀 슈",
-                    desc: "신비로운 보랏빛 아우라의 마녀 슈로 변신했어요!",
-                    type: "normal",
-                    avatarHtml: `
-                        <svg width="130" height="130" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="40" fill="#9c27b0"/>
-                            <circle cx="50" cy="52" r="26" fill="#ffe0b2"/>
-                            <polygon points="50,2 25,36 75,36" fill="#4a148c"/>
-                            <circle cx="42" cy="50" r="3" fill="#333"/>
-                            <circle cx="58" cy="50" r="3" fill="#333"/>
-                            <path d="M44 60 Q50 65 56 60" stroke="#c2185b" stroke-width="2.5" fill="none"/>
-                        </svg>
-                    `
-                };
-            }
-            else if (p === 'p_green' && b === 'b_muscle' && f === 'f_angry') {
-                result = {
-                    title: "👹 으악! 괴물 슈렉! 👹",
-                    name: "초록 괴물 슈렉",
-                    desc: "우락부락 무시무시한 슈렉으로 변해버렸잖아!",
-                    type: "fail",
-                    avatarHtml: `<span class="text-8xl">👹</span>`
-                };
-            }
-            else if (p === 'p_yellow' && b === 'b_chubby' && f === 'f_cat') {
-                result = {
-                    title: "🐷 꿀꿀! 돼지 슈 🐷",
-                    name: "분홍 돼지 슈",
-                    desc: "너무 많이 먹어서 귀여운 돼지가 되어버렸어요! 꿀꿀~",
-                    type: "fail",
-                    avatarHtml: `<span class="text-8xl">🐷</span>`
-                };
-            }
-            else if (p === 'p_blue' && b === 'b_muscle' && f === 'f_angry') {
-                result = {
-                    title: "🕺 멋진 남학생 슈! 🕺",
-                    name: "훈남 슈남",
-                    desc: "어머나! 당당하고 잘생긴 남학생으로 변신했어요!",
-                    type: "normal",
-                    avatarHtml: `
-                        <svg width="130" height="130" viewBox="0 0 100 100">
-                            <path d="M20 30 Q50 5 80 30 L85 50 Q50 40 15 50 Z" fill="#1565c0"/>
-                            <circle cx="50" cy="50" r="28" fill="#ffe0b2"/>
-                            <circle cx="41" cy="46" r="3.5" fill="#333"/>
-                            <circle cx="59" cy="46" r="3.5" fill="#333"/>
-                            <path d="M43 58 Q50 60 57 58" stroke="#333" stroke-width="2.5" fill="none"/>
-                        </svg>
-                    `
-                };
-            }
-            else if (p === 'p_purple' && a === 'a_demon' && f === 'f_pretty') {
-                result = {
-                    title: "🧛‍♀️ 매혹의 뱀파이어 슈 🧛‍♀️",
-                    name: "뱀파이어 슈",
-                    desc: "붉은 입술과 매혹적인 분위기의 뱀파이어로 변신 완료!",
-                    type: "normal",
-                    avatarHtml: `
-                        <svg width="130" height="130" viewBox="0 0 100 100">
-                            <path d="M10 20 L90 20 L80 90 L20 90 Z" fill="#212121"/>
-                            <circle cx="50" cy="50" r="28" fill="#f5f5f5"/>
-                            <circle cx="41" cy="46" r="3" fill="#d32f2f"/>
-                            <circle cx="59" cy="46" r="3" fill="#d32f2f"/>
-                            <polygon points="46,58 48,64 50,58" fill="#fff"/>
-                            <polygon points="50,58 52,64 54,58" fill="#fff"/>
-                        </svg>
-                    `
-                };
-            }
-            else if (p === 'p_blue' && a === 'a_lady' && b === 'b_slim' && f === 'f_pretty') {
-                result = {
-                    title: "🧜‍♀️ 푸른 바다 인어 슈 🧜‍♀️",
-                    name: "인어공주 슈",
-                    desc: "아름다운 비늘과 함께 푸른 바다의 인어공주로 변신했어요!",
-                    type: "success",
-                    avatarHtml: `
-                        <svg width="130" height="130" viewBox="0 0 100 100">
-                            <path d="M30 60 C30 80, 70 80, 50 98 C30 80, 70 80, 70 60 Z" fill="#00acc1"/>
-                            <circle cx="50" cy="45" r="26" fill="#ffe0b2"/>
-                            <path d="M20 30 Q50 10 80 30" stroke="#ff4081" stroke-width="8" fill="none"/>
-                        </svg>
-                    `
-                };
-            }
-            else if (p === 'p_pink' && f === 'f_cat') {
-                result = {
-                    title: "🐱 귀여운 냥냥이 슈 🐱",
-                    name: "고양이 소녀 슈",
-                    desc: "귀여운 고양이 귀와 수염이 뿅 나타났어요! 야옹~",
-                    type: "normal",
-                    avatarHtml: `<span class="text-8xl">🐱</span>`
-                };
-            }
-            else if (a === 'a_old') {
-                result = {
-                    title: "👵 콜록콜록 할머니! 👵",
-                    name: "할머니 슈",
-                    desc: "무릎 관절이 쑤시는 할머니 슈가 되었어요 ㅠㅠ",
-                    type: "fail",
-                    avatarHtml: `<span class="text-8xl">👵</span>`
-                };
-            }
-            else if (a === 'a_baby') {
-                result = {
-                    title: "🍼 응애응애 아기! 🍼",
-                    name: "기저귀 아기 슈",
-                    desc: "귀여운 기저귀를 찬 아기 슈로 돌아갔어요!",
-                    type: "normal",
-                    avatarHtml: `<span class="text-8xl">👶</span>`
-                };
-            }
-            else {
-                result = {
-                    title: "💦 변신 실패! 💦",
-                    name: "이상한 엉뚱 슈",
-                    desc: "마법 재료 비율이 안 맞아서 이상하게 변해버렸어요!",
-                    type: "fail",
-                    avatarHtml: `<span class="text-8xl">🤪</span>`
-                };
-            }
-
-            if (result.type === 'success') {
-                playSound('success');
-                document.getElementById('result-title').className = "text-4xl font-bold text-yellow-300 drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)] mb-1";
-            } else {
-                playSound('fail');
-                document.getElementById('result-title').className = "text-3xl font-bold text-pink-300 drop-shadow mb-1";
-            }
-
-            document.getElementById('result-title').innerText = result.title;
-            document.getElementById('result-name').innerText = `[ ${result.name} ]`;
-            document.getElementById('result-desc').innerText = result.desc;
-            document.getElementById('result-avatar').innerHTML = result.avatarHtml;
-
-            document.getElementById('screen-game').classList.add('hidden');
-            document.getElementById('screen-result').classList.remove('hidden');
-            document.getElementById('screen-result').classList.add('flex');
-        }
-
-        function startGame() {
-            initAudio();
-            playSound('stir');
-            
-            selectedMode = document.querySelector('input[name="difficulty"]:checked').value;
-            timeLeft = (selectedMode === 'easy') ? 60 : 40;
-
             document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-mission').classList.remove('hidden');
+            document.getElementById('screen-mission').classList.add('flex');
+        }
+
+        function enterGamePhase() {
+            playSound('success');
+            document.getElementById('screen-mission').classList.add('hidden');
+            document.getElementById('screen-mission').classList.remove('flex');
+            
             document.getElementById('screen-game').classList.remove('hidden');
             
+            document.getElementById('ingame-mission-name').innerText = currentMission.name;
+            
+            resetBoard();
             renderShelves();
-            resetGame();
+            
+            timeLeft = selectedMode === 'easy' ? 60 : 45;
+            targetHoldGoal = selectedMode === 'easy' ? 3.0 : 4.0;
+            document.getElementById('target-time-display').innerText = targetHoldGoal;
             
             isGameRunning = true;
             if (timerInterval) clearInterval(timerInterval);
@@ -1101,35 +734,264 @@
                 if (!isGameRunning) return;
                 timeLeft--;
                 document.getElementById('timer-display').innerText = timeLeft;
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    triggerExplosionFail();
-                }
+                if (timeLeft <= 0) gameFail("시간 초과!", "제한 시간이 다 되어 마법이 실패했습니다.");
             }, 1000);
         }
 
-        function triggerExplosionFail() {
-            if (heatLoop) clearInterval(heatLoop);
-            playSound('boom');
-            isGameRunning = false;
-            
-            document.getElementById('result-title').className = "text-3xl font-bold text-red-400 drop-shadow mb-1";
-            document.getElementById('result-title').innerText = "💥 펑! 가마솥 폭발! 💥";
-            document.getElementById('result-name').innerText = "[ 숯덩이 폭발 슈 ]";
-            document.getElementById('result-desc').innerText = "제한시간 초과 또는 온도가 너무 높아서 가마솥이 폭발했어요!";
-            document.getElementById('result-avatar').innerHTML = `<span class="text-8xl">💥</span>`;
+        function handleDragOver(e) { e.preventDefault(); document.getElementById('cauldron-zone').classList.add('scale-105'); }
+        function handleDragLeave(e) { document.getElementById('cauldron-zone').classList.remove('scale-105'); }
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('cauldron-zone').classList.remove('scale-105');
+            const dataStr = e.dataTransfer.getData('text/plain');
+            if (dataStr) {
+                try {
+                    const { cat, item } = JSON.parse(dataStr);
+                    selectIngredient(cat, item);
+                } catch(e) {}
+            }
+        }
 
+        function selectIngredient(category, item) {
+            if (!isGameRunning || holdTime > 0) return; // 끓이는 중엔 추가불가
+            playSound('drop');
+
+            selected[category] = item;
+            
+            const slotMap = { 'potions': 1, 'age': 2, 'body': 3, 'face': 4 };
+            document.getElementById(`slot-${slotMap[category]}`).innerText = item.icon;
+
+            if (category === 'potions') {
+                const liquid = document.getElementById('cauldron-liquid');
+                liquid.style.background = item.color;
+                liquid.style.boxShadow = `inset 0 0 20px rgba(255,255,255,0.9), 0 0 30px ${item.color}`;
+            }
+
+            if (selected.potions && selected.age && selected.body && selected.face) {
+                startHeatPhase();
+            }
+        }
+
+        function startHeatPhase() {
+            document.getElementById('hint-bubble').innerText = "🔥 온도를 맞추고 튀어오르는 불티를 클릭하세요!";
+            document.getElementById('hint-bubble').className = "bg-red-100 text-red-900 text-sm px-4 py-2 rounded-2xl border-2 border-red-500 font-bold shadow-lg animate-pulse mb-4 text-center";
+            
+            document.getElementById('heat-control-panel').classList.remove('hidden');
+            document.getElementById('heat-control-panel').classList.add('flex');
+            
+            heatVal = 20;
+            holdTime = 0;
+            targetZoneCenter = 40;
+            activeSparks = 0;
+            document.getElementById('sparks-container').innerHTML = '';
+
+            const coolRate = selectedMode === 'easy' ? 0.8 : 1.2;
+            const fluctuation = selectedMode === 'easy' ? 0 : 2.5; // 어려움 모드 랜덤 튀는 값
+            const zoneSpeed = selectedMode === 'easy' ? 0.3 : 0.8;
+
+            if (heatLoop) clearInterval(heatLoop);
+            
+            // 마법 불티 생성 타이머
+            if (sparkInterval) clearInterval(sparkInterval);
+            sparkInterval = setInterval(spawnSpark, selectedMode === 'easy' ? 2500 : 1500);
+
+            heatLoop = setInterval(() => {
+                if (!isGameRunning) return;
+
+                // 1. 타겟 존 이동 로직
+                targetZoneCenter += targetZoneDir * zoneSpeed;
+                if (targetZoneCenter > 75) { targetZoneCenter = 75; targetZoneDir = -1; }
+                if (targetZoneCenter < 20) { targetZoneCenter = 20; targetZoneDir = 1; }
+                const tzWidth = selectedMode === 'easy' ? 20 : 12; // 어려움은 구간이 좁음
+                
+                const targetZoneEl = document.getElementById('dynamic-target-zone');
+                targetZoneEl.style.left = `${targetZoneCenter}%`;
+                targetZoneEl.style.width = `${tzWidth}%`;
+
+                // 2. 온도 하락 및 변동
+                let randomJitter = (Math.random() - 0.5) * fluctuation;
+                heatVal = Math.max(0, heatVal - coolRate + randomJitter);
+                
+                const gaugeFill = document.getElementById('heat-gauge-fill');
+                gaugeFill.style.width = `${heatVal}%`;
+
+                const cauldronEl = document.getElementById('cauldron-body-el');
+
+                // 폭발 위험 (90 이상)
+                if (heatVal >= 90) {
+                    cauldronEl.classList.add('shake-anim');
+                    gaugeFill.style.background = "linear-gradient(90deg, #f44336, #b71c1c)";
+                    if (heatVal >= 99) {
+                        gameFail("💥 가마솥 폭발!", "온도가 너무 높아 가마솥이 터져버렸습니다!");
+                        return;
+                    }
+                } else {
+                    cauldronEl.classList.remove('shake-anim');
+                    gaugeFill.style.background = "linear-gradient(90deg, #ffeb3b, #ff9800, #f44336)";
+                }
+
+                // 타겟 존 진입 체크
+                const inZone = (heatVal >= targetZoneCenter && heatVal <= targetZoneCenter + tzWidth);
+                if (inZone) {
+                    holdTime += 0.05;
+                    targetZoneEl.style.background = "rgba(0, 255, 0, 0.7)";
+                } else {
+                    targetZoneEl.style.background = "rgba(76, 175, 80, 0.4)";
+                }
+
+                let percent = Math.min(100, (holdTime / targetHoldGoal) * 100).toFixed(0);
+                document.getElementById('hold-timer-text').innerText = `${percent}%`;
+
+                if (holdTime >= targetHoldGoal) {
+                    finishHeatPhase();
+                }
+            }, 50);
+        }
+
+        function pumpHeatControl() {
+            if (!isGameRunning) return;
+            playSound('heat');
+            heatVal = Math.min(100, heatVal + 8);
+        }
+
+        function spawnSpark() {
+            if (!isGameRunning || activeSparks > 3) return; // 최대 3개
+            
+            const container = document.getElementById('sparks-container');
+            const spark = document.createElement('div');
+            spark.className = 'magic-spark pointer-events-auto';
+            
+            // 랜덤 위치 (가마솥 윗부분 반경)
+            const left = Math.random() * 80 + 10;
+            const top = Math.random() * 50 + 20;
+            spark.style.left = `${left}%`;
+            spark.style.top = `${top}%`;
+            
+            activeSparks++;
+            
+            spark.onmousedown = (e) => {
+                e.stopPropagation(); // 불조절 클릭과 분리
+                playSound('spark');
+                spark.remove();
+                activeSparks--;
+                heatVal = Math.min(100, heatVal + 5); // 끄면 약간의 보너스
+            };
+
+            container.appendChild(spark);
+
+            // 2초 내에 안 끄면 패널티
+            setTimeout(() => {
+                if (spark.parentElement) {
+                    spark.remove();
+                    activeSparks--;
+                    heatVal = Math.max(0, heatVal - 15); // 패널티
+                    playSound('damage');
+                    document.getElementById('game-container').classList.add('screen-flash');
+                    setTimeout(() => document.getElementById('game-container').classList.remove('screen-flash'), 300);
+                }
+            }, 2000);
+        }
+
+        function finishHeatPhase() {
+            clearInterval(heatLoop);
+            clearInterval(sparkInterval);
+            document.getElementById('sparks-container').innerHTML = '';
+            document.getElementById('heat-control-panel').classList.add('hidden');
+            
+            document.getElementById('hint-bubble').innerText = "✨ 완벽해요! 마법이 융합됩니다!";
+            document.getElementById('hint-bubble').className = "bg-green-100 text-green-800 text-sm px-4 py-2 rounded-full border-2 border-green-500 font-bold shadow animate-bounce text-center mb-4";
+            
+            // 휘젓기 애니메이션 연출
+            const ladle = document.getElementById('stir-ladle');
+            ladle.classList.remove('hidden');
+            ladle.style.animation = "shake 0.5s infinite";
+            playSound('success');
+
+            setTimeout(() => {
+                evaluateResult();
+            }, 1500);
+        }
+
+        function evaluateResult() {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+
+            const p = selected.potions?.id;
+            const a = selected.age?.id;
+            const b = selected.body?.id;
+            const f = selected.face?.id;
+            const t = currentMission.target;
+
+            // 결과 검사 로직
+            let isPerfect = false;
+            let isWrong = false;
+            let failReason = "";
+
+            if (p === t.p && (t.a === 'any' || a === t.a) && b === t.b && f === t.f) {
+                isPerfect = true;
+            } else {
+                isWrong = true;
+                if (p !== t.p) failReason = "물약 색깔이 틀렸어요!";
+                else if (t.a !== 'any' && a !== t.a) failReason = "나이(타입) 가루가 잘못되었네요.";
+                else if (b !== t.b) failReason = "원하던 체형이 아니에요.";
+                else if (f !== t.f) failReason = "손님이 원한 얼굴 모양이 아닙니다.";
+            }
+
+            // 계란 귀신 특수 조합 체크
+            if (f === 'f_egg') {
+                gameFail("😱 옹이 슈 탄생!", "얼굴 재료로 달걀을 넣어 이목구비가 사라졌습니다!", "F", `<span class="text-8xl">🥚</span>`);
+                return;
+            }
+
+            if (isPerfect) {
+                incrementGlobalSuccess();
+                let score = timeLeft + (selectedMode==='hard'? 50:0);
+                let rank = score > 60 ? "S" : (score > 30 ? "A" : "B");
+                showResultScreen("의뢰 완벽 달성!", currentMission.name, "손님이 무척 만족하며 돌아갔습니다! 퍼펙트!", rank, "text-yellow-300", currentMission.icon);
+            } else {
+                showResultScreen("의뢰 실패...", "엉뚱한 슈", `손님이 화를 내며 돌아갔습니다. (${failReason})`, "C", "text-pink-300", "🤪");
+            }
+        }
+
+        function gameFail(title, desc, rank="F", icon="💥") {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+            clearInterval(heatLoop);
+            clearInterval(sparkInterval);
+            playSound('damage');
+            showResultScreen(title, "실패", desc, rank, "text-red-400", icon);
+        }
+
+        function showResultScreen(title, name, desc, rank, titleColorClass, avatarIcon) {
             document.getElementById('screen-game').classList.add('hidden');
             document.getElementById('screen-result').classList.remove('hidden');
             document.getElementById('screen-result').classList.add('flex');
+
+            const rankEl = document.getElementById('result-grade');
+            rankEl.innerText = `${rank} Rank`;
+            rankEl.style.color = rank === 'S' ? '#ffca28' : (rank === 'A' ? '#4caf50' : (rank === 'F' ? '#f44336' : '#9e9e9e'));
+
+            document.getElementById('result-title').className = `text-3xl font-bold drop-shadow-lg mb-1 ${titleColorClass}`;
+            document.getElementById('result-title').innerText = title;
+            document.getElementById('result-name').innerText = `[ ${name} ]`;
+            document.getElementById('result-desc').innerText = desc;
+            
+            // SVG 아바타 또는 텍스트 아이콘
+            if (avatarIcon.length > 2 && avatarIcon.includes('<')) {
+                document.getElementById('result-avatar').innerHTML = avatarIcon;
+            } else {
+                document.getElementById('result-avatar').innerHTML = `<span class="text-9xl filter drop-shadow-xl">${avatarIcon}</span>`;
+            }
+            
+            if(rank === 'S' || rank === 'A') playSound('success');
         }
 
-        function resetGame() {
-            selected = { potion: null, age: null, body: null, face: null };
-            document.getElementById('slot-1').innerText = '🧪';
-            document.getElementById('slot-2').innerText = '👵';
-            document.getElementById('slot-3').innerText = '💃';
-            document.getElementById('slot-4').innerText = '🥰';
+        function resetBoard() {
+            selected = { potions: null, age: null, body: null, face: null };
+            document.getElementById('slot-1').innerText = '🫙';
+            document.getElementById('slot-2').innerText = '🫙';
+            document.getElementById('slot-3').innerText = '🫙';
+            document.getElementById('slot-4').innerText = '🫙';
 
             const liquid = document.getElementById('cauldron-liquid');
             liquid.style.background = '#39ff14';
@@ -1137,22 +999,35 @@
 
             document.getElementById('heat-control-panel').classList.add('hidden');
             document.getElementById('stir-ladle').classList.add('hidden');
+            document.getElementById('sparks-container').innerHTML = '';
+            
+            document.getElementById('hint-bubble').innerText = "재료 4가지를 솥에 정확히 넣으세요!";
+            document.getElementById('hint-bubble').className = "bg-yellow-100 text-purple-900 text-sm px-4 py-2 rounded-2xl border-2 border-yellow-400 font-bold shadow-lg animate-bounce z-10 mb-4 text-center";
+        }
+
+        function resetToHome() {
             document.getElementById('screen-result').classList.add('hidden');
             document.getElementById('screen-result').classList.remove('flex');
-            document.getElementById('screen-game').classList.remove('hidden');
-
-            document.getElementById('hint-bubble').innerText = "재료 4가지를 솥에 넣어주세요!";
-            document.getElementById('hint-bubble').className = "bg-yellow-100 text-purple-900 text-xs px-3 py-1 rounded-full border-2 border-yellow-400 font-bold shadow animate-bounce text-center";
+            document.getElementById('screen-start').classList.remove('hidden');
+            document.getElementById('screen-start').classList.add('flex');
         }
 
         function openRecipeModal() {
+            if(!isGameRunning) return;
             playSound('drop');
+            if (selectedMode === 'hard') {
+                timeLeft = Math.max(0, timeLeft - 5);
+                document.getElementById('timer-display').innerText = timeLeft;
+                document.getElementById('game-container').classList.add('screen-flash');
+                setTimeout(() => document.getElementById('game-container').classList.remove('screen-flash'), 300);
+            }
             document.getElementById('modal-recipe').classList.remove('hidden');
         }
 
         function closeRecipeModal() {
             document.getElementById('modal-recipe').classList.add('hidden');
         }
+
     </script>
 </body>
 </html>
