@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>그림 주제 오마카세 | Minimal Studio Canvas</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        studio: {
+                            bg: '#F9F8F6',
+                            card: '#FFFFFF',
+                            border: '#E8E6E1',
+                            text: '#1C1B1F',
+                            muted: '#6E6C75',
+                            subtle: '#A2A0A8',
+                            accent: '#2B2A29',
+                            highlight: '#3B82F6',
+                            terracotta: '#D96B52',
+                            sage: '#5A7D6C',
+                            sand: '#EFECE6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #F4F3EF;
+            color: #1C1B1F;
+            letter-spacing: -0.015em;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .dark body {
+            background-color: #141316;
+            color: #E6E4E8;
+        }
+
+        /* Clean Studio Cards */
+        .studio-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E3DC;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .dark .studio-card {
+            background-color: #1F1E24;
+            border-color: #2D2B34;
+            box-shadow: none;
+        }
+
+        .studio-card.locked {
+            border-color: #D96B52;
+            background-color: #FAF5F3;
+        }
+
+        .dark .studio-card.locked {
+            border-color: #E27B63;
+            background-color: #282120;
+        }
+
+        /* Clean Button Styles */
+        .btn-primary {
+            background-color: #1C1B1F;
+            color: #FFFFFF;
+            transition: all 0.15s ease;
+        }
+        .btn-primary:hover {
+            background-color: #333138;
+            transform: translateY(-1px);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .dark .btn-primary {
+            background-color: #F4F3EF;
+            color: #1C1B1F;
+        }
+        .dark .btn-primary:hover {
+            background-color: #FFFFFF;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #D5D3CC; border-radius: 99px; }
+        .dark ::webkit-scrollbar-thumb { background: #3D3B46; }
+
+        /* Canvas paper styling */
+        .canvas-container {
+            background-color: #FFFFFF;
+            background-image: radial-gradient(#E8E6E0 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
+        .dark .canvas-container {
+            background-color: #1A191E;
+            background-image: radial-gradient(#2D2B33 1px, transparent 1px);
+        }
+
+        .slot-blur {
+            filter: blur(1px);
+            opacity: 0.6;
+            transform: scale(0.98);
+            transition: all 0.1s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-3 sm:p-6 transition-colors duration-200">
+
+    <div id="app" class="max-w-7xl w-full mx-auto flex flex-col flex-grow studio-card overflow-hidden my-auto border border-stone-200 dark:border-stone-800 shadow-sm">
+        
+        <!-- Header Bar -->
+        <header class="px-5 py-4 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/50 dark:bg-stone-900/50">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 flex items-center justify-center font-bold text-sm">
+                    <i data-lucide="palette" class="w-4 h-4"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base sm:text-lg text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                        그림 주제 오마카세
+                        <span class="text-xs font-normal text-stone-500 bg-stone-200/60 dark:bg-stone-800 dark:text-stone-400 px-2 py-0.5 rounded-md">Atelier Studio</span>
+                    </h1>
+                    <p class="text-xs text-stone-500 dark:text-stone-400 font-normal">담백하고 명확한 드로잉 영감 & 스케치 스튜디오</p>
+                </div>
+            </div>
+
+            <!-- Header Controls -->
+            <div class="flex items-center gap-2 text-xs">
+                <!-- Sync Status -->
+                <div id="sync-status" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span class="text-[11px]">동기화 완료</span>
+                </div>
+
+                <!-- Theme Toggle -->
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors" title="다크/라이트 모드">
+                    <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+                    <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                </button>
+
+                <!-- Sound Toggle -->
+                <button onclick="toggleSound()" id="btn-sound" class="px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="volume-2" class="w-3.5 h-3.5" id="sound-icon"></i>
+                    <span class="hidden sm:inline text-[11px] font-medium">소리 켬</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Body Grid -->
+        <div class="flex-grow grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-stone-200 dark:divide-stone-800 overflow-hidden">
+            
+            <!-- Left Column: Topic Generator (5/12) -->
+            <section class="lg:col-span-5 p-4 sm:p-6 flex flex-col justify-between bg-stone-50/30 dark:bg-stone-900/20 overflow-y-auto">
+                
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
+                            <i data-lucide="dices" class="w-3.5 h-3.5 text-studio-terracotta"></i>
+                            슬롯 모드 조합
+                        </span>
+                        <button onclick="resetAllSlots()" class="text-xs text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors flex items-center gap-1">
+                            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                            초기화
+                        </button>
+                    </div>
+
+                    <!-- Slot Cards Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        
+                        <!-- 1. Subject -->
+                        <div class="studio-card p-3.5 flex flex-col justify-between min-h-[100px] relative" id="card-subject">
+                            <div class="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1">
+                                <span class="font-medium text-stone-700 dark:text-stone-300">1. 인물/대상</span>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="spinSingleSlot('subject')" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500" title="이 항목만 뽑기">
+                                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                    </button>
+                                    <button onclick="toggleLock('subject')" id="lock-btn-subject" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400" title="고정">
+                                        <i data-lucide="unlock" class="w-3 h-3" id="lock-icon-subject"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="slot-subject" class="text-sm font-semibold text-stone-900 dark:text-stone-100 text-center my-auto py-2">
+                                버튼을 눌러주세요
+                            </div>
+                        </div>
+
+                        <!-- 2. Action -->
+                        <div class="studio-card p-3.5 flex flex-col justify-between min-h-[100px] relative" id="card-action">
+                            <div class="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1">
+                                <span class="font-medium text-stone-700 dark:text-stone-300">2. 행동/디테일</span>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="spinSingleSlot('action')" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500" title="이 항목만 뽑기">
+                                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                    </button>
+                                    <button onclick="toggleLock('action')" id="lock-btn-action" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400" title="고정">
+                                        <i data-lucide="unlock" class="w-3 h-3" id="lock-icon-action"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="slot-action" class="text-sm font-semibold text-stone-900 dark:text-stone-100 text-center my-auto py-2">
+                                버튼을 눌러주세요
+                            </div>
+                        </div>
+
+                        <!-- 3. Place -->
+                        <div class="studio-card p-3.5 flex flex-col justify-between min-h-[100px] relative" id="card-place">
+                            <div class="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1">
+                                <span class="font-medium text-stone-700 dark:text-stone-300">3. 장소/배경</span>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="spinSingleSlot('place')" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500" title="이 항목만 뽑기">
+                                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                    </button>
+                                    <button onclick="toggleLock('place')" id="lock-btn-place" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400" title="고정">
+                                        <i data-lucide="unlock" class="w-3 h-3" id="lock-icon-place"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="slot-place" class="text-sm font-semibold text-stone-900 dark:text-stone-100 text-center my-auto py-2">
+                                버튼을 눌러주세요
+                            </div>
+                        </div>
+
+                        <!-- 4. Style -->
+                        <div class="studio-card p-3.5 flex flex-col justify-between min-h-[100px] relative" id="card-style">
+                            <div class="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1">
+                                <span class="font-medium text-stone-700 dark:text-stone-300">4. 화풍/분위기</span>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="spinSingleSlot('style')" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500" title="이 항목만 뽑기">
+                                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                    </button>
+                                    <button onclick="toggleLock('style')" id="lock-btn-style" class="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400" title="고정">
+                                        <i data-lucide="unlock" class="w-3 h-3" id="lock-icon-style"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="slot-style" class="text-sm font-semibold text-stone-900 dark:text-stone-100 text-center my-auto py-2">
+                                버튼을 눌러주세요
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Clean Mission Prompt Box -->
+                    <div class="studio-card p-4 space-y-3 bg-stone-100/50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-700">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-stone-600 dark:text-stone-300 flex items-center gap-1">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5 text-stone-500"></i>
+                                완성된 드로잉 주제
+                            </span>
+                            <span id="prompt-status-tag" class="text-[10px] font-medium text-stone-500 bg-stone-200 dark:bg-stone-700 px-2 py-0.5 rounded">대기중</span>
+                        </div>
+
+                        <p id="combined-prompt-text" class="text-sm font-medium leading-relaxed text-stone-800 dark:text-stone-200">
+                            "주제 뽑기 버튼을 눌러 오늘의 드로잉 구상을 확인해보세요."
+                        </p>
+
+                        <!-- Color Palette Chips -->
+                        <div class="pt-2 border-t border-stone-200 dark:border-stone-700 flex items-center justify-between">
+                            <span class="text-xs text-stone-500">추천 컬러 팔레트</span>
+                            <div id="palette-swatches" class="flex items-center gap-1.5">
+                                <span class="text-xs text-stone-400 font-normal">자동 생성 대기중</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="mt-4 pt-3 space-y-2 shrink-0">
+                    <button onclick="spinAllSlots()" id="btn-spin" class="btn-primary w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-sm">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span>주제 뽑기 (Draw Omakase)</span>
+                    </button>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button onclick="copyPromptText()" class="py-2.5 px-3 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 font-medium flex items-center justify-center gap-1.5 transition-colors">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>주제 텍스트 복사</span>
+                        </button>
+                        <button onclick="searchPinterest()" class="py-2.5 px-3 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 font-medium flex items-center justify-center gap-1.5 transition-colors">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                            <span>핀터레스트 레퍼런스</span>
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Right Column: Canvas Studio & Word Data Tabs (7/12) -->
+            <section class="lg:col-span-7 p-4 sm:p-6 flex flex-col overflow-hidden bg-white dark:bg-stone-900">
+                
+                <!-- Tab Controls -->
+                <div class="flex items-center gap-1 p-1 bg-stone-100 dark:bg-stone-800/60 rounded-xl mb-4 shrink-0">
+                    <button onclick="switchTab('canvas', this)" id="tab-btn-canvas" class="tab-btn flex-1 py-2 px-3 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-700 shadow-sm transition-all flex items-center justify-center gap-1.5">
+                        <i data-lucide="pen-tool" class="w-3.5 h-3.5"></i>
+                        <span>스케치북 캔버스</span>
+                    </button>
+                    <button onclick="switchTab('manage', this)" id="tab-btn-manage" class="tab-btn flex-1 py-2 px-3 rounded-lg text-xs font-medium text-stone-500 dark:text-stone-400 hover:text-stone-800 transition-all flex items-center justify-center gap-1.5">
+                        <i data-lucide="tags" class="w-3.5 h-3.5"></i>
+                        <span>단어 데이터</span>
+                    </button>
+                    <button onclick="switchTab('gallery', this)" id="tab-btn-gallery" class="tab-btn flex-1 py-2 px-3 rounded-lg text-xs font-medium text-stone-500 dark:text-stone-400 hover:text-stone-800 transition-all flex items-center justify-center gap-1.5">
+                        <i data-lucide="image" class="w-3.5 h-3.5"></i>
+                        <span>보관함 ( Pin )</span>
+                    </button>
+                </div>
+
+                <!-- Tab 1: Drawing Canvas Pad -->
+                <div id="tab-canvas" class="flex-grow flex flex-col overflow-hidden space-y-3">
+                    
+                    <!-- Canvas Toolbar -->
+                    <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-800 text-xs shrink-0 flex-wrap">
+                        
+                        <!-- Tools Selection -->
+                        <div class="flex items-center gap-1">
+                            <button onclick="setTool('pen')" id="tool-pen" class="p-2 rounded-lg bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 transition-colors" title="펜">
+                                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="setTool('brush')" id="tool-brush" class="p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors" title="수채화/브러시">
+                                <i data-lucide="brush" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="setTool('eraser')" id="tool-eraser" class="p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors" title="지우개">
+                                <i data-lucide="eraser" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+
+                        <!-- Size & Opacity Sliders -->
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] text-stone-500">두께</span>
+                                <input type="range" id="brush-size" min="1" max="30" value="3" class="w-16 accent-stone-800 dark:accent-stone-200">
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] text-stone-500">투명도</span>
+                                <input type="range" id="brush-opacity" min="0.1" max="1" step="0.1" value="1" class="w-14 accent-stone-800 dark:accent-stone-200">
+                            </div>
+                        </div>
+
+                        <!-- Aspect Ratio Switcher -->
+                        <div class="flex items-center gap-1 bg-stone-200/60 dark:bg-stone-700/60 p-0.5 rounded-lg text-[10px]">
+                            <button onclick="changeAspect('1:1')" id="aspect-btn-1" class="px-2 py-0.5 rounded bg-white dark:bg-stone-800 font-semibold shadow-xs">1:1</button>
+                            <button onclick="changeAspect('4:3')" id="aspect-btn-2" class="px-2 py-0.5 rounded text-stone-500 dark:text-stone-400">4:3</button>
+                            <button onclick="changeAspect('16:9')" id="aspect-btn-3" class="px-2 py-0.5 rounded text-stone-500 dark:text-stone-400">16:9</button>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex items-center gap-1">
+                            <button onclick="undoCanvas()" class="p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300" title="되돌리기">
+                                <i data-lucide="undo" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="clearCanvas()" class="p-2 rounded-lg hover:bg-rose-100 text-rose-600 dark:hover:bg-rose-950/40" title="화면 비우기">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Color Swatches Bar -->
+                    <div id="drawing-palette-swatches" class="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
+                        <!-- Rendered by JS -->
+                    </div>
+
+                    <!-- Canvas Board Area -->
+                    <div id="canvas-wrapper" class="flex-grow rounded-xl border border-stone-200 dark:border-stone-800 canvas-container flex items-center justify-center p-2 overflow-hidden relative min-h-[300px]">
+                        <canvas id="studio-canvas" width="500" height="500" class="cursor-crosshair shadow-sm border border-stone-300 dark:border-stone-700 rounded-lg touch-none bg-white"></canvas>
+                    </div>
+
+                    <!-- Save Drawing Button (Cloud 연동 적용) -->
+                    <button onclick="saveCanvasToGallery()" class="py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors shrink-0">
+                        <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
+                        <span>현재 스케치 다운로드 및 클라우드(GitHub 연동) 저장하기</span>
+                    </button>
+                </div>
+
+                <!-- Tab 2: Word Data Manager -->
+                <div id="tab-manage" class="hidden flex-grow flex flex-col overflow-hidden space-y-3">
+                    
+                    <!-- Preset Theme Pack Buttons -->
+                    <div class="p-3 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-800 text-xs space-y-2 shrink-0">
+                        <div class="text-stone-500 font-medium">테마 프리셋 팩 불러오기</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button onclick="loadPresetPack('minimal')" class="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:opacity-80">🌱 미니멀 일상</button>
+                            <button onclick="loadPresetPack('atelier')" class="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:opacity-80">🎨 감성 화실</button>
+                            <button onclick="loadPresetPack('fantasy')" class="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:opacity-80">🌌 몽환 판타지</button>
+                            <button onclick="loadPresetPack('vintage')" class="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 hover:opacity-80">📻 아날로그 레트로</button>
+                        </div>
+                    </div>
+
+                    <!-- Add New Word Form -->
+                    <div class="flex gap-2 shrink-0">
+                        <select id="add-category-select" class="px-3 py-2 rounded-lg bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs text-stone-800 dark:text-stone-200 shrink-0">
+                            <option value="subject">인물/대상</option>
+                            <option value="action">행동/디테일</option>
+                            <option value="place">장소/배경</option>
+                            <option value="style">화풍/분위기</option>
+                        </select>
+                        <input type="text" id="add-word-input" placeholder="새 단어 입력 (예: 비 내리는 창가의 흑고양이)" class="flex-grow px-3 py-2 rounded-lg bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs text-stone-800 dark:text-stone-200 placeholder-stone-400 focus:outline-none focus:border-stone-400" onkeypress="if(event.key==='Enter') addNewWord()">
+                        <button onclick="addNewWord()" class="px-4 py-2 rounded-lg bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-xs font-medium shrink-0">
+                            추가
+                        </button>
+                    </div>
+
+                    <!-- Category Word Badges Box -->
+                    <div id="word-list-container" class="flex-grow overflow-y-auto space-y-3 pr-1">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Tab 3: Saved Gallery -->
+                <div id="tab-gallery" class="hidden flex-grow flex flex-col overflow-hidden space-y-3">
+                    <div class="flex items-center justify-between text-xs text-stone-500 shrink-0">
+                        <span>보관된 작품 스케치 (클라우드 연동)</span>
+                        <div class="flex gap-2">
+                            <button onclick="extractGitHubUrlList()" class="text-blue-500 hover:underline flex items-center gap-1 font-medium">
+                                <i data-lucide="copy" class="w-3 h-3"></i> 업로드 목록 복사
+                            </button>
+                            <button onclick="confirmClearGallery()" class="text-rose-500 hover:underline">모두 삭제</button>
+                        </div>
+                    </div>
+
+                    <div id="gallery-grid" class="flex-grow overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pr-1">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
+            </section>
+        </div>
+    </div>
+
+    <!-- Custom Modal Confirm Box -->
+    <div id="modal-confirm" class="fixed inset-0 bg-black/40 dark:bg-black/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-xs">
+        <div class="studio-card p-5 max-w-sm w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-center space-y-3">
+            <h3 class="font-bold text-stone-900 dark:text-stone-100 text-sm" id="confirm-title">확인</h3>
+            <p class="text-xs text-stone-600 dark:text-stone-400" id="confirm-msg">정말로 진행하시겠습니까?</p>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeConfirmModal(false)" class="flex-1 py-2 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-medium">취소</button>
+                <button id="confirm-action-btn" class="flex-1 py-2 rounded-lg bg-rose-600 text-white text-xs font-medium">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Minimal Toast Notification -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-stone-900 text-stone-100 dark:bg-stone-100 dark:text-stone-900 px-4 py-2 rounded-xl text-xs font-medium opacity-0 pointer-events-none transition-all duration-200 z-50 shadow-lg flex items-center gap-2">
+        <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600"></i>
+        <span id="toast-text">메시지</span>
+    </div>
+
+    <script>
+        // Preset Word Collections
+        const PRESETS = {
+            minimal: {
+                subject: ["따스한 햇살 아래 누워있는 식빵 고양이", "따뜻한 아메리카노를 마시는 대학생", "자전거 바구니에 꽃을 담은 사람", "책을 읽고 있는 안경 쓴 여인", "빈티지 스탠드 조명과 화분", "LP 플레이어로 음악을 듣는 사람"],
+                action: ["조용히 스케치북을 펼쳐 그리기", "따뜻한 차를 한 모금 머금기", "비 내리는 창밖을 가만히 바라보기", "오래된 편지지를 조심스레 펼쳐 읽기", "화분에 촉촉하게 물주기"],
+                place: ["햇살이 가득 들어오는 아담한 다락방", "고요한 동네 작은 북카페", "비 온 뒤 맑게 갠 공원 벤치", "창가 자리의 오래된 원목 테이블", "새벽 안개가 낀 한적한 호숫가"],
+                style: ["담백하고 모던한 수채화 드로잉", "깔끔한 라인아트 및 스케치", "포근한 무드의 오일 파스텔 질감", "단정하고 조화로운 파스텔 톤", "미니멀 플랫 일러스트"]
+            },
+            atelier: {
+                subject: ["화실 구석에서 작업 중인 아티스트", "물감이 묻은 커다란 에이프런을 입은 인물", "석고상과 팔레트가 놓인 작업대", "유화 붓을 정리하는 사람"],
+                action: ["캔버스 위에 과감한 터치를 더하기", "컬러 팔레트 색상을 차분히 조율하기", "스케치북에 섬세하게 선을 긋기", "따스한 조명 아래 드로잉 구상하기"],
+                place: ["물감 향이 기분 좋은 햇살 화실", "파리 센강변의 작은 아트 스튜디오", "고서적이 쌓여있는 비밀 도서관", "지중해풍 온실 오랑주리 정원"],
+                style: ["클래식 유화 인파스토 스타일", "투명하고 맑은 프랑스 수채화", "감성적인 아날로그 연필 스케치", "몽환적인 블러 렌더링"]
+            },
+            fantasy: {
+                subject: ["달빛 가루를 머금은 밤하늘의 요정", "작은 등불을 든 은하수 여행자", "구름 사탕을 나눠주는 파스텔 드래곤", "별자리를 수집하는 소년"],
+                action: ["마법의 붓으로 밤하늘에 별을 그리기", "무지개 빛 방울을 공중에 띄우기", "은하수 건반 위를 가볍게 연주하기", "꿈속을 유유히 헤엄치기"],
+                place: ["솜사탕 언덕 너머 구름 성", "달콤한 디저트 트럼프 왕국", "파스텔 오로라 밤하늘 호수", "별빛이 쏟아지는 천문대"],
+                style: ["동화책 속 부드러운 일러스트", "환상적인 반짝임과 광원 연출", "꿈결 같은 파스텔 톤 렌더링", "귀엽고 포근한 캐릭터 화풍"]
+            },
+            vintage: {
+                subject: ["1920년대 클래식 수트를 입은 신사", "트럼펫을 연주하는 재즈 뮤지션", "태엽 시계를 정비하는 시계공", "빅토리아 시대 드레스를 입은 여인"],
+                action: ["포켓 워치 태엽을 조심스레 돌리기", "오래된 타자기로 시를 타이핑하기", "체스판 위 체스말을 신중하게 옮기기", "원두 그라인더를 천천히 돌리기"],
+                place: ["19세기 런던 안개 거리", "고서적이 가득한 지하 대도서관", "클래식 증기기관차 식당칸", "앤티크 골동품 경매장"],
+                style: ["세피아 톤 판화 스케치", "빅토리아 앤티크 수채화", "노스탤직 흑백 필름 색감", "빈티지 포스터 스타일"]
+            }
+        };
+
+        const COLOR_PALETTES = [
+            ["#2B2A29", "#E06D53", "#EAD8C0", "#5A7D6C"],
+            ["#1E293B", "#38BDF8", "#F1F5F9", "#94A3B8"],
+            ["#4C1D95", "#C084FC", "#F472B6", "#FDE047"],
+            ["#14532D", "#16A34A", "#86EFAC", "#FEF08A"],
+            ["#7C2D12", "#D97706", "#FCD34D", "#FFFBEB"]
+        ];
+
+        // 1. 파이어베이스 및 깃허브 설정
+        const GITHUB_CONFIG = {
+            owner: "niki2110112",
+            repo: "r",
+            branch: "main", 
+            prefix: "pic-"
+        };
+        const GITHUB_BASE_URL = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/`;
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBI8ox-eYSoM48mFuShwxiTlIna8eyaX6o",
+            authDomain: "meal-c8b86.firebaseapp.com",
+            projectId: "meal-c8b86",
+            databaseURL: "https://meal-c8b86-default-rtdb.firebaseio.com",
+            storageBucket: "meal-c8b86.firebasestorage.app",
+            messagingSenderId: "476361866831",
+            appId: "1:476361866831:web:d1f841697bcfb76dee743a"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+        const galleryRef = db.ref('atelier_gallery');
+
+        // 상태 변수
+        let lockedSlots = { subject: false, action: false, place: false, style: false };
+        let currentColors = COLOR_PALETTES[0];
+        let galleryList = [];
+        let isSoundOn = true;
+        let audioContext = null;
+
+        const STORAGE_KEY = 'atelier_minimal_word_data';
+        let wordData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(JSON.stringify(PRESETS.minimal));
+        let canvas, ctx;
+        let isDrawing = false;
+        let currentTool = 'pen';
+        let strokeColor = '#1C1B1F';
+        let undoStack = [];
+        const MAX_UNDO = 10;
+
+        function syncData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(wordData));
+        }
+
+        window.onload = () => {
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+            initCanvas();
+            loadGalleryFromFirebase(); // 파이어베이스에서 실시간 로드
+            renderDrawingPaletteSwatches(currentColors);
+            renderWordList();
+            
+            // 다크 모드 체크
+            if (localStorage.getItem('atelier_dark_mode') === 'true') {
+                document.documentElement.classList.add('dark');
+            }
+
+            document.body.addEventListener('click', () => {
+                if (!audioContext) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    audioContext = new AudioCtx();
+                }
+            }, { once: true });
+        };
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('atelier_dark_mode', document.documentElement.classList.contains('dark'));
+            playAudioEffect('click');
+        }
+
+        function toggleSound() {
+            isSoundOn = !isSoundOn;
+            const icon = document.getElementById('sound-icon');
+            icon.setAttribute('data-lucide', isSoundOn ? 'volume-2' : 'volume-x');
+            lucide.createIcons();
+            
+            const btn = document.getElementById('btn-sound');
+            const span = btn.querySelector('span');
+            if(span) span.innerText = isSoundOn ? '소리 켬' : '소리 끔';
+            
+            if(isSoundOn) playAudioEffect('click');
+        }
+
+        function playAudioEffect(type) {
+            if (!isSoundOn || !audioContext) return;
+            try {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioContext.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(300, audioContext.currentTime + 0.05);
+                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+                    osc.start(); osc.stop(audioContext.currentTime + 0.05);
+                } else if (type === 'spin') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, audioContext.currentTime);
+                    osc.frequency.linearRampToValueAtTime(800, audioContext.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1);
+                    osc.start(); osc.stop(audioContext.currentTime + 0.1);
+                } else if (type === 'done') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+                    gain.gain.setValueAtTime(0, audioContext.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                    osc.start(); osc.stop(audioContext.currentTime + 0.4);
+                    
+                    const osc2 = audioContext.createOscillator();
+                    const gain2 = audioContext.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+                    gain2.gain.setValueAtTime(0, audioContext.currentTime + 0.1);
+                    gain2.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.2);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                    osc2.connect(gain2); gain2.connect(audioContext.destination);
+                    osc2.start(audioContext.currentTime + 0.1); osc2.stop(audioContext.currentTime + 0.5);
+                }
+                
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+            } catch(e) {}
+        }
+
+        function switchTab(tabId, btn) {
+            ['canvas', 'manage', 'gallery'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${t}`).className = "tab-btn flex-1 py-2 px-3 rounded-lg text-xs font-medium text-stone-500 dark:text-stone-400 hover:text-stone-800 transition-all flex items-center justify-center gap-1.5";
+            });
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            btn.className = "tab-btn flex-1 py-2 px-3 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-700 shadow-sm transition-all flex items-center justify-center gap-1.5";
+            playAudioEffect('click');
+        }
+
+        function loadPresetPack(packName) {
+            if (PRESETS[packName]) {
+                wordData = JSON.parse(JSON.stringify(PRESETS[packName]));
+                syncData();
+                renderWordList();
+                showToast("프리셋 팩을 성공적으로 불러왔습니다.");
+            }
+        }
+
+        function addNewWord() {
+            const cat = document.getElementById('add-category-select').value;
+            const input = document.getElementById('add-word-input');
+            const val = input.value.trim();
+
+            if (!val) {
+                showToast("단어를 입력해주세요.");
+                return;
+            }
+            if (!wordData[cat]) wordData[cat] = [];
+            wordData[cat].push(val);
+            syncData();
+            renderWordList();
+            input.value = '';
+            showToast(`"${val}" 추가 완료`);
+        }
+        
+        function deleteWord(cat, idx) {
+            if (wordData[cat] && wordData[cat][idx]) {
+                const deleted = wordData[cat].splice(idx, 1);
+                syncData();
+                renderWordList();
+                showToast(`"${deleted}" 삭제 완료`);
+            }
+        }
+
+        function renderWordList() {
+            const container = document.getElementById('word-list-container');
+            container.innerHTML = '';
+
+            const categories = [
+                { id: 'subject', name: '1. 인물/대상' },
+                { id: 'action', name: '2. 행동/디테일' },
+                { id: 'place', name: '3. 장소/배경' },
+                { id: 'style', name: '4. 화풍/분위기' }
+            ];
+
+            categories.forEach(cat => {
+                const items = wordData[cat.id] || [];
+                const box = document.createElement('div');
+                box.className = "studio-card p-3 space-y-2";
+
+                const tagsHtml = items.map((item, idx) => `
+                    <span class="inline-flex items-center gap-1 bg-stone-100 dark:bg-stone-800 text-xs text-stone-700 dark:text-stone-300 px-2.5 py-1 rounded-md border border-stone-200 dark:border-stone-700">
+                        ${item}
+                        <button onclick="deleteWord('${cat.id}', ${idx})" class="text-stone-400 hover:text-rose-500 font-bold ml-1">✕</button>
+                    </span>
+                `).join('');
+
+                box.innerHTML = `
+                    <div class="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                        ${cat.name} (${items.length})
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                        ${tagsHtml || '<span class="text-xs text-stone-400 italic">등록된 단어가 없습니다.</span>'}
+                    </div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        function toggleLock(slotId) {
+            lockedSlots[slotId] = !lockedSlots[slotId];
+            const btn = document.getElementById(`lock-btn-${slotId}`);
+            const icon = document.getElementById(`lock-icon-${slotId}`);
+            const card = document.getElementById(`card-${slotId}`);
+            
+            if (lockedSlots[slotId]) {
+                btn.className = "p-1 rounded bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900";
+                icon.setAttribute('data-lucide', 'lock');
+                card.classList.add('locked');
+            } else {
+                btn.className = "p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400";
+                icon.setAttribute('data-lucide', 'unlock');
+                card.classList.remove('locked');
+            }
+            lucide.createIcons();
+            playAudioEffect('click');
+        }
+
+        function resetAllSlots() {
+            Object.keys(lockedSlots).forEach(key => {
+                lockedSlots[key] = false;
+                const btn = document.getElementById(`lock-btn-${key}`);
+                const icon = document.getElementById(`lock-icon-${key}`);
+                const card = document.getElementById(`card-${key}`);
+                btn.className = "p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400";
+                icon.setAttribute('data-lucide', 'unlock');
+                card.classList.remove('locked');
+                
+                document.getElementById(`slot-${key}`).innerText = "버튼을 눌러주세요";
+            });
+            lucide.createIcons();
+            document.getElementById('combined-prompt-text').innerText = `"주제 뽑기 버튼을 눌러 오늘의 드로잉 구상을 확인해보세요."`;
+            document.getElementById('prompt-status-tag').innerText = "대기중";
+            document.getElementById('prompt-status-tag').className = "text-[10px] font-medium text-stone-500 bg-stone-200 dark:bg-stone-700 px-2 py-0.5 rounded";
+            document.getElementById('palette-swatches').innerHTML = '<span class="text-xs text-stone-400 font-normal">자동 생성 대기중</span>';
+            playAudioEffect('click');
+        }
+
+        function getRandomItem(arr) {
+            if (!arr || arr.length === 0) return "데이터 없음";
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        async function animateSlot(slotId, finalValue) {
+            const el = document.getElementById(`slot-${slotId}`);
+            el.classList.add('slot-blur');
+            
+            let count = 0;
+            const maxCount = 15;
+            const items = wordData[slotId] || ["데이터 없음"];
+            
+            return new Promise(resolve => {
+                const interval = setInterval(() => {
+                    el.innerText = getRandomItem(items);
+                    if (count % 3 === 0) playAudioEffect('spin');
+                    count++;
+                    
+                    if (count >= maxCount) {
+                        clearInterval(interval);
+                        el.innerText = finalValue;
+                        el.classList.remove('slot-blur');
+                        resolve();
+                    }
+                }, 50);
+            });
+        }
+
+        async function spinSingleSlot(slotId) {
+            if (lockedSlots[slotId]) return;
+            
+            const items = wordData[slotId] || ["데이터 없음"];
+            const finalValue = getRandomItem(items);
+            
+            document.getElementById('btn-spin').disabled = true;
+            await animateSlot(slotId, finalValue);
+            document.getElementById('btn-spin').disabled = false;
+            
+            updateCombinedPrompt();
+            playAudioEffect('done');
+        }
+
+        async function spinAllSlots() {
+            const btn = document.getElementById('btn-spin');
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>생성 중...</span>`;
+            lucide.createIcons();
+
+            const slots = ['subject', 'action', 'place', 'style'];
+            const promises = [];
+
+            slots.forEach(slotId => {
+                if (!lockedSlots[slotId]) {
+                    const items = wordData[slotId] || ["데이터 없음"];
+                    const finalValue = getRandomItem(items);
+                    promises.push(animateSlot(slotId, finalValue));
+                }
+            });
+
+            await Promise.all(promises);
+            
+            // Randomize Color Palette
+            currentColors = COLOR_PALETTES[Math.floor(Math.random() * COLOR_PALETTES.length)];
+            renderPaletteSwatches();
+            renderDrawingPaletteSwatches(currentColors);
+
+            updateCombinedPrompt();
+            
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i><span>주제 뽑기 (Draw Omakase)</span>`;
+            lucide.createIcons();
+            playAudioEffect('done');
+        }
+
+        function updateCombinedPrompt() {
+            const subject = document.getElementById('slot-subject').innerText;
+            const action = document.getElementById('slot-action').innerText;
+            const place = document.getElementById('slot-place').innerText;
+            const style = document.getElementById('slot-style').innerText;
+
+            if (subject.includes("버튼을")) return;
+
+            const promptText = `"${place}에서 ${action}하는 ${subject}. (${style})"`;
+            document.getElementById('combined-prompt-text').innerText = promptText;
+            
+            const tag = document.getElementById('prompt-status-tag');
+            tag.innerText = "영감 생성됨";
+            tag.className = "text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/40 px-2 py-0.5 rounded";
+        }
+
+        function renderPaletteSwatches() {
+            const container = document.getElementById('palette-swatches');
+            container.innerHTML = '';
+            currentColors.forEach(hex => {
+                const span = document.createElement('span');
+                span.className = "w-4 h-4 rounded-full border border-stone-200 dark:border-stone-700 block shadow-sm";
+                span.style.backgroundColor = hex;
+                container.appendChild(span);
+            });
+        }
+
+        function copyPromptText() {
+            const text = document.getElementById('combined-prompt-text').innerText;
+            if (text.includes("버튼을")) {
+                showToast("복사할 주제가 아직 생성되지 않았습니다.");
+                return;
+            }
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast("주제 텍스트가 복사되었습니다!");
+                    playAudioEffect('click');
+                });
+            } else {
+                fallbackCopyText(text);
+            }
+        }
+        
+        function fallbackCopyText(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus(); textArea.select();
+            try { document.execCommand('copy'); showToast("주제가 복사되었습니다."); }
+            catch (err) { showToast("복사 실패."); }
+            document.body.removeChild(textArea);
+        }
+
+        function searchPinterest() {
+            const subject = document.getElementById('slot-subject').innerText;
+            const style = document.getElementById('slot-style').innerText;
+            if (subject.includes("버튼을")) {
+                showToast("주제를 먼저 뽑아주세요.");
+                return;
+            }
+            const query = encodeURIComponent(`${subject} ${style} illustration`);
+            window.open(`https://www.pinterest.com/search/pins/?q=${query}`, '_blank');
+            playAudioEffect('click');
+        }
+
+        function initCanvas() {
+            canvas = document.getElementById('studio-canvas');
+            ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveUndoState();
+            
+            // Mouse events
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDraw);
+            canvas.addEventListener('mouseleave', stopDraw);
+            
+            // Touch events
+            canvas.addEventListener('touchstart', startDraw, {passive:false});
+            canvas.addEventListener('touchmove', draw, {passive:false});
+            canvas.addEventListener('touchend', stopDraw);
+        }
+
+        function changeAspect(ratio) {
+            playAudioEffect('click');
+            ['1', '2', '3'].forEach(id => {
+                document.getElementById(`aspect-btn-${id}`).className = "px-2 py-0.5 rounded text-stone-500 dark:text-stone-400";
+            });
+
+            if (ratio === '1:1') {
+                canvas.width = 500; canvas.height = 500;
+                document.getElementById('aspect-btn-1').className = "px-2 py-0.5 rounded bg-white dark:bg-stone-800 font-semibold shadow-xs";
+            } else if (ratio === '4:3') {
+                canvas.width = 520; canvas.height = 390;
+                document.getElementById('aspect-btn-2').className = "px-2 py-0.5 rounded bg-white dark:bg-stone-800 font-semibold shadow-xs";
+            } else {
+                canvas.width = 560; canvas.height = 315;
+                document.getElementById('aspect-btn-3').className = "px-2 py-0.5 rounded bg-white dark:bg-stone-800 font-semibold shadow-xs";
+            }
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            undoStack = [];
+            saveUndoState();
+        }
+
+        function renderDrawingPaletteSwatches(colorList) {
+            const container = document.getElementById('drawing-palette-swatches');
+            container.innerHTML = '';
+            const defaultColors = ["#1C1B1F", "#D96B52", "#5A7D6C", "#3B82F6", "#F59E0B", "#FFFFFF", ...colorList];
+            const unique = [...new Set(defaultColors)];
+
+            unique.forEach(hex => {
+                const btn = document.createElement('button');
+                btn.className = "w-5 h-5 rounded-full border border-stone-300 dark:border-stone-600 shrink-0 hover:scale-110 transition-transform";
+                btn.style.backgroundColor = hex;
+                btn.onclick = () => setStrokeColor(hex);
+                container.appendChild(btn);
+            });
+        }
+
+        function setStrokeColor(hex) {
+            strokeColor = hex;
+            if (currentTool === 'eraser') setTool('pen');
+            playAudioEffect('click');
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            playAudioEffect('click');
+            ['pen', 'brush', 'eraser'].forEach(t => {
+                const btn = document.getElementById(`tool-${t}`);
+                if (t === tool) {
+                    btn.className = "p-2 rounded-lg bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 transition-colors";
+                } else {
+                    btn.className = "p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors";
+                }
+            });
+        }
+
+        function saveUndoState() {
+            if (undoStack.length >= MAX_UNDO) undoStack.shift();
+            undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        }
+
+        function undoCanvas() {
+            if (undoStack.length > 1) {
+                undoStack.pop();
+                ctx.putImageData(undoStack[undoStack.length - 1], 0, 0);
+                playAudioEffect('click');
+            } else {
+                showToast("되돌릴 이전 작업이 없습니다.");
+            }
+        }
+
+        function clearCanvas() {
+            playAudioEffect('click');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveUndoState();
+        }
+
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function startDraw(e) {
+            e.preventDefault();
+            isDrawing = true;
+            const pos = getCoords(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getCoords(e);
+            const size = document.getElementById('brush-size').value;
+            const opacity = document.getElementById('brush-opacity').value;
+
+            ctx.strokeStyle = currentTool === 'eraser' ? '#FFFFFF' : strokeColor;
+            ctx.globalAlpha = currentTool === 'brush' ? opacity * 0.4 : opacity;
+            ctx.lineWidth = currentTool === 'brush' ? size * 2 : size;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y); // For continuous smooth lines
+        }
+
+        function stopDraw() {
+            if (isDrawing) {
+                isDrawing = false;
+                ctx.globalAlpha = 1.0;
+                saveUndoState();
+            }
+        }
+
+        function saveCanvasToGallery() {
+            const text = document.getElementById('combined-prompt-text').innerText;
+            const title = text.includes("버튼을") ? "자유 스케치" : text;
+            
+            const timestamp = Date.now();
+            const fileName = `${GITHUB_CONFIG.prefix}${timestamp}.png`;
+            const githubImageUrl = `${GITHUB_BASE_URL}${fileName}`;
+
+            // 1. 이미지는 로컬로 자동 다운로드 (사용자가 깃허브에 업로드할 파일)
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // 2. 파이어베이스(RTDB)에는 가벼운 텍스트(주소, 제목)만 저장
+            const artworkData = {
+                id: timestamp,
+                fileName: fileName,
+                githubImageUrl: githubImageUrl,
+                title: title,
+                date: new Date().toLocaleDateString()
+            };
+
+            galleryRef.child(timestamp.toString()).set(artworkData)
+                .then(() => {
+                    showToast(`[${fileName}] 다운로드 완료! 깃허브에 업로드해주세요.`);
+                    switchTab('gallery', document.getElementById('tab-btn-gallery'));
+                })
+                .catch(err => {
+                    console.error("클라우드 저장 실패:", err);
+                    showToast("데이터베이스 저장에 실패했습니다.");
+                });
+        }
+
+        function loadGalleryFromFirebase() {
+            galleryRef.orderByChild("id").on("value", snapshot => {
+                galleryList = [];
+                const data = snapshot.val();
+                if (data) {
+                    // 최신순 정렬
+                    galleryList = Object.values(data).sort((a, b) => b.id - a.id);
+                }
+                renderGallery();
+            }, error => {
+                console.error("갤러리 로드 실패:", error);
+                // 오프라인 대비 로컬 로드
+                const saved = localStorage.getItem('atelier_minimal_gallery_fallback');
+                if (saved) { try { galleryList = JSON.parse(saved); renderGallery(); } catch(e){} }
+            });
+        }
+
+        function renderGallery() {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = '';
+
+            if (galleryList.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center text-xs text-stone-400 py-12">저장된 스케치가 없습니다. 캔버스에서 첫 드로잉을 완성해보세요.</div>';
+                return;
+            }
+
+            galleryList.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "studio-card p-2 flex flex-col space-y-1.5";
+                
+                // 깃허브에 아직 이미지를 안 올렸을 때 보여줄 대체 안내 UI (onerror)
+                const fallbackHtml = `this.onerror=null; this.parentElement.innerHTML='<div class=\\'w-full h-full flex flex-col items-center justify-center bg-stone-100 dark:bg-stone-800 text-stone-400 text-[10px] p-2 text-center\\'><i data-lucide=\\'upload-cloud\\' class=\\'w-4 h-4 mb-1 text-stone-500\\'></i>업로드 필요<br><span class=\\'font-mono text-rose-400 mt-1\\'>${item.fileName}</span></div>'; if(typeof lucide !== 'undefined') lucide.createIcons();`;
+
+                card.innerHTML = `
+                    <div class="bg-stone-100 dark:bg-stone-800 rounded border border-stone-200 dark:border-stone-800 overflow-hidden aspect-[4/3] flex items-center justify-center relative">
+                        <img src="${item.githubImageUrl}" class="w-full h-full object-cover absolute inset-0" onerror="${fallbackHtml}">
+                    </div>
+                    <p class="text-[11px] text-stone-700 dark:text-stone-300 font-medium line-clamp-2 leading-tight mt-1">${item.title}</p>
+                    <span class="text-[10px] text-stone-400">${item.date}</span>
+                `;
+                grid.appendChild(card);
+            });
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+            
+            // 오프라인 대비 로컬 백업
+            localStorage.setItem('atelier_minimal_gallery_fallback', JSON.stringify(galleryList));
+        }
+
+        function extractGitHubUrlList() {
+            if (galleryList.length === 0) {
+                showToast("저장된 작품이 없습니다.");
+                return;
+            }
+
+            let exportText = "=== 깃허브 업로드 대상 파일 목록 ===\n\n";
+            galleryList.forEach((item, index) => {
+                exportText += `${index + 1}. 파일명: ${item.fileName}\n   호스팅 주소: ${item.githubImageUrl}\n\n`;
+            });
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(exportText).then(() => {
+                    showToast("목록이 복사되었습니다. 메모장에 붙여넣으세요.");
+                }).catch(() => fallbackCopyText(exportText));
+            } else {
+                fallbackCopyText(exportText);
+            }
+        }
+
+        function confirmClearGallery() {
+            if (galleryList.length === 0) {
+                showToast("비울 보관함이 없습니다.");
+                return;
+            }
+            document.getElementById('confirm-title').innerText = "보관함 비우기";
+            document.getElementById('confirm-msg').innerText = "저장된 모든 스케치를 클라우드에서 삭제하시겠습니까?";
+            document.getElementById('confirm-action-btn').onclick = () => {
+                // 클라우드 전체 삭제 로직
+                galleryRef.remove().then(() => {
+                    galleryList = [];
+                    localStorage.removeItem('atelier_minimal_gallery_fallback');
+                    renderGallery();
+                    closeConfirmModal(true);
+                    showToast("클라우드 보관함이 초기화되었습니다.");
+                }).catch(err => {
+                    showToast("삭제 실패. 권한을 확인하세요.");
+                });
+            };
+            document.getElementById('modal-confirm').classList.remove('hidden');
+        }
+
+        function closeConfirmModal(res) {
+            document.getElementById('modal-confirm').classList.add('hidden');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').innerText = msg;
+            toast.classList.remove('opacity-0', 'translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-4');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
